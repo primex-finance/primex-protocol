@@ -1,0 +1,11 @@
+diff --git a/node_modules/@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol b/node_modules/@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol
+index 60de385..7877e50 100644
+--- a/node_modules/@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol
++++ b/node_modules/@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol
+@@ -1,5 +1,5 @@
+ // SPDX-License-Identifier: GPL-2.0-or-later
+-pragma solidity >=0.5.0;
++pragma solidity >=0.5.0 <0.8.0;
+ 
+ /// @title Provides functions for deriving a pool address from the factory, tokens, and the fee
+ library PoolAddress {

@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "outDir": "typechain",
+    "resolveJsonModule": true
+  },
+  "include": ["./scripts", "./test"],
+  "files": [
+    "./hardhat.config.js",
+    "node_modules/hardhat-local-networks-config-plugin/src/type-extensions.d.ts"
+  ]
+}

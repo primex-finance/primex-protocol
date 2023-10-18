@@ -1,0 +1,19 @@
+version: "3.4"
+
+services:
+  hardhat:
+    image: "${IMAGE:-primex-contracts:v1}"
+    environment:
+      # - PRIVATE_KEY=${TEST_PRIVATE_KEY}
+      # - ALCHEMY_API=${ALCHEMY_API}
+      - HOST_ADDR=http://127.0.0.1:8545
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8545"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    command:
+      - sh
+      - -c
+      - yarn hardhat node --no-deploy

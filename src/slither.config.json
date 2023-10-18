@@ -1,0 +1,5 @@
+{
+  "solc_remaps": "@uniswap=node_modules/@uniswap @openzeppelin=node_modules/@openzeppelin @chainlink=node_modules/@chainlink",
+  "solc_disable_warnings": true,
+  "filter_paths": "openzeppelin|uniswap|chainlink"
+}

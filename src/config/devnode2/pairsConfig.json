@@ -1,0 +1,42 @@
+{
+  "weth-wbtc": {
+    "maxSize": [165, 100],
+    "pairPriceDrop":[ "0.01", "0.01"],
+    "oracleTolerableLimit": "0.01"
+  },
+  "weth-usdc": {
+    "maxSize": [175, 0.3e6],
+    "pairPriceDrop": ["0.03","0.03"],
+    "oracleTolerableLimit": "0.01"
+  },
+  "weth-link": {
+    "maxSize": [150, 40e3],
+    "pairPriceDrop": ["0.03","0.05"],
+    "oracleTolerableLimit": "0"
+  },
+  "weth-uni": {
+    "maxSize": [0, 35e3],
+    "pairPriceDrop": ["0","0.05"],
+    "oracleTolerableLimit": "0"
+  },
+  "wbtc-usdc": {
+    "maxSize": [110, 0.275e6],
+    "pairPriceDrop": ["0.04","0.02"],
+    "oracleTolerableLimit": "0.01"
+  },
+  "wbtc-link": {
+    "maxSize":  [90, 42.5e3],
+    "pairPriceDrop": ["0.04","0.03"],
+    "oracleTolerableLimit": "0"
+  },
+  "usdc-link": {
+    "maxSize": [0.25e6, 45e3],
+    "pairPriceDrop": ["0.05","0.05"],
+    "oracleTolerableLimit": "0.15"
+  },
+  "usdc-uni": {
+    "maxSize":[0, 37.5e3],
+    "pairPriceDrop": ["0","0.05"],
+    "oracleTolerableLimit": "0.2"
+  }
+}

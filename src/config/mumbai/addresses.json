@@ -1,0 +1,71 @@
+{
+  "isETHNative": false,
+  "dexes": {
+    "uniswapv3": {
+      "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+      "type": "2",
+      "quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+      "nonfungiblePositionManager": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"
+    },
+    "sushiswap": {
+      "router": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",
+      "type": "1"
+    },
+    "quickswap": {
+      "router": "0x8954AfA98594b838bda56FE4C12a09D7739D179b",
+      "type": "1"
+    },
+    "quickswapv3": {
+      "router": "0x4959c5418cA9f6ea9aEe91F34Dc6903cA0ED82c9",
+      "type": "5",
+      "quoter": "0x18013fBd92675b85032b66E43a1cCaD1C79516eA",
+      "quoterV2":"0x9971962b22b885209477Ef5Ec868645fB92114d1" ,
+      "nonfungiblePositionManager": "0xE89b2047dAa9267fF03954F62ea88Eaa6Af4eDf0",
+      "factory":"0xDD29aE874Ab507db685e148bcFA029Fd434DAD0E",
+      "poolDeployer":"0x4b4a3A9a9C262d2D56CeEc977E408E4F70777284"
+    },
+    "curve": {
+      "router": "0x449eeF2DFF75883320E0E2F1445062B86562AAdd",
+      "type": "3",
+      "registry":"0x45b54E14E70a41125871A6C5473D96b998c71423",
+      "cryptoRegistry": "0xB9E292c1FB50a1581C344DEFeB7f14539A6cCeeF",
+      "pools": {
+        "usdc-wbtc-weth": {
+          "pool": "0x7a64bac863F25a14A8c5D15bd669E23d5E233a55"
+        }
+      }
+    },
+    "meshswap": {
+      "router": "0x7409CbD03E500bCd58e6AdE0B1c3a064e41485b1",
+      "type": "6",
+      "factory": "0x5884b8C9C8979fC0Cc502419511Cc6D887b4CcEA"
+    }
+  },
+  "pricefeeds": {
+    "weth-usd": "0x0715A7794a1dc8e42615F059dD6e406A6594651A",
+    "wbtc-usd": "0x007A22900a3B98143368Bd5906f8E17e9867581b",
+    "link-usd": "0x1C2252aeeD50e0c9B64bDfF2735Ee3C932F5C408",
+    "usdc-usd": "0x572dDec9087154dC5dfBB1546Bb62713147e0Ab0",
+    "usdt-usd": "0x92C09849638959196E976289418e5973CC96d645",
+    "native-usd": "0xd0D5e3DB44DE05E9F294BB0a3bEEaF030DE24Ada",
+    "selfDeployed": {
+      "uni-usd": "0x8C88C7B7FB539F89A011149C509e391C64292A77"
+    }
+  },
+  "assets": {
+    "weth": "0xBb9Ae6Fe03ab34A00E4Ac61698C43Ec1f0288c1E",
+    "wbtc": "0x2F0B22371365fED3E961DAFAD61729beE7EF8a4A",
+    "usdc": "0x65D177ec36cd8aC2e502C640b97662Cf28381915",
+    "link": "0x279EB6b696b427B8E9657c5F061636Cde4f54DB7",
+    "uni": "0xDB9b57B71263572CD42a91cF704Efbc36A6E335A",
+    "usdt": "0xFa8F27BbC45435362A4e74850Eae9E52F0a55DF3"
+  },
+  "aave": "0x3f4FE3E43351971a81669Af382BE9F79e6F43A4D",
+  "priceDropfeeds": {
+    "selfDeployed": {
+      "weth-usdc": "0x92830D4af653897864C4BD1abC015779A6b00582",
+      "wbtc-usdc": "0xd0aCe32102Db1954A78004385c7742B2Fa9A89Ff",
+      "link-usdc": "0x950FfA5c6e7A384778E790c1ccc8D103a9cA38fC"
+    }
+  }
+}

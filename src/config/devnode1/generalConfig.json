@@ -1,0 +1,152 @@
+{
+  "BigTimelockDelayInDays": 0.0208,
+  "MediumTimelockDelayInDays": 0.0139,
+  "SmallTimelockDelayInDays": 0.0069,
+  "deployRefferalProgram": true,
+  "EPMXOraclePrice": "0.2",
+  "PositionManagerConfig": {
+    "defaultOracleTolerableLimit": "0.02",
+    "oracleTolerableLimitMultiplier": "5",
+    "maintenanceBuffer": "0.1",
+    "securityBuffer": "0.05",
+    "minPositionAsset": {"contract":"native"},
+    "minPositionSize": "0.1583"
+  },
+  "PrimexDNSconfig": {
+    "rates": {
+      "MARKET_ORDER": {
+        "protocolRate": "0.003",
+        "protocolRateInPmx": "0.0024"
+      },
+      "LIMIT_ORDER": {
+        "protocolRate": "0.004",
+        "protocolRateInPmx": "0.0034"
+      },
+      "SWAP_MARKET_ORDER": {
+        "protocolRate": "0.001",
+        "protocolRateInPmx": "0.0008"
+      },
+      "SWAP_LIMIT_ORDER": {
+        "protocolRate": "0.002",
+        "protocolRateInPmx": "0.0018"
+      }
+    },
+    "delistingDelayInDays": 90,
+    "adminWithdrawalDelayInDays": 180
+  },
+  "SpotTradingRD":{
+    "increaseAmount":"500",
+    "rewardPerPeriod":"50"
+  },
+  "LiquidityMiningRD":{
+    "reinvestmentRate":"0.1",
+    "reinvestmentDurationInDays":30
+  },
+  "KeeperRewardConfig": {
+    "pmxPartInReward": "0.05",
+    "nativePartInReward": "0.95",
+    "positionSizeCoefficientA": "0.0007482877728",
+    "positionSizeCoefficientB": "0.8561136",
+    "additionalGas": "20000",
+    "defaultMaxGasPriceGwei": "500",
+    "oracleGasPriceTolerance": "0.25",
+    "paymentModel":"DEFAULT",
+    "maxGasPerPositionParams": {
+      "OpenByOrder": {
+        "baseMaxGas1": 1000000,
+        "baseMaxGas2": 1000000,
+        "multiplier1": 1500000,
+        "multiplier2": 0,
+        "inflectionPoint": 0
+      },
+      "StopLoss": {
+        "baseMaxGas1": 1000000,
+        "baseMaxGas2": 1000000,
+        "multiplier1": 380000,
+        "multiplier2": 300000,
+        "inflectionPoint": 25
+      },
+      "TakeProfit": {
+        "baseMaxGas1": 1000000,
+        "baseMaxGas2": 1000000,
+        "multiplier1": 400000,
+        "multiplier2": 0,
+        "inflectionPoint": 0
+      },
+      "Liquidation": {
+        "baseMaxGas1": 1000000,
+        "baseMaxGas2": 1000000,
+        "multiplier1": 450000,
+        "multiplier2": 0,
+        "inflectionPoint": 0
+      },
+      "BucketDelisted": {
+        "baseMaxGas1": 1000000,
+        "baseMaxGas2": 1000000,
+        "multiplier1": 200000,
+        "multiplier2": 0,
+        "inflectionPoint": 0
+      }
+    },
+    "decreasingGasByReasonParams": {
+      "NonExistentIdForLiquidation": 18755,
+      "NonExistentIdForSLOrTP": 6522,
+      "IncorrectConditionForLiquidation": 18845,
+      "IncorrectConditionForSL": 21480,
+      "ClosePostionInTheSameBlock": 203798
+    },
+    "dataLengthRestrictions": {
+      "ClosePositionByCondition": {
+        "maxRoutesLength": 1600,
+        "baseLength": 196
+      },
+      "OpenPositionByOrder": {
+        "maxRoutesLength": 3200,
+        "baseLength": 196
+      },
+      "CloseBatchPositions": {
+        "maxRoutesLength": 1600,
+        "baseLength": 260
+      }
+    }
+  },
+  "TreasuryConfig": {
+    "setMaxSpendingLimit": [
+      {
+        "spender": { "contract": "KeeperRewardDistributor" },
+        "asset": { "contract": "EPMXToken" },
+        "spendingLimits": {
+          "maxTotalAmount": "MaxUint256",
+          "maxAmountPerTransfer": 2000,
+          "maxPercentPerTransfer": "0.01",
+          "minTimeBetweenTransfersSeconds": 1,
+          "timeframeDurationHours": 24,
+          "maxAmountDuringTimeframe": 10000
+        }
+      },
+      {
+        "spender": { "contract": "KeeperRewardDistributor" },
+        "asset": { "contract": "native" },
+        "spendingLimits": {
+          "maxTotalAmount": "MaxUint256",
+          "maxAmountPerTransfer": 2000,
+          "maxPercentPerTransfer": "0.1",
+          "minTimeBetweenTransfersSeconds": 1,
+          "timeframeDurationHours": 24,
+          "maxAmountDuringTimeframe": 10000
+        }
+      }
+    ]
+  },
+  "ReserveConfig": {
+    "setTransferRestrictions": [
+      {
+        "PToken": { "contract": "P-USDC" },
+        "transferRestrictions": {
+          "minAmountToBeLeft": 5000,
+          "minPercentOfTotalSupplyToBeLeft": "0.05"
+        }
+      }
+    ]
+  }
+}

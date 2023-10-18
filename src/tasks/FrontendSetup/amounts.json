@@ -1,0 +1,398 @@
+{
+  "fuzzing": {
+  "uniswapV2": {
+    "TokenWETH-TokenWBTC": ["3200", "266"],
+    "TokenWETH-TokenUSDC": ["27458", "44258316"],
+    "TokenWETH-TokenLINK": ["950", "165722"],
+    "TokenWBTC-TokenUSDC": ["60", "1143650"],
+    "TokenWBTC-TokenLINK": ["267", "554021"],
+    "TokenUSDC-TokenLINK": ["22723", "2453"],
+    "TokenWETH-TokenUNI": ["500", "118500"],
+    "TokenUSDC-TokenUNI": ["750000", "118500"]
+  },
+  "sushiswapV2": {
+    "TokenWETH-TokenWBTC": ["3200", "266"],
+    "TokenWETH-TokenUSDC": ["27458", "44258316"],
+    "TokenWETH-TokenLINK": ["950", "165722"],
+    "TokenWBTC-TokenUSDC": ["60", "1143650"],
+    "TokenWBTC-TokenLINK": ["267", "554021"],
+    "TokenUSDC-TokenLINK": ["22723", "2453"],
+    "TokenWETH-TokenUNI": ["500", "118500"],
+    "TokenUSDC-TokenUNI": ["750000", "118500"]
+  },
+  "uniswapV3": {
+    "TokenWETH-TokenWBTC": {
+      "fee": {
+        "10000": ["187.65", "15.44"],
+        "3000": ["79960", "6700"],
+        "500": ["30100", "2500"]
+      }
+    },
+    "TokenWBTC-TokenLINK": {
+      "fee": {
+        "3000": ["267", "554021"]
+      }
+    },
+    "TokenWETH-TokenUSDC": {
+      "fee": {
+        "10000": ["8000", "13000000"],
+        "3000": ["105500", "171000000"],
+        "500": ["93680", "152000000"]
+      }
+    },
+    "TokenWETH-TokenLINK": {
+      "fee": {
+        "10000": ["23", "3960"],
+        "3000": ["6800", "1190000"]
+      }
+    },
+    "TokenWBTC-TokenUSDC": {
+      "fee": {
+        "10000": ["26", "500770"],
+        "3000": ["2100", "40660000"],
+        "500": ["750", "14445000"]
+      }
+    },
+    "TokenUSDC-TokenLINK": {
+      "fee": {
+        "3000": ["155000", "17000"]
+      }
+    },
+    "TokenWETH-TokenUNI": {
+      "fee": {
+        "3000": ["500", "118500"]
+      }
+    },
+    "TokenUSDC-TokenUNI": {
+      "fee": {
+        "3000": ["750000", "118500"]
+      }
+    }
+  },
+  "quickswapV3": {
+    "TokenWETH-TokenWBTC": ["3200", "266"],
+    "TokenWETH-TokenUSDC": ["27458", "44258316"],
+    "TokenWETH-TokenLINK": ["950", "165722"],
+    "TokenWBTC-TokenUSDC": ["60", "1143650"],
+    "TokenWBTC-TokenLINK": ["267", "554021"],
+    "TokenUSDC-TokenLINK": ["22723", "2453"],
+    "TokenWETH-TokenUNI": ["500", "118500"],
+    "TokenUSDC-TokenUNI": ["750000", "118500"]
+  },
+  "curve": {
+    "TokenUSDC-TokenWBTC-TokenWETH": {
+      "TokenUSDC": "83796701",
+      "TokenWBTC": "4400",
+      "TokenWETH": "52000"
+    }
+  },
+  "balancer": {
+    "TokenUSDC-TokenWETH": {
+      "TokenUSDC": "3350000",
+      "TokenWETH": "2089",
+      "weights": ["5", "5"]
+    },
+    "TokenWBTC-TokenWETH": {
+      "TokenWBTC": "400",
+      "TokenWETH": "4734",
+      "weights": ["5", "5"]
+    },
+    "TokenWBTC-TokenWETH-TokenUSDC-TokenLINK": {
+      "TokenWBTC": "12.5",
+      "TokenWETH": "150",
+      "TokenUSDC": "160000",
+      "TokenLINK": "17800",
+      "weights": ["3", "3", "2", "2"]
+    }
+  },
+  "meshswap": {
+    "TokenWETH-TokenWBTC": ["3200", "266"],
+    "TokenWETH-TokenUSDC": ["27458", "44258316"],
+    "TokenWETH-TokenLINK": ["950", "165722"],
+    "TokenWBTC-TokenUSDC": ["60", "1143650"],
+    "TokenWBTC-TokenLINK": ["267", "554021"],
+    "TokenUSDC-TokenLINK": ["22723", "2453"],
+    "TokenWETH-TokenUNI": ["500", "118500"],
+    "TokenUSDC-TokenUNI": ["750000", "118500"]
+  }
+},
+  "devNode1": {
+    "uniswapV2": {
+      "TokenWETH-TokenWBTC": ["3200", "266"],
+      "TokenWETH-TokenUSDC": ["27458", "44258316"],
+      "TokenWETH-TokenLINK": ["950", "165722"],
+      "TokenWBTC-TokenUSDC": ["60", "1143650"],
+      "TokenWBTC-TokenLINK": ["267", "554021"],
+      "TokenUSDC-TokenLINK": ["22723", "2453"],
+      "TokenWETH-TokenUNI": ["500", "118500"],
+      "TokenUSDC-TokenUNI": ["750000", "118500"]
+    },
+    "sushiswapV2": {
+      "TokenWETH-TokenWBTC": ["6134", "510"],
+      "TokenWETH-TokenUSDC": ["12906", "20476499"],
+      "TokenWETH-TokenLINK": ["1053", "190659"],
+      "TokenUSDC-TokenLINK": ["58040", "6536"]
+    },
+    "uniswapV3": {
+      "TokenWETH-TokenWBTC": {
+        "fee": {
+          "10000": ["187.65", "15.44"],
+          "3000": ["79960", "6700"],
+          "500": ["30100", "2500"]
+        }
+      },
+      "TokenWETH-TokenUSDC": {
+        "fee": {
+          "10000": ["8000", "13000000"],
+          "3000": ["105500", "171000000"],
+          "500": ["93680", "152000000"]
+        }
+      },
+      "TokenWETH-TokenLINK": {
+        "fee": {
+          "10000": ["23", "3960"],
+          "3000": ["6800", "1190000"]
+        }
+      },
+      "TokenWBTC-TokenUSDC": {
+        "fee": {
+          "10000": ["26", "500770"],
+          "3000": ["2100", "40660000"],
+          "500": ["750", "14445000"]
+        }
+      },
+      "TokenUSDC-TokenLINK": {
+        "fee": {
+          "3000": ["155000", "17000"]
+        }
+      },
+      "TokenWETH-TokenUNI": {
+        "fee": {
+          "3000": ["500", "118500"]
+        }
+      },
+      "TokenUNI-TokenUSDC": {
+        "fee": {
+          "3000": ["120000", "840000"]
+        }
+      }
+    },
+    "quickswapV3": {
+      "TokenWETH-TokenWBTC": ["1000", "80"],
+      "TokenWETH-TokenUSDC": ["1000", "1500000"],
+      "TokenWETH-TokenLINK": ["100", "20500"],
+      "TokenWBTC-TokenUSDC": ["100", "2000000"],
+      "TokenUSDC-TokenLINK": ["3600", "500"]
+    },
+    "curve": {
+      "TokenUSDC-TokenWBTC-TokenWETH": {
+        "TokenUSDC": "83796701",
+        "TokenWBTC": "4400",
+        "TokenWETH": "52000"
+      }
+    },
+    "balancer": {
+      "TokenUSDC-TokenWETH": {
+        "TokenUSDC": "3350000",
+        "TokenWETH": "2089",
+        "weights": ["5", "5"]
+      },
+      "TokenWBTC-TokenWETH": {
+        "TokenWBTC": "400",
+        "TokenWETH": "4734",
+        "weights": ["5", "5"]
+      },
+      "TokenWBTC-TokenWETH-TokenUSDC-TokenLINK": {
+        "TokenWBTC": "12.5",
+        "TokenWETH": "150",
+        "TokenUSDC": "160000",
+        "TokenLINK": "17800",
+        "weights": ["3", "3", "2", "2"]
+      }
+    },
+    "meshswap": {
+      "TokenWETH-TokenWBTC": ["1050", "80"],
+      "TokenWETH-TokenUSDC": ["1000", "1500000"]
+    }
+  },
+  "devNode2": {
+    "uniswapV2": {
+      "TokenWETH-TokenWBTC": ["1050", "80"],
+      "TokenWETH-TokenUSDC": ["1000", "750000"],
+      "TokenWETH-TokenLINK": ["100", "20500"],
+      "TokenWBTC-TokenUSDC": ["100", "1000000"],
+      "TokenWBTC-TokenLINK": ["100", "280000"],
+      "TokenUSDC-TokenLINK": ["1800", "500"],
+      "TokenUNI-TokenUSDC": ["1000", "7000"],
+      "TokenUNI-TokenWETH": ["1080", "10"],
+      "TokenWETH-TokenUNI": ["500", "118500"]
+    },
+    "curve": {
+      "TokenUSDC-TokenWBTC-TokenWETH": {
+        "TokenUSDC": "41898350",
+        "TokenWBTC": "3983",
+        "TokenWETH": "54081"
+      }
+    },
+    "balancer": {
+      "TokenUSDC-TokenWETH": {
+        "TokenUSDC": "2483392",
+        "TokenWETH": "3316",
+        "weights": ["5", "5"]
+      },
+      "TokenWBTC-TokenWETH": {
+        "TokenWBTC": "340",
+        "TokenWETH": "4734",
+        "weights": ["5", "5"]
+      },
+      "TokenWBTC-TokenWETH-TokenUSDC-TokenLINK": {
+        "TokenWBTC": "8",
+        "TokenWETH": "105",
+        "TokenUSDC": "53714",
+        "TokenLINK": "14801",
+        "weights": ["3", "3", "2", "2"]
+      },
+      "TokenUNI-TokenUSDC": {
+        "TokenUNI": "500",
+        "TokenUSDC": "3500",
+        "weights": ["5", "5"]
+      },
+      "TokenUNI-TokenWETH": {
+        "TokenUNI": "5500",
+        "TokenWETH": "50",
+        "weights": ["5", "5"]
+      }
+    },
+    "quickswapV3": {
+      "TokenWETH-TokenWBTC": ["1050", "80"],
+      "TokenWETH-TokenUSDC": ["1000", "750000"],
+      "TokenWETH-TokenLINK": ["100", "20500"],
+      "TokenWBTC-TokenUSDC": ["100", "1000000"],
+      "TokenUSDC-TokenLINK": ["1800", "500"],
+      "TokenUNI-TokenUSDC": ["1000", "7000"],
+      "TokenUNI-TokenWETH": ["1080", "10"]
+    },
+    "meshswap": {
+      "TokenWETH-TokenWBTC": ["1050", "80"],
+      "TokenWETH-TokenUSDC": ["1000", "1500000"]
+    }
+  },
+  "devNode3": {
+    "sushiswapV2": {
+      "TokenWETH-TokenWBTC": ["1100", "82"],
+      "TokenWETH-TokenUSDC": ["525", "1600000"],
+      "TokenWETH-TokenLINK": ["108", "22500"],
+      "TokenWBTC-TokenUSDC": ["100", "4000000"],
+      "TokenWBTC-TokenLINK": ["100", "280000"],
+      "TokenUSDC-TokenLINK": ["7200", "490"],
+      "TokenUSDT-TokenUSDC": ["10000", "10000"]
+    },
+    "uniswapV3": {
+      "TokenWETH-TokenWBTC": {
+        "fee": {
+          "10000": ["1100", "86"],
+          "3000": ["1000", "76"],
+          "500": ["980", "73"]
+        }
+      },
+      "TokenWETH-TokenUSDC": {
+        "fee": {
+          "10000": ["550", "1650000"],
+          "3000": ["500", "1500000"],
+          "500": ["440", "1300000"]
+        }
+      },
+      "TokenWETH-TokenLINK": {
+        "fee": {
+          "10000": ["110", "23000"],
+          "3000": ["90", "20000"],
+          "500": ["100", "17500"]
+        }
+      },
+      "TokenWBTC-TokenUSDC": {
+        "fee": {
+          "10000": ["65", "2600000"],
+          "3000": ["55", "2150000"],
+          "500": ["75", "1444500"]
+        }
+      },
+      "TokenUSDC-TokenLINK": {
+        "fee": {
+          "3000": ["6650", "475"]
+        }
+      },
+      "TokenUSDT-TokenWBTC": {
+        "fee": {
+          "10000": ["5200000", "130"],
+          "3000": ["4300000", "110"]
+        }
+      },
+      "TokenUSDT-TokenWETH": {
+        "fee": {
+          "3000": ["3000000", "950"]
+        }
+      },
+      "TokenUSDT-TokenUSDC": {
+        "fee": {
+          "3000": ["1000000", "1000000"]
+        }
+      },
+      "TokenWBTC-TokenLINK": {
+        "fee": {
+          "3000": ["2", "6546"]
+        }
+      },
+      "TokenWETH-TokenUNI": {
+        "fee": {
+          "3000": ["500", "118500"]
+        }
+      },
+      "TokenUNI-TokenUSDC": {
+        "fee": {
+          "3000": ["120000", "840000"]
+        }
+      }
+    },
+    "quickswapV3": {
+      "TokenWETH-TokenWBTC": ["1100", "82"],
+      "TokenWETH-TokenUSDC": ["525", "1600000"],
+      "TokenWETH-TokenLINK": ["108", "22500"],
+      "TokenWBTC-TokenUSDC": ["100", "4000000"],
+      "TokenUSDC-TokenLINK": ["7200", "490"],
+      "TokenUSDT-TokenUSDC": ["10000", "10000"]
+    },
+    "balancer": {
+      "TokenUSDC-TokenWETH": {
+        "TokenUSDC": "4966784",
+        "TokenWETH": "1658",
+        "weights": ["5", "5"]
+      },
+      "TokenWBTC-TokenWETH": {
+        "TokenWBTC": "370",
+        "TokenWETH": "4800",
+        "weights": ["5", "5"]
+      },
+      "TokenWBTC-TokenWETH-TokenUSDC-TokenLINK": {
+        "TokenWBTC": "8",
+        "TokenWETH": "105",
+        "TokenUSDC": "214856",
+        "TokenLINK": "14801",
+        "weights": ["3", "3", "2", "2"]
+      },
+      "TokenUSDT-TokenWETH": {
+        "TokenUSDT": "4966784",
+        "TokenWETH": "1658",
+        "weights": ["5", "5"]
+      },
+      "TokenUSDT-TokenUSDC": {
+        "TokenUSDT": "1000000",
+        "TokenUSDC": "1000000",
+        "weights": ["5", "5"]
+      }
+    },
+    "meshswap": {
+      "TokenWETH-TokenWBTC": ["1050", "80"],
+      "TokenWETH-TokenUSDC": ["1000", "2000000"]
+    }
+  }
+}

@@ -1,0 +1,780 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "primex-contracts-per1.fullname" . }}-pricebot
+  labels:
+    {{- include "primex-contracts-per1.labels" . | nindent 4 }}
+    app.definition: pricebot-per1
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount.pricebot }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "primex-contracts-per1.selectorLabels" . | nindent 6 }}
+      app.definition: pricebot-per1
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "primex-contracts-per1.selectorLabels" . | nindent 8 }}
+        app.definition: pricebot-per1
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "primex-contracts-per1.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init
+          image: public.ecr.aws/c6b7z9h6/vclient:alpine
+          imagePullPolicy: IfNotPresent
+          env:
+          - name: VAULT_MODE
+            value: source_file
+          - name: VAULT_SECRET_PATH
+            value: "{{ .Values.envKind }}/{{ .Values.vaultPath.pricebot }}"
+          envFrom:
+          - secretRef:
+              name: contracts-vault-secret
+          command: 
+            - sh
+            - -c
+            - |
+              vclient /env-in/env
+          volumeMounts:
+            - name: env
+              mountPath: /env-in
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+          - name: ETH_NETWORK
+            value: {{ .Values.network }}
+          - name: KEYSTORE_DIR
+            value: /data/
+          ports:
+            - name: grpc
+              containerPort: 8545
+              protocol: TCP
+          startupProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: env
+              mountPath: /env
+      volumes:
+      - name: env
+        emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "primex-contracts-per1.fullname" . }}-tradingbot-random
+  labels:
+    {{- include "primex-contracts-per1.labels" . | nindent 4 }}
+    app.definition: tradingbot-random-per1
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount.random }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "primex-contracts-per1.selectorLabels" . | nindent 6 }}
+      app.definition: tradingbot-random-per1
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "primex-contracts-per1.selectorLabels" . | nindent 8 }}
+        app.definition: tradingbot-random-per1
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "primex-contracts-per1.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-vault
+          image: public.ecr.aws/c6b7z9h6/vclient:alpine
+          imagePullPolicy: IfNotPresent
+          env:
+          - name: VAULT_MODE
+            value: source_file
+          - name: VAULT_SECRET_PATH
+            value: "{{ .Values.envKind }}/{{ .Values.vaultPath.random }}"
+          envFrom:
+          - secretRef:
+              name: tradingbot-random-vault-secret
+          command: 
+            - sh
+            - -c
+            - |
+              vclient /env-in/env; . /env-in/env ; echo "${GIT_SSH_KEY}" > /ssh/id_rsa ; echo -e "Host *\n\tStrictHostKeyChecking no\n\tUserKnownHostsFile=/dev/null" > /ssh/config ; chmod 600 /ssh/id_rsa
+          volumeMounts:
+            - name: env
+              mountPath: /env-in
+            - name: ssh
+              mountPath: /ssh
+        {{- if eq .Values.envKind "develop" }}
+        - name: init-artifacts
+          image: alpine/git:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - git 
+            - clone 
+            - git@github.com:primex-finance/primex_artifacts.git
+          volumeMounts:
+            - name: ssh
+              mountPath: /root/.ssh
+            - name: git
+              mountPath: /git
+        {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+          - name: ETH_NETWORK
+            value: {{ .Values.network }}
+          - name: KEYSTORE_DIR
+            value: /data/
+          - name: RANDOM_TRADING
+            value: "true"  
+          startupProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: env
+              mountPath: /env
+            {{- if eq .Values.envKind "develop" }}
+            - name: git
+              mountPath: /data/deployments/{{ .Values.network }}
+              subPath: primex_artifacts/host-period-1/abis
+            {{- end }}
+      volumes:
+      - name: env
+        emptyDir: {}
+      - name: ssh
+        emptyDir: {}
+      - name: git
+        emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "primex-contracts-per1.fullname" . }}-tradingbot-sync
+  labels:
+    {{- include "primex-contracts-per1.labels" . | nindent 4 }}
+    app.definition: tradingbot-sync-per1
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount.sync }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "primex-contracts-per1.selectorLabels" . | nindent 6 }}
+      app.definition: tradingbot-sync-per1
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "primex-contracts-per1.selectorLabels" . | nindent 8 }}
+        app.definition: tradingbot-sync-per1
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "primex-contracts-per1.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-vault
+          image: public.ecr.aws/c6b7z9h6/vclient:alpine
+          imagePullPolicy: IfNotPresent
+          env:
+          - name: VAULT_MODE
+            value: source_file
+          - name: VAULT_SECRET_PATH
+            value: "{{ .Values.envKind }}/{{ .Values.vaultPath.sync }}"
+          envFrom:
+          - secretRef:
+              name: tradingbot-sync-vault-secret
+          command:
+            - sh
+            - -c
+            - |
+              vclient /env-in/env; . /env-in/env ; echo "${GIT_SSH_KEY}" > /ssh/id_rsa ; echo -e "Host *\n\tStrictHostKeyChecking no\n\tUserKnownHostsFile=/dev/null" > /ssh/config ; chmod 600 /ssh/id_rsa
+          volumeMounts:
+            - name: env
+              mountPath: /env-in
+            - name: ssh
+              mountPath: /ssh
+        {{- if eq .Values.envKind "develop" }}
+        - name: init-artifacts
+          image: alpine/git:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - git
+            - clone
+            - git@github.com:primex-finance/primex_artifacts.git
+          volumeMounts:
+            - name: ssh
+              mountPath: /root/.ssh
+            - name: git
+              mountPath: /git
+        {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+          - name: ETH_NETWORK
+            value: {{ .Values.network }}
+          - name: KEYSTORE_DIR
+            value: /data/
+          - name: SYNC_TRADING
+            value: "true"
+          startupProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: env
+              mountPath: /env
+            {{- if eq .Values.envKind "develop" }}
+            - name: git
+              mountPath: /data/deployments/{{ .Values.network }}
+              subPath: primex_artifacts/host-period-1/abis
+            {{- end }}
+      volumes:
+      - name: env
+        emptyDir: {}
+      - name: ssh
+        emptyDir: {}
+      - name: git
+        emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "primex-contracts-per1.fullname" . }}-tradingbot-sync-uni3
+  labels:
+    {{- include "primex-contracts-per1.labels" . | nindent 4 }}
+    app.definition: tradingbot-sync-uni3-per1
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount.syncUni3 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "primex-contracts-per1.selectorLabels" . | nindent 6 }}
+      app.definition: tradingbot-sync-uni3-per1
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "primex-contracts-per1.selectorLabels" . | nindent 8 }}
+        app.definition: tradingbot-sync-uni3-per1
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "primex-contracts-per1.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-vault
+          image: public.ecr.aws/c6b7z9h6/vclient:alpine
+          imagePullPolicy: IfNotPresent
+          env:
+          - name: VAULT_MODE
+            value: source_file
+          - name: VAULT_SECRET_PATH
+            value: "{{ .Values.envKind }}/{{ .Values.vaultPath.syncUni3 }}"
+          envFrom:
+          - secretRef:
+              name: tradingbot-sync-vault-secret
+          command:
+            - sh
+            - -c
+            - |
+              vclient /env-in/env; . /env-in/env ; echo "${GIT_SSH_KEY}" > /ssh/id_rsa ; echo -e "Host *\n\tStrictHostKeyChecking no\n\tUserKnownHostsFile=/dev/null" > /ssh/config ; chmod 600 /ssh/id_rsa
+          volumeMounts:
+            - name: env
+              mountPath: /env-in
+            - name: ssh
+              mountPath: /ssh
+        {{- if eq .Values.envKind "develop" }}
+        - name: init-artifacts
+          image: alpine/git:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - git
+            - clone
+            - git@github.com:primex-finance/primex_artifacts.git
+          volumeMounts:
+            - name: ssh
+              mountPath: /root/.ssh
+            - name: git
+              mountPath: /git
+        {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+          - name: ETH_NETWORK
+            value: {{ .Values.network }}
+          - name: KEYSTORE_DIR
+            value: /data/
+          - name: SYNC_TRADING_UNI3
+            value: "true"
+          startupProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: env
+              mountPath: /env
+            {{- if eq .Values.envKind "develop" }}
+            - name: git
+              mountPath: /data/deployments/{{ .Values.network }}
+              subPath: primex_artifacts/host-period-1/abis
+            {{- end }}
+      volumes:
+      - name: env
+        emptyDir: {}
+      - name: ssh
+        emptyDir: {}
+      - name: git
+        emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "primex-contracts-per1.fullname" . }}-sync-bot-balancer
+  labels:
+    {{- include "primex-contracts-per1.labels" . | nindent 4 }}
+    app.definition: sync-bot-balancer-per1
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount.balancer }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "primex-contracts-per1.selectorLabels" . | nindent 6 }}
+      app.definition: sync-bot-balancer-per1
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "primex-contracts-per1.selectorLabels" . | nindent 8 }}
+        app.definition: sync-bot-balancer-per1
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "primex-contracts-per1.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-vault
+          image: public.ecr.aws/c6b7z9h6/vclient:alpine
+          imagePullPolicy: IfNotPresent
+          env:
+          - name: VAULT_MODE
+            value: source_file
+          - name: VAULT_SECRET_PATH
+            value: "{{ .Values.envKind }}/{{ .Values.vaultPath.balancer }}"
+          envFrom:
+          - secretRef:
+              name: sync-bot-balancer-vault-secret
+          command:
+            - sh
+            - -c
+            - |
+              vclient /env-in/env; . /env-in/env ; echo "${GIT_SSH_KEY}" > /ssh/id_rsa ; echo -e "Host *\n\tStrictHostKeyChecking no\n\tUserKnownHostsFile=/dev/null" > /ssh/config ; chmod 600 /ssh/id_rsa
+          volumeMounts:
+            - name: env
+              mountPath: /env-in
+            - name: ssh
+              mountPath: /ssh
+        {{- if eq .Values.envKind "develop" }}
+        - name: init-artifacts
+          image: alpine/git:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - git
+            - clone
+            - git@github.com:primex-finance/primex_artifacts.git
+          volumeMounts:
+            - name: ssh
+              mountPath: /root/.ssh
+            - name: git
+              mountPath: /git
+        {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+          - name: ETH_NETWORK
+            value: {{ .Values.network }}
+          - name: KEYSTORE_DIR
+            value: /data/
+          - name: BALANCER
+            value: "true"
+          startupProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: env
+              mountPath: /env
+            {{- if eq .Values.envKind "develop" }}
+            - name: git
+              mountPath: /data/deployments/{{ .Values.network }}
+              subPath: primex_artifacts/host-period-1/abis
+            {{- end }}
+      volumes:
+      - name: env
+        emptyDir: {}
+      - name: ssh
+        emptyDir: {}
+      - name: git
+        emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "primex-contracts-per1.fullname" . }}-sync-bot-curve
+  labels:
+    {{- include "primex-contracts-per1.labels" . | nindent 4 }}
+    app.definition: sync-bot-curve-per1
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount.curve }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "primex-contracts-per1.selectorLabels" . | nindent 6 }}
+      app.definition: sync-bot-curve-per1
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "primex-contracts-per1.selectorLabels" . | nindent 8 }}
+        app.definition: sync-bot-curve-per1
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "primex-contracts-per1.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-vault
+          image: public.ecr.aws/c6b7z9h6/vclient:alpine
+          imagePullPolicy: IfNotPresent
+          env:
+          - name: VAULT_MODE
+            value: source_file
+          - name: VAULT_SECRET_PATH
+            value: "{{ .Values.envKind }}/{{ .Values.vaultPath.curve }}"
+          envFrom:
+          - secretRef:
+              name: sync-bot-curve-vault-secret
+          command:
+            - sh
+            - -c
+            - |
+              vclient /env-in/env; . /env-in/env ; echo "${GIT_SSH_KEY}" > /ssh/id_rsa ; echo -e "Host *\n\tStrictHostKeyChecking no\n\tUserKnownHostsFile=/dev/null" > /ssh/config ; chmod 600 /ssh/id_rsa
+          volumeMounts:
+            - name: env
+              mountPath: /env-in
+            - name: ssh
+              mountPath: /ssh
+        {{- if eq .Values.envKind "develop" }}
+        - name: init-artifacts
+          image: alpine/git:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - git
+            - clone
+            - git@github.com:primex-finance/primex_artifacts.git
+          volumeMounts:
+            - name: ssh
+              mountPath: /root/.ssh
+            - name: git
+              mountPath: /git
+        {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+          - name: ETH_NETWORK
+            value: {{ .Values.network }}
+          - name: KEYSTORE_DIR
+            value: /data/
+          - name: CURVE
+            value: "true"
+          startupProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+              - ls
+              - /data/deployments
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: env
+              mountPath: /env
+            {{- if eq .Values.envKind "develop" }}
+            - name: git
+              mountPath: /data/deployments/{{ .Values.network }}
+              subPath: primex_artifacts/host-period-1/abis
+            {{- end }}
+      volumes:
+      - name: env
+        emptyDir: {}
+      - name: ssh
+        emptyDir: {}
+      - name: git
+        emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

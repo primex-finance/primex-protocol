@@ -1,0 +1,16 @@
+{
+    "spotTradingRewards": {
+        "rewardPerPeriod": "50",
+        "pmxAmountToTransfer": "2000"
+    },
+    "earlyLendersRewards": {
+        "totalReward": "10000", 
+        "rewardPerDay": "200",
+        "pmxAmountToTransfer": "1000000"
+    },
+    "earlyTradersRewards": {
+        "totalReward": "10000", 
+        "rewardPerDay": "200",
+        "pmxAmountToTransfer": "1000000"
+    }
+}

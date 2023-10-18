@@ -1,0 +1,5 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+cd src &&
+yarn run eslint:all &&
+yarn run solhint:all

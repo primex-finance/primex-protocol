@@ -1,0 +1,230 @@
+apiVersion: skaffold/v2beta20
+kind: Config
+metadata:
+  name: primex-contracts
+profiles:
+  - name: build-and-test-no-push
+    activation:
+      - env: SKIP_DEPLOY=true # This profile is used for build and test with no push to ECR
+    build:
+      local:
+        useDockerCLI: true
+        push: false
+      artifacts:
+      - image: 169602129284.dkr.ecr.us-east-1.amazonaws.com/primex-contracts
+        docker:
+          buildArgs:
+            SSH_KEY: "{{.SSH_KEY}}"
+      tagPolicy:
+        envTemplate:
+          template: "{{.TAG}}"
+    test:
+      - image: 169602129284.dkr.ecr.us-east-1.amazonaws.com/primex-contracts
+        custom:
+          - command: ./run-unit-tests.sh
+            timeoutSeconds: 5400
+
+  - name: version-deploy-develop
+    build:
+      local:
+        useDockerCLI: true
+      artifacts:
+      - image: 169602129284.dkr.ecr.us-east-1.amazonaws.com/primex-contracts
+        docker:
+          buildArgs:
+            SSH_KEY: "{{.SSH_KEY}}"
+      tagPolicy:
+        envTemplate:
+          template: "{{.TAG}}"          
+    deploy:
+      helm:
+        releases:
+          - name: primex-contracts-{{.CONTRACTS_VERSION}}
+            chartPath: infra/chart/primex-contracts
+            artifactOverrides:
+              image: 169602129284.dkr.ecr.us-east-1.amazonaws.com/primex-contracts
+            imageStrategy:
+              helm: {}
+            skipBuildDependencies: false
+            useHelmSecrets: false
+            wait: true
+            namespace: primex-dev
+            createNamespace: true
+            setValueTemplates:
+              ingress.contracts.enabled: false
+              ingress.docs.annotations.kubernetes\.io\/ingress\.class: internal
+              ingress.docs.annotations.external-dns\.alpha\.kubernetes\.io\/hostname: dev-docs-{{.CONTRACTS_VERSION}}.dev.primex.network
+              ingress.docs.hosts[0].host: dev-docs-{{.CONTRACTS_VERSION}}.dev.primex.network
+              ingress.docs.hosts[0].paths[0].path: /
+              ingress.docs.hosts[0].paths[0].pathType: Prefix
+              envKind: develop
+              replicaCount.random: 0
+          - name: primex-contracts-per1-{{.CONTRACTS_VERSION}}
+            chartPath: infra/chart/primex-contracts-per1
+            artifactOverrides:
+              image: 169602129284.dkr.ecr.us-east-1.amazonaws.com/primex-contracts
+            imageStrategy:
+              helm: {}
+            skipBuildDependencies: false
+            useHelmSecrets: false
+            wait: true
+            namespace: primex-dev
+            createNamespace: true
+            setValueTemplates:
+              replicaCount.random: 0
+          - name: primex-contracts-per2-{{.CONTRACTS_VERSION}}
+            chartPath: infra/chart/primex-contracts-per2
+            artifactOverrides:
+              image: 169602129284.dkr.ecr.us-east-1.amazonaws.com/primex-contracts
+            imageStrategy:
+              helm: {}
+            skipBuildDependencies: false
+            useHelmSecrets: false
+            wait: true
+            namespace: primex-dev
+            createNamespace: true
+            setValueTemplates:
+              replicaCount.random: 0
+
+  - name: version-deploy-testnet
+    build:
+      local:
+        useDockerCLI: true
+      artifacts:
+      - image: 169602129284.dkr.ecr.us-east-1.amazonaws.com/primex-contracts-testnet
+        docker:
+          buildArgs:
+            SSH_KEY: "{{.SSH_KEY}}"
+      tagPolicy:
+        envTemplate:
+          template: "{{.TAG}}"
+    deploy:
+      helm:
+        releases:
+          # - name: primex-pricebot-rinkeby-{{.CONTRACTS_VERSION}}
+          #   chartPath: infra/chart/primex-contracts
+          #   artifactOverrides:
+          #     image: 169602129284.dkr.ecr.us-east-1.amazonaws.com/primex-contracts-testnet
+          #   imageStrategy:
+          #     helm: {}
+          #   skipBuildDependencies: false
+          #   useHelmSecrets: false
+          #   wait: true
+          #   namespace: primex-testnet
+          #   createNamespace: true
+          #   setValueTemplates:
+          #     ingress.contracts.enabled: false
+          #     ingress.docs.annotations.kubernetes\.io\/ingress\.class: internal
+          #     ingress.docs.annotations.external-dns\.alpha\.kubernetes\.io\/hostname: testnet-docs-{{.CONTRACTS_VERSION}}.dev.primex.network
+          #     ingress.docs.hosts[0].host: testnet-docs-{{.CONTRACTS_VERSION}}.dev.primex.network
+          #     ingress.docs.hosts[0].paths[0].path: /
+          #     ingress.docs.hosts[0].paths[0].pathType: Prefix
+          #     envKind: testnet
+          #     network: rinkeby
+          # - name: primex-pricebot-zksync2-{{.CONTRACTS_VERSION}}
+          #   chartPath: infra/chart/primex-contracts
+          #   artifactOverrides:
+          #     image: 169602129284.dkr.ecr.us-east-1.amazonaws.com/primex-contracts-testnet
+          #   imageStrategy:
+          #     helm: {}
+          #   skipBuildDependencies: false
+          #   useHelmSecrets: false
+          #   wait: true
+          #   namespace: primex-testnet
+          #   createNamespace: true
+          #   setValueTemplates:
+          #     ingress.contracts.enabled: false
+          #     ingress.docs.enabled: false
+          #     envKind: testnet
+          #     network: zksync2
+          - name: primex-contracts-matic-{{.CONTRACTS_VERSION}}
+            chartPath: infra/chart/primex-contracts
+            artifactOverrides:
+              image: 169602129284.dkr.ecr.us-east-1.amazonaws.com/primex-contracts-testnet
+            imageStrategy:
+              helm: {}
+            skipBuildDependencies: false
+            useHelmSecrets: false
+            wait: true
+            namespace: primex-testnet
+            createNamespace: true
+            setValueTemplates:
+              ingress.contracts.enabled: false
+              ingress.docs.enabled: false
+              envKind: testnet
+              network: matic
+              vaultPath.pricebot: primex-contracts-matic
+              vaultPath.sync: primex-tradingbot-sync-matic
+              vaultPath.syncUni3: primex-tradingbot-sync-uni3-matic
+              vaultPath.curve: primex-sync-bot-curve-matic
+              replicaCount.random: 0
+              replicaCount.balancer: 0
+          - name: primex-contracts-goerli-{{.CONTRACTS_VERSION}}
+            chartPath: infra/chart/primex-contracts
+            artifactOverrides:
+              image: 169602129284.dkr.ecr.us-east-1.amazonaws.com/primex-contracts-testnet
+            imageStrategy:
+              helm: {}
+            skipBuildDependencies: false
+            useHelmSecrets: false
+            wait: true
+            namespace: primex-testnet
+            createNamespace: true
+            setValueTemplates:
+              ingress.contracts.enabled: false
+              ingress.docs.enabled: false
+              envKind: testnet
+              network: goerli
+              vaultPath.pricebot: primex-contracts-goerli
+              vaultPath.sync: primex-tradingbot-sync-goerli
+              vaultPath.syncUni3: primex-tradingbot-sync-uni3-goerli
+              vaultPath.curve: primex-sync-bot-curve-goerli
+              vaultPath.balancer: primex-sync-bot-balancer-goerli
+              replicaCount.random: 0
+          - name: primex-contracts-polygonzkevm-{{.CONTRACTS_VERSION}}
+            chartPath: infra/chart/primex-contracts
+            artifactOverrides:
+              image: 169602129284.dkr.ecr.us-east-1.amazonaws.com/primex-contracts-testnet
+            imageStrategy:
+              helm: {}
+            skipBuildDependencies: false
+            useHelmSecrets: false
+            wait: true
+            namespace: primex-testnet
+            createNamespace: true
+            setValueTemplates:
+              ingress.contracts.enabled: false
+              ingress.docs.enabled: false
+              envKind: testnet
+              network: polygonZKtestnet
+              vaultPath.pricebot: primex-contracts-polygonzkevm
+              vaultPath.sync: primex-tradingbot-sync-zkevm
+              replicaCount.random: 0
+              replicaCount.syncUni3: 0
+              replicaCount.balancer: 0
+              replicaCount.curve: 0
+
+  - name: prod-cicd
+    activation:
+      - env: ENV_KIND=prod
+    deploy:
+      helm:
+        releases:
+          - name: primex-contracts
+            chartPath: infra/chart/primex-contracts
+            artifactOverrides:
+              image: 169602129284.dkr.ecr.us-east-1.amazonaws.com/primex-contracts-prod
+            imageStrategy:
+              helm: {}
+            skipBuildDependencies: false
+            useHelmSecrets: false
+            wait: false
+            namespace: primex-prod
+            createNamespace: true
+            setValueTemplates:
+              ingress.annotations.external-dns\.alpha\.kubernetes\.io\/hostname: contracts.primex.finance
+              ingress.hosts[0].host: contracts.primex.finance
+              ingress.hosts[0].paths[0].path: /
+              ingress.hosts[0].paths[0].pathType: Prefix
+              envKind: "{{.ENV_KIND}}"
+              ethernalWorkspace: PrimexProd

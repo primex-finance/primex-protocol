@@ -1,0 +1,128 @@
+{
+  "DELAY_IN_DAYS_AFTER_DEPLOY": 19,
+  "buckets": [
+    {
+      "bucketName": "Primex Bucket USDT",
+      "tokenName": "usdt",
+      "allowedAssets": ["wbtc", "weth", "usdc", "wmatic"],
+      "feeBuffer": "1.000014935",
+      "withdrawalFeeRate": "0.001",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0.08",
+      "barCalcParams": {
+        "urOptimal": "0.8",
+        "k0": "0.3925",
+        "k1": "2.35",
+        "b0": "0.001",
+        "b1": "-1.565"
+      },
+      "maxTotalDeposit": 500000,
+      "LiquidityMining": {
+        "accumulatingAmount": 25000,
+        "maxDurationInDays": 30,
+        "stabilizationDurationInDays": 30,
+        "maxAmountPerUser": 12500,
+        "pmxRewardAmount": 8300,
+        "isReinvestToAaveEnabled": true,
+        "LMDeadline": 1701344466
+      },
+      "flowConfig":{
+        "execute": false,
+        "steps": {
+          "1": false,
+          "2": true
+        },
+        "step2Params": {
+          "needPMX": true,
+          "needApprove": true,
+          "bucket": "0x4E0a6Ea3BeB2f89a4F51e09d0170DEfcC0f32734",
+          "PToken": "0xB0c767cEf1AaFe887baC59F01C6594ad1fC4477e",
+          "DebtToken": "0xA21bD9562E066cc2BfFDD51729B85Acb4fadc9F6"
+        }
+      }
+    },
+    {
+      "bucketName": "Primex Bucket WBTC",
+      "tokenName": "wbtc",
+      "allowedAssets": ["weth", "usdc", "usdt", "wmatic"],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0.08",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.3846",
+        "k1": "4.9429",
+        "b0": "0.02",
+        "b1": "-2.9429"
+      },
+      "maxTotalDeposit": 22,
+      "LiquidityMining": {
+        "accumulatingAmount": 1.1,
+        "maxDurationInDays": 30,
+        "stabilizationDurationInDays": 30,
+        "maxAmountPerUser": 0.55,
+        "pmxRewardAmount": 500,
+        "isReinvestToAaveEnabled": true,
+        "LMDeadline": 1701344466
+      },
+      "flowConfig":{
+        "execute": false,
+        "steps": {
+          "1": false,
+          "2": true
+        },
+        "step2Params": {
+          "needPMX": true,
+          "needApprove": true,
+          "bucket": "0xf23A6792D5BF7e0989649BAce10a2E8E70D7e61b",
+          "PToken": "0x2DBD191739b283457E8aCABD992b56bE1a858F21",
+          "DebtToken": "0xa8e0c53D6BaE0aAb391028c41004aE89AD484581"
+        }
+      }
+    },
+    {
+      "bucketName": "Primex Bucket WMATIC",
+      "tokenName": "wmatic",
+      "allowedAssets": ["wbtc", "weth", "usdc", "usdt"],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0.11",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 2800000,
+      "LiquidityMining": {
+        "accumulatingAmount": 140000,
+        "maxDurationInDays": 30,
+        "stabilizationDurationInDays": 30,
+        "maxAmountPerUser": 70000,
+        "pmxRewardAmount": 26500,
+        "isReinvestToAaveEnabled": true,
+        "LMDeadline": 1701344466
+      },
+      "flowConfig":{
+        "execute": false,
+        "steps": {
+          "1": false,
+          "2": true
+        },
+        "step2Params": {
+          "needPMX": true,
+          "needApprove": true,
+          "bucket": "0x4C3e997509eD6DA075380bD578b9F5FA5e1D2051",
+          "PToken": "0x7e6969208B949390404E9CaB2C45a148FFF75c58",
+          "DebtToken": "0xF0a991f7911d848AC6C20dc8baF92ac7cFc17B58"
+      }
+    }
+    }
+  ]
+}

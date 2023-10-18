@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "primex-contracts.fullname" . }}
+  labels:
+    {{- include "primex-contracts.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.docs.type }}
+  ports:
+    - port: {{ .Values.service.contracts.port }}
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+  selector:
+    {{- include "primex-contracts.selectorLabels" . | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "primex-contracts.fullname" . }}-docs
+  labels:
+    {{- include "primex-contracts.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.docs.type }}
+  ports:
+    - port: {{ .Values.service.docs.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "primex-contracts.selectorLabels" . | nindent 4 }}

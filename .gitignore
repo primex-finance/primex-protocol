@@ -1,0 +1,14 @@
+.idea/
+node_modules
+.env
+.DS_Store
+
+#Hardhat files
+cache
+artifacts
+typechain
+networks.json
+
+#vscode
+.vscode
+.VSCodeCounter

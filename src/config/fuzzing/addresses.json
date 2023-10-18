@@ -1,0 +1,84 @@
+{
+  "isETHNative": true,
+  "assets": {
+    "weth": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "wbtc": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+    "usdc": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+    "link": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+    "uni": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+    "usdt": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
+  },
+  "aave": "0xCe85503De9399D4dECa3c0b2bb3e9e7CFCBf9C6B",
+  "dexes": {
+    "balancer": {
+      "router": "0x2c8ED11fd7A058096F2e5828799c68BE88744E2F",
+      "type": "4",
+      "vault": "0x2c8ED11fd7A058096F2e5828799c68BE88744E2F",
+      "weightedPoolFactory": "0x7580708993de7CA120E957A62f26A5dDD4b3D8aC",
+      "pools": {
+        "usdc-weth": {
+          "pool": "0xbE2c683b28a76aF4b719271f7c14024d3830cD0D",
+          "poolId": "0xbe2c683b28a76af4b719271f7c14024d3830cd0d000200000000000000000000"
+        },
+        "wbtc-weth": {
+          "pool": "0xde7aE84b805FC3e98361d3BFF2b1acDFa2Cd53fB",
+          "poolId": "0xde7ae84b805fc3e98361d3bff2b1acdfa2cd53fb000200000000000000000001"
+        },
+        "wbtc-weth-usdc-link": {
+          "pool": "0xf3C0C412E0B2094897649c5ABbF9f09fb8752638",
+          "poolId": "0xf3c0c412e0b2094897649c5abbf9f09fb8752638000100000000000000000002"
+        }
+      }
+    },
+    "uniswap": {
+      "router": "0x4C4a2f8c81640e47606d3fd77B353E87Ba015584",
+      "type": "1",
+      "factory": "0x04C89607413713Ec9775E14b954286519d836FEf"
+    },
+    "sushiswap": {
+      "router": "0x2E2Ed0Cfd3AD2f1d34481277b3204d807Ca2F8c2",
+      "type": "1",
+      "factory": "0x21dF544947ba3E8b3c32561399E88B52Dc8b2823"
+    },
+    "uniswapv3": {
+      "router": "0x38a024C0b412B9d1db8BC398140D00F5Af3093D4",
+      "type": "2",
+      "quoter": "0xB82008565FdC7e44609fA118A4a681E92581e680",
+      "quoter2": "0x2a810409872AfC346F9B5b26571Fd6eC42EA4849",
+      "mixedRouteQuoterV1": "0xb9bEECD1A582768711dE1EE7B0A1d582D9d72a6C",
+      "nonfungiblePositionManager": "0x5fc748f1FEb28d7b76fa1c6B07D8ba2d5535177c",
+      "factory": "0x525C7063E7C20997BaaE9bDa922159152D0e8417"
+    },
+    "quickswapv3": {
+      "router": "0xc9952Fc93Fa9bE383ccB39008c786b9f94eAc95d",
+      "type": "5",
+      "quoter": "0xDde063eBe8E85D666AD99f731B4Dbf8C98F29708",
+      "nonfungiblePositionManager": "0xD5724171C2b7f0AA717a324626050BD05767e2C6",
+      "factory": "0x359570B3a0437805D0a71457D61AD26a28cAC9A2"
+    },
+    "meshswap": {
+      "router": "0x0c626FC4A447b01554518550e30600136864640B",
+      "type": "6",
+      "factory": "0x33E45b187da34826aBCEDA1039231Be46f1b05Af"
+    }
+  },
+  "uniswapMulticall": "0x2538a10b7fFb1B78c890c870FC152b10be121f04",
+  "pricefeeds": {
+    "selfDeployed": {
+      "weth-usd": "0xf5C3953Ae4639806fcbCC3196f71dd81B0da4348",
+      "wbtc-usd": "0x90b97E83e22AFa2e6A96b3549A0E495D5Bae61aF",
+      "usdc-usd": "0xdb54fa574a3e8c6aC784e1a5cdB575A737622CFf",
+      "link-usd": "0xDDa0648FA8c9cD593416EC37089C2a2E6060B45c",
+      "uni-usd": "0xccA9728291bC98ff4F97EF57Be3466227b0eb06C",
+      "usdt-usd": "0xc6B407503dE64956Ad3cF5Ab112cA4f56AA13517",
+      "native-usd": "0xf5C3953Ae4639806fcbCC3196f71dd81B0da4348"
+    }
+  },
+  "priceDropfeeds": {
+    "selfDeployed": {
+      "weth-usdc": "0x3a622DB2db50f463dF562Dc5F341545A64C580fc",
+      "wbtc-usdc": "0x6A47346e722937B60Df7a1149168c0E76DD6520f",
+      "link-usdc": "0x7A28cf37763279F774916b85b5ef8b64AB421f79"
+    }
+  }
+}

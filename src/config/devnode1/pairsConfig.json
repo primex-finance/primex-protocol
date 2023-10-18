@@ -1,0 +1,52 @@
+{
+  "weth-wbtc": {
+    "maxSize": ["500", "40"],
+    "pairPriceDrop": ["0.0314", "0.0557"],
+    "oracleTolerableLimit": "0.0268"
+  },
+  "weth-usdc": {
+    "maxSize": ["500", "1000000"],
+    "pairPriceDrop": ["0.0641", "0.1509"],
+    "oracleTolerableLimit": "0.0297"
+  },
+  "weth-link": {
+    "maxSize": ["250", "700000"],
+    "pairPriceDrop": ["0.0943", "0.0799"],
+    "oracleTolerableLimit": "0.0272"
+  },
+  "weth-uni": {
+    "maxSize": ["250", "700000"],
+    "pairPriceDrop": ["0.0943", "0.0799"],
+    "oracleTolerableLimit": "0.0272"
+  },
+  "wbtc-usdc": {
+    "maxSize": ["20", "500000"],
+    "pairPriceDrop": ["0.0574", "0.1040"],
+    "oracleTolerableLimit": "0.0232"
+  },
+  "wbtc-link": {
+    "maxSize": ["4", "140000"],
+    "pairPriceDrop": ["0.0924", "0.1018"],
+    "oracleTolerableLimit": "0.0212"
+  },
+  "wbtc-uni": {
+    "maxSize": ["4", "140000"],
+    "pairPriceDrop": ["0.0924", "0.1018"],
+    "oracleTolerableLimit": "0.0212"
+  },
+  "usdc-link": {
+    "maxSize": ["500000", "700000"],
+    "pairPriceDrop": ["0.1569", "0.1304"],
+    "oracleTolerableLimit": "0.0269"
+  },
+  "usdc-uni": {
+    "maxSize": ["500000", "700000"],
+    "pairPriceDrop": ["0.1569", "0.1304"],
+    "oracleTolerableLimit": "0.0269"
+  },
+  "link-uni": {
+    "maxSize": ["100000", "100000"],
+    "pairPriceDrop": ["0.0461", "0.0461"],
+    "oracleTolerableLimit": "0.0056"
+  }
+}

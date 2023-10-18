@@ -1,0 +1,90 @@
+{
+  "isETHNative": true,
+  "assets": {
+    "weth": "0x4282dbF6bE8ffD5ADB0BC96C32257bbc26Fde909",
+    "wbtc": "0xcA315748Dbe538e4828CCA2E4ecc1398654736B5",
+    "usdc": "0xA4120DC4aCc6A434bfEDf1ceceBdc05B18e8f7C3",
+    "link": "0x9C4A3892e61D8C22ff158166c5493A196EAFa7A2",
+    "uni": "0xE861b0F14Dfa0E45A9A46d0C5191f7c9754E0f94",
+    "usdt": "0xe54a823DB0a85C63C10B011D45E3b297110053D4"
+  },
+  "aave": "0x4677856c0Be84EC3f1a95b90ee56D906Ff2cDE89",
+  "uniswapMulticall": "0x9405d71318266484734986260DAf1fcFcDdBD094",
+  "dexes": {
+    "uniswap": {
+      "router": "0x6ADd21D2696FBfE00588748ADc15b5843a554aEA",
+      "type": "1",
+      "factory": "0xC5b805bed5B77A17a2bCa12f4Fd6d91Bf4E1A6A2"
+    },
+    "quickswapv3": {
+      "router": "0x2e4e73E9b99619f253795FEbcFE400fb6558C6D7",
+      "type": "5",
+      "quoter": "0x45c1879aE697424C458aB136B14092068717369d",
+      "quoterV2": "0xe5ab8235B215c0f08E198BF01875f0057553773c",
+      "nonfungiblePositionManager": "0x3762c2413976B4B183a8b6188C04E69453690Db2",
+      "factory": "0x85CdD1531BbFaA710856F00cF75Ece88AE561d25",
+      "poolDeployer":"0xC3e954911ff43CA69b0F4Ee2FFfed89a8d47c46B"
+    },
+    "curve": {
+      "router": "0xCE28216e9f126c9AD193B2A36CF179805f099e4F",
+      "type": "3",
+      "registry": "0x9b4D52E5dF2ad66e9CCd0b264C3515aF93033C1e",
+      "cryptoRegistry": "0x66C5f742ed9094381dE2cF9192e92d4680A040D0",
+      "pools": {
+        "usdc-wbtc-weth": {
+          "pool": "0x39815cc794dd986B8F97A4c8a7F70F0EA06E3Bcf"
+        }
+      }
+    },
+    "balancer": {
+      "router": "0x7E81309975d2D6fa3Bc1F91613a493CA2dafc155",
+      "type": "4",
+      "weightedPoolFactory": "0xd3839620Fd938B9De3E988a9b6fa3adE6A2043c2",
+      "pools": {
+        "usdc-weth": {
+          "pool": "0xC5153D54c0be1fBBce379ff612EE969426eF38b7",
+          "poolId": "0xc5153d54c0be1fbbce379ff612ee969426ef38b7000200000000000000000001"
+        },
+        "wbtc-weth": {
+          "pool": "0xF6E151F414B92C9199176A5aB6E998a3dddfeAc0",
+          "poolId": "0xf6e151f414b92c9199176a5ab6e998a3dddfeac0000200000000000000000002"
+        },
+        "wbtc-weth-usdc-link": {
+          "pool": "0x73d07656d825Cb8846f3a1B9600302F73dF8bb77",
+          "poolId": "0x73d07656d825cb8846f3a1b9600302f73df8bb77000100000000000000000003"
+        },
+        "uni-usdc": {
+          "pool": "0x9eCA9e9C05ed30B70365aD0732CD0Fc33647032d",
+          "poolId": "0x9eca9e9c05ed30b70365ad0732cd0fc33647032d000200000000000000000004"
+        },
+        "uni-weth": {
+          "pool": "0xAb88c08f6a5A4016326AC9436b809247cF22187c",
+          "poolId": "0xab88c08f6a5a4016326ac9436b809247cf22187c000200000000000000000005"
+        }
+      }
+    },
+    "meshswap": {
+      "router": "0x1a582702733d8aEcFC7C2bC24306Fa1e66Abc680",
+      "type": "6",
+      "factory": "0x7FCeA12Df59C72b9b573124041512D088843ab89"
+    }
+  },
+  "pricefeeds": {
+    "selfDeployed": {
+      "weth-usd": "0xFDa1727a665FB3C4fd03A0761f6E2e2D8466b3d4",
+      "wbtc-usd": "0xEE3156fFc76c803F7EdC678951E9b2d5d7b3D98C",
+      "usdc-usd": "0xC39D2C27244CfF7c0a474316A91682F2bAFe1cA1",
+      "link-usd": "0xF92025BBFAa67767211f5F4EA9909D7D628A3b93",
+      "uni-usd": "0x0bBB900338b70B6654275c5D800795339Af0042c",
+      "usdt-usd": "0xBDDc04dFDF7154F96443FcEA7a1a9A14AA4A1884",
+      "native-usd": "0xFDa1727a665FB3C4fd03A0761f6E2e2D8466b3d4"
+    }
+  },
+  "priceDropfeeds": {
+    "selfDeployed": {
+      "weth-usdc": "0xCCec83A34Ca10dD7aEd18af8641454C0518d6a9A",
+      "wbtc-usdc": "0x314d5B6C6c5e79945715C0b405A33ea1Ec534813",
+      "link-usdc": "0xa11868F2624C9a4D9AcCFDE172DD5Afad89A7f7c"
+    }
+  }
+}

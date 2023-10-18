@@ -1,0 +1,63 @@
+{
+  "adminAddress": "0xBAe01E6bCE146d23E547D159096Ac929aF0a62B3",
+  "guardianAddress":"0x081079f40CCd0A75344E843976bfaf176a3cb228", 
+  "emergencyAdmins": [
+    "0xc6C104DB1b744Eb247940BDBBF91172F29CBD67f",
+    "0x6CCA53446A228053f6ce9B0233B92A80336221EE",
+    "0x591Ba6a8cc1071FB715DEd16153C8BDb4b86206C",
+    "0xbeB650aE23b83c4eE8FF96E25CA9C82A51f17571",
+    "0x3172516876170F3dbF6D1d133564Ad0835dC7F15",
+    "0x73FD3C3f97a8C09E02DEd1531E7Eb8C2fafCcce1",
+    "0xBe0Fa24F3F1aD7ca46b28BD13d5de22211630585",
+    "0x1F4eB13d269D8d6Ab78B43125D0d9174531066eb"
+  ],
+  "isETHNative": false,
+  "assets": {
+    "weth": "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
+    "wbtc": "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6",
+    "wmatic": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
+    "usdc": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+    "usdt": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
+  },
+  "aave": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+  "dexes": {
+    "quickswap": {
+      "router": "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff",
+      "type": "1"
+    },
+    "sushiswap": {
+      "router": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",
+      "type": "1"
+    },
+    "uniswapv3": {
+      "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+      "type": "2",
+      "quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+    },
+    "curve": {
+      "router": "0x2a426b3Bb4fa87488387545f15D01d81352732F9",
+      "type": "3"
+    },
+    "balancer": {
+      "router": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+      "type": "4"
+    },
+    "quickswapv3": {
+      "router": "0xf5b509bB0909a69B1c207E495f687a596C168E12",
+      "type": "5",
+      "quoter": "0xa15F0D7377B2A0C0c10db057f641beD21028FC89"
+    },
+    "meshswap": {
+      "router": "0x10f4A785F458Bc144e3706575924889954946639",
+      "type": "6"
+    }
+  },
+  "pricefeeds": {
+    "wbtc-usd": "0xDE31F8bFBD8c84b5360CFACCa3539B938dd78ae6",
+    "usdc-usd": "0xfE4A8cc5b5B2366C1B58Bea3858e81843581b2F7",
+    "usdt-usd": "0x0A6513e40db6EB1b165753AD52E80663aeA50545",
+    "weth-usd": "0xF9680D99D6C9589e2a93a78A04A279e509205945",
+    "wmatic-usd": "0xAB594600376Ec9fD91F8e885dADF0CE036862dE0",
+    "native-usd": "0xAB594600376Ec9fD91F8e885dADF0CE036862dE0"
+  }
+}

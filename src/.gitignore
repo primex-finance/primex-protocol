@@ -1,0 +1,29 @@
+node_modules
+.env
+keystore
+
+config/localhost
+config/host
+
+#Hardhat files
+bin
+deployments
+docgen/**
+cache
+artifacts
+cache-zk
+artifacts-zk
+typechain
+networks.json
+docgen
+bin/
+coverage/
+coverage.json
+.openzeppelin/
+
+.idea/
+/contracts/hardhat-dependency-compiler/
+
+# echidna
+crytic-export
+corpus
