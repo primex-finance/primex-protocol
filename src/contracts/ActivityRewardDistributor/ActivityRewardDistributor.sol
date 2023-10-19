@@ -134,13 +134,14 @@ contract ActivityRewardDistributor is IActivityRewardDistributor, ActivityReward
         uint256 fixedReward = getBucketAccumulatedReward(bucket, role);
         if (bucketInfo.rewardPerDay != rewardPerDay) {
             bucketInfo.fixedReward = fixedReward;
-            uint256 timestamp = bucketInfo.totalReward > fixedReward ? block.timestamp : bucketInfo.endTimestamp;
-            bucketInfo.rewardIndex += _accumulatedRewardIndex(
-                bucketInfo.rewardPerToken,
-                timestamp,
-                bucketInfo.lastUpdatedTimestamp
-            );
-            bucketInfo.lastUpdatedTimestamp = block.timestamp;
+            if (bucketInfo.totalReward > fixedReward) {
+                bucketInfo.rewardIndex += _accumulatedRewardIndex(
+                    bucketInfo.rewardPerToken,
+                    block.timestamp,
+                    bucketInfo.lastUpdatedTimestamp
+                );
+                bucketInfo.lastUpdatedTimestamp = block.timestamp;
+            }
             bucketInfo.rewardPerDay = rewardPerDay;
             bucketInfo.rewardPerToken = _calculateRewardPerToken(rewardPerDay, bucketInfo.scaledTotalSupply);
             bucketInfo.lastUpdatedRewardTimestamp = block.timestamp;
@@ -177,13 +178,14 @@ contract ActivityRewardDistributor is IActivityRewardDistributor, ActivityReward
         _require(rewardPerDay < bucketInfo.rewardPerDay, Errors.REWARD_PER_DAY_IS_NOT_CORRECT.selector);
 
         bucketInfo.fixedReward = getBucketAccumulatedReward(bucket, role);
-        uint256 timestamp = bucketInfo.totalReward > bucketInfo.fixedReward ? block.timestamp : bucketInfo.endTimestamp;
-        bucketInfo.rewardIndex += _accumulatedRewardIndex(
-            bucketInfo.rewardPerToken,
-            timestamp,
-            bucketInfo.lastUpdatedTimestamp
-        );
-        bucketInfo.lastUpdatedTimestamp = block.timestamp;
+        if (bucketInfo.totalReward > bucketInfo.fixedReward) {
+            bucketInfo.rewardIndex += _accumulatedRewardIndex(
+                bucketInfo.rewardPerToken,
+                block.timestamp,
+                bucketInfo.lastUpdatedTimestamp
+            );
+            bucketInfo.lastUpdatedTimestamp = block.timestamp;
+        }
         bucketInfo.rewardPerDay = rewardPerDay;
         bucketInfo.rewardPerToken = _calculateRewardPerToken(rewardPerDay, bucketInfo.scaledTotalSupply);
         bucketInfo.lastUpdatedRewardTimestamp = block.timestamp;
@@ -213,12 +215,18 @@ contract ActivityRewardDistributor is IActivityRewardDistributor, ActivityReward
      */
     function withdrawPmx(address bucket, Role role, uint256 amount) external override onlyRole(BIG_TIMELOCK_ADMIN) {
         BucketInfo storage bucketInfo = buckets[bucket][uint256(role)];
-        uint256 fixedReward = getBucketAccumulatedReward(bucket, role);
-        _require(bucketInfo.totalReward - fixedReward >= amount, Errors.AMOUNT_EXCEEDS_AVAILABLE_BALANCE.selector);
+        bucketInfo.fixedReward = getBucketAccumulatedReward(bucket, role);
+        _require(
+            bucketInfo.totalReward - bucketInfo.fixedReward >= amount,
+            Errors.AMOUNT_EXCEEDS_AVAILABLE_BALANCE.selector
+        );
         bucketInfo.totalReward -= amount;
+        bucketInfo.lastUpdatedRewardTimestamp = block.timestamp;
         bucketInfo.endTimestamp = bucketInfo.rewardPerDay == 0
             ? type(uint256).max
-            : block.timestamp + ((bucketInfo.totalReward - fixedReward) * SECONDS_PER_DAY) / bucketInfo.rewardPerDay;
+            : block.timestamp +
+                ((bucketInfo.totalReward - bucketInfo.fixedReward) * SECONDS_PER_DAY) /
+                bucketInfo.rewardPerDay;
         IERC20(pmx).transfer(treasury, amount);
     }
 
@@ -238,6 +246,7 @@ contract ActivityRewardDistributor is IActivityRewardDistributor, ActivityReward
         uint256[] memory newBalances = new uint256[](1);
         newBalances[0] = newBalance;
         _updateBucketInfo(bucketInfo, users, newBalances, 1, true);
+        _fixUserReward(bucketInfo, user, newBalance);
     }
 
     /**
@@ -255,7 +264,11 @@ contract ActivityRewardDistributor is IActivityRewardDistributor, ActivityReward
 
         BucketInfo storage bucketInfo = buckets[bucketAddress][uint256(role)];
         if (bucketInfo.totalReward == 0 || bucketInfo.isFinished || bucketInfo.rewardPerDay == 0) return;
+
         _updateBucketInfo(bucketInfo, users, newBalances, length, role == Role.TRADER);
+        for (uint256 i; i < length; i++) {
+            _fixUserReward(bucketInfo, users[i], newBalances[i]);
+        }
     }
 
     /**
@@ -390,13 +403,8 @@ contract ActivityRewardDistributor is IActivityRewardDistributor, ActivityReward
                     bucketInfo.scaledTotalSupply +
                     newBalances[i] -
                     bucketInfo.users[users[i]].oldBalance;
-                _fixUserReward(bucketInfo, users[i], newBalances[i]);
             }
             bucketInfo.rewardPerToken = _calculateRewardPerToken(bucketInfo.rewardPerDay, bucketInfo.scaledTotalSupply);
-        } else {
-            for (uint256 i; i < length; i++) {
-                _fixUserReward(bucketInfo, users[i], newBalances[i]);
-            }
         }
     }
 

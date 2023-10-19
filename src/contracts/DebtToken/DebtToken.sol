@@ -170,7 +170,7 @@ contract DebtToken is IDebtToken, DebtTokenStorage {
 
         for (uint256 i; i < _length; i++) {
             amountsScaled[i] = _amounts[i].rdiv(_index);
-            if (hasFeeDecreaser) scaledBalances[i] = scaledBalanceOf(_users[i]);
+            if (hasRewardDistributor || hasFeeDecreaser) scaledBalances[i] = scaledBalanceOf(_users[i]);
         }
 
         if (hasFeeDecreaser) {
@@ -183,23 +183,19 @@ contract DebtToken is IDebtToken, DebtTokenStorage {
         for (uint256 i; i < _length; i++) {
             if (amountsScaled[i] > 0) {
                 _burn(_users[i], amountsScaled[i]);
-                if (hasRewardDistributor) scaledBalances[i] = scaledBalanceOf(_users[i]);
+                if (hasRewardDistributor) scaledBalances[i] -= amountsScaled[i];
             }
             emit Burn(_users[i], _amounts[i]);
         }
 
         if (hasRewardDistributor) {
-            try
-                traderRewardDistributor.updateUsersActivities(
-                    bucket,
-                    _users,
-                    scaledBalances,
-                    _length,
-                    IActivityRewardDistributor.Role.TRADER
-                )
-            {} catch {
-                emit Errors.Log(Errors.TRADER_REWARD_DISTRIBUTOR_CALL_FAILED.selector);
-            }
+            traderRewardDistributor.updateUsersActivities(
+                bucket,
+                _users,
+                scaledBalances,
+                _length,
+                IActivityRewardDistributor.Role.TRADER
+            );
         }
     }
 
