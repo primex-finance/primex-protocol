@@ -1,0 +1,767 @@
+{
+  "address": "0x38D94212AAe3f4aB3E4fE801d9021ab0aA371DaB",
+  "abi": [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "depositer",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "Deposit",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "version",
+          "type": "uint8"
+        }
+      ],
+      "name": "Initialized",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "Paused",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "Unpaused",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "withdrawer",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "Withdraw",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "balances",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "availableBalance",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "lockedBalance",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address[]",
+              "name": "traders",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "address",
+              "name": "asset",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "length",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct ITraderBalanceVault.BatchTopUpAvailableBalanceParams",
+          "name": "_params",
+          "type": "tuple"
+        }
+      ],
+      "name": "batchTopUpAvailableBalance",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_asset",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "deposit",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_trader",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_asset",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "increaseLockedBalance",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_registry",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_whiteBlackList",
+          "type": "address"
+        }
+      ],
+      "name": "initialize",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pause",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "paused",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "registry",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes4",
+          "name": "_interfaceId",
+          "type": "bytes4"
+        }
+      ],
+      "name": "supportsInterface",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "receiver",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "asset",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "topUpAvailableBalance",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "trader",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "receiver",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "asset",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct ITraderBalanceVault.UnlockAssetParams",
+          "name": "_params",
+          "type": "tuple"
+        }
+      ],
+      "name": "unlockAsset",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "unpause",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "trader",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "depositReceiver",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "depositAsset",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "depositAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "enum ITraderBalanceVault.OpenType",
+              "name": "openType",
+              "type": "uint8"
+            }
+          ],
+          "internalType": "struct ITraderBalanceVault.LockAssetParams",
+          "name": "_params",
+          "type": "tuple"
+        }
+      ],
+      "name": "useTraderAssets",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_asset",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "withdraw",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_from",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_to",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_asset",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "fromLocked",
+          "type": "bool"
+        }
+      ],
+      "name": "withdrawFrom",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "receive"
+    }
+  ],
+  "transactionHash": "0x018093b1b30a84cda621697fb2e36f87372311b684997d2336b9f34e99fbd73e",
+  "receipt": {
+    "to": null,
+    "from": "0xC110b6e93a51ACF1f3DEd19c754789E7A2304F07",
+    "contractAddress": "0x38D94212AAe3f4aB3E4fE801d9021ab0aA371DaB",
+    "transactionIndex": 7,
+    "gasUsed": "1443785",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000008000000000000000000000000000000000000002000000000000000000800000000000000000010110000000000000000800000000000000000000000000000000000000000080000000000000000000000000000000200000000020000000000000000080000000000000000000200000000000000000000000000400000000000000000000000000000000004000000000000000000001000000040000000000000000000000100000000000000000000000080000000008000000000000000000000000000000000000100000",
+    "blockHash": "0x054cdb1401cf0e1d083daac4a998dd2c3cebe020749a67b0a522e12f4099b006",
+    "transactionHash": "0x018093b1b30a84cda621697fb2e36f87372311b684997d2336b9f34e99fbd73e",
+    "logs": [
+      {
+        "transactionIndex": 7,
+        "blockNumber": 48547622,
+        "transactionHash": "0x018093b1b30a84cda621697fb2e36f87372311b684997d2336b9f34e99fbd73e",
+        "address": "0x38D94212AAe3f4aB3E4fE801d9021ab0aA371DaB",
+        "topics": [
+          "0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498"
+        ],
+        "data": "0x00000000000000000000000000000000000000000000000000000000000000ff",
+        "logIndex": 55,
+        "blockHash": "0x054cdb1401cf0e1d083daac4a998dd2c3cebe020749a67b0a522e12f4099b006"
+      },
+      {
+        "transactionIndex": 7,
+        "blockNumber": 48547622,
+        "transactionHash": "0x018093b1b30a84cda621697fb2e36f87372311b684997d2336b9f34e99fbd73e",
+        "address": "0x0000000000000000000000000000000000001010",
+        "topics": [
+          "0x4dfe1bbbcf077ddc3e01291eea2d5c70c2b422b415d95645b9adcfd678cb1d63",
+          "0x0000000000000000000000000000000000000000000000000000000000001010",
+          "0x000000000000000000000000c110b6e93a51acf1f3ded19c754789e7a2304f07",
+          "0x00000000000000000000000002f70172f7f490653665c9bfac0666147c8af1f5"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000000165baf4edc8dfa8000000000000000000000000000000000000000000000001d140ac81e2b148000000000000000000000000000000000000000000000000b47303b2c175e8ec5d000000000000000000000000000000000000000000000001cfdaf18cf4e868580000000000000000000000000000000000000000000000b474696db663b1cc05",
+        "logIndex": 56,
+        "blockHash": "0x054cdb1401cf0e1d083daac4a998dd2c3cebe020749a67b0a522e12f4099b006"
+      }
+    ],
+    "blockNumber": 48547622,
+    "cumulativeGasUsed": "2726747",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [],
+  "numDeployments": 1,
+  "solcInputHash": "77b92b6c993777e32b56dbda936965f9",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.18+commit.87f61d96\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"depositer\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Deposit\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Paused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Unpaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"withdrawer\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Withdraw\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"balances\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"availableBalance\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"lockedBalance\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address[]\",\"name\":\"traders\",\"type\":\"address[]\"},{\"internalType\":\"uint256[]\",\"name\":\"amounts\",\"type\":\"uint256[]\"},{\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"length\",\"type\":\"uint256\"}],\"internalType\":\"struct ITraderBalanceVault.BatchTopUpAvailableBalanceParams\",\"name\":\"_params\",\"type\":\"tuple\"}],\"name\":\"batchTopUpAvailableBalance\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_asset\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"deposit\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_trader\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_asset\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"increaseLockedBalance\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_registry\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_whiteBlackList\",\"type\":\"address\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"paused\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"registry\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"_interfaceId\",\"type\":\"bytes4\"}],\"name\":\"supportsInterface\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"topUpAvailableBalance\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"trader\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"internalType\":\"struct ITraderBalanceVault.UnlockAssetParams\",\"name\":\"_params\",\"type\":\"tuple\"}],\"name\":\"unlockAsset\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"trader\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"depositReceiver\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"depositAsset\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"depositAmount\",\"type\":\"uint256\"},{\"internalType\":\"enum ITraderBalanceVault.OpenType\",\"name\":\"openType\",\"type\":\"uint8\"}],\"internalType\":\"struct ITraderBalanceVault.LockAssetParams\",\"name\":\"_params\",\"type\":\"tuple\"}],\"name\":\"useTraderAssets\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_asset\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"withdraw\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_asset\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"fromLocked\",\"type\":\"bool\"}],\"name\":\"withdrawFrom\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}],\"devdoc\":{\"events\":{\"Initialized(uint8)\":{\"details\":\"Triggered when the contract has been initialized or reinitialized.\"},\"Paused(address)\":{\"details\":\"Emitted when the pause is triggered by `account`.\"},\"Unpaused(address)\":{\"details\":\"Emitted when the pause is lifted by `account`.\"}},\"kind\":\"dev\",\"methods\":{\"batchTopUpAvailableBalance((address[],uint256[],address,uint256))\":{\"params\":{\"_params\":\"A struct containing BatchTopUpAvailableBalanceParams\"}},\"deposit(address,uint256)\":{\"details\":\"Deposits trader collateral for margin deal\",\"params\":{\"_amount\":\"The amount of '_asset' to deposit\",\"_asset\":\"The collateral asset for deal\"}},\"increaseLockedBalance(address,address,uint256)\":{\"details\":\"Traders lock their collateral for the limit order.\",\"params\":{\"_amount\":\"The amount of '_asset' to deposit\",\"_asset\":\"The collateral asset for deal\",\"_trader\":\"The owner of collateral\"}},\"initialize(address,address)\":{\"details\":\"contract initializer\",\"params\":{\"_registry\":\"The address of Registry contract\",\"_whiteBlackList\":\"The address of WhiteBlackList contract\"}},\"pause()\":{\"details\":\"Triggers stopped state. This function can only be called by an address with the EMERGENCY_ADMIN role. Requirements: - The contract must not be paused.\"},\"paused()\":{\"details\":\"Returns true if the contract is paused, and false otherwise.\"},\"supportsInterface(bytes4)\":{\"params\":{\"_interfaceId\":\"The interface id to check\"}},\"topUpAvailableBalance(address,address,uint256)\":{\"params\":{\"amount\":\"The amount of an asset\",\"asset\":\"The asset address for which available balance will be increased\",\"receiver\":\"The address of an asset receiver\"}},\"unlockAsset((address,address,address,uint256))\":{\"details\":\"Unlocks trader's collateral when open position by order or update deposit.\",\"params\":{\"_params\":\"parameters necessary to unlock asset\"}},\"unpause()\":{\"details\":\"Returns to normal state. This function can only be called by an address with the SMALL_TIMELOCK_ADMIN or MEDIUM_TIMELOCK_ADMIN role depending on the contract. Requirements: - The contract must be paused.\"},\"useTraderAssets((address,address,address,uint256,uint8))\":{\"details\":\"Locks deposited trader's assets as collateral for orders. Decreases the available balance when opening position. Transfers deposited amount to the deposit receiver.\",\"params\":{\"_params\":\"parameters necessary to lock asset\"}},\"withdraw(address,uint256)\":{\"details\":\"Withdraws the rest of trader's deposit after closing deal\",\"params\":{\"_amount\":\"The amount of '_asset' to withdraw\",\"_asset\":\"The collateral asset for withdraw\"}},\"withdrawFrom(address,address,address,uint256,bool)\":{\"params\":{\"_amount\":\"Amount of an asset\",\"_asset\":\"Address of an asset\",\"_from\":\"Withdraw from address\",\"_to\":\"Withdraw to address\",\"fromLocked\":\"True if withdraw from locked balance\"}}},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"batchTopUpAvailableBalance((address[],uint256[],address,uint256))\":{\"notice\":\"The function to increase available balance for several traders\"},\"supportsInterface(bytes4)\":{\"notice\":\"Interface checker\"},\"topUpAvailableBalance(address,address,uint256)\":{\"notice\":\"Increases available balance of a receiver in the protocol\"},\"withdrawFrom(address,address,address,uint256,bool)\":{\"notice\":\"Withdraws an asset amount from an asset holder to a receiver\"}},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/TraderBalanceVault/TraderBalanceVault.sol\":\"TraderBalanceVault\"},\"evmVersion\":\"paris\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[],\"viaIR\":true},\"sources\":{\"@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts (last updated v4.9.0) (proxy/utils/Initializable.sol)\\n\\npragma solidity ^0.8.2;\\n\\nimport \\\"../../utils/AddressUpgradeable.sol\\\";\\n\\n/**\\n * @dev This is a base contract to aid in writing upgradeable contracts, or any kind of contract that will be deployed\\n * behind a proxy. Since proxied contracts do not make use of a constructor, it's common to move constructor logic to an\\n * external initializer function, usually called `initialize`. It then becomes necessary to protect this initializer\\n * function so it can only be called once. The {initializer} modifier provided by this contract will have this effect.\\n *\\n * The initialization functions use a version number. Once a version number is used, it is consumed and cannot be\\n * reused. This mechanism prevents re-execution of each \\\"step\\\" but allows the creation of new initialization steps in\\n * case an upgrade adds a module that needs to be initialized.\\n *\\n * For example:\\n *\\n * [.hljs-theme-light.nopadding]\\n * ```solidity\\n * contract MyToken is ERC20Upgradeable {\\n *     function initialize() initializer public {\\n *         __ERC20_init(\\\"MyToken\\\", \\\"MTK\\\");\\n *     }\\n * }\\n *\\n * contract MyTokenV2 is MyToken, ERC20PermitUpgradeable {\\n *     function initializeV2() reinitializer(2) public {\\n *         __ERC20Permit_init(\\\"MyToken\\\");\\n *     }\\n * }\\n * ```\\n *\\n * TIP: To avoid leaving the proxy in an uninitialized state, the initializer function should be called as early as\\n * possible by providing the encoded function call as the `_data` argument to {ERC1967Proxy-constructor}.\\n *\\n * CAUTION: When used with inheritance, manual care must be taken to not invoke a parent initializer twice, or to ensure\\n * that all initializers are idempotent. This is not verified automatically as constructors are by Solidity.\\n *\\n * [CAUTION]\\n * ====\\n * Avoid leaving a contract uninitialized.\\n *\\n * An uninitialized contract can be taken over by an attacker. This applies to both a proxy and its implementation\\n * contract, which may impact the proxy. To prevent the implementation contract from being used, you should invoke\\n * the {_disableInitializers} function in the constructor to automatically lock it when it is deployed:\\n *\\n * [.hljs-theme-light.nopadding]\\n * ```\\n * /// @custom:oz-upgrades-unsafe-allow constructor\\n * constructor() {\\n *     _disableInitializers();\\n * }\\n * ```\\n * ====\\n */\\nabstract contract Initializable {\\n    /**\\n     * @dev Indicates that the contract has been initialized.\\n     * @custom:oz-retyped-from bool\\n     */\\n    uint8 private _initialized;\\n\\n    /**\\n     * @dev Indicates that the contract is in the process of being initialized.\\n     */\\n    bool private _initializing;\\n\\n    /**\\n     * @dev Triggered when the contract has been initialized or reinitialized.\\n     */\\n    event Initialized(uint8 version);\\n\\n    /**\\n     * @dev A modifier that defines a protected initializer function that can be invoked at most once. In its scope,\\n     * `onlyInitializing` functions can be used to initialize parent contracts.\\n     *\\n     * Similar to `reinitializer(1)`, except that functions marked with `initializer` can be nested in the context of a\\n     * constructor.\\n     *\\n     * Emits an {Initialized} event.\\n     */\\n    modifier initializer() {\\n        bool isTopLevelCall = !_initializing;\\n        require(\\n            (isTopLevelCall && _initialized < 1) || (!AddressUpgradeable.isContract(address(this)) && _initialized == 1),\\n            \\\"Initializable: contract is already initialized\\\"\\n        );\\n        _initialized = 1;\\n        if (isTopLevelCall) {\\n            _initializing = true;\\n        }\\n        _;\\n        if (isTopLevelCall) {\\n            _initializing = false;\\n            emit Initialized(1);\\n        }\\n    }\\n\\n    /**\\n     * @dev A modifier that defines a protected reinitializer function that can be invoked at most once, and only if the\\n     * contract hasn't been initialized to a greater version before. In its scope, `onlyInitializing` functions can be\\n     * used to initialize parent contracts.\\n     *\\n     * A reinitializer may be used after the original initialization step. This is essential to configure modules that\\n     * are added through upgrades and that require initialization.\\n     *\\n     * When `version` is 1, this modifier is similar to `initializer`, except that functions marked with `reinitializer`\\n     * cannot be nested. If one is invoked in the context of another, execution will revert.\\n     *\\n     * Note that versions can jump in increments greater than 1; this implies that if multiple reinitializers coexist in\\n     * a contract, executing them in the right order is up to the developer or operator.\\n     *\\n     * WARNING: setting the version to 255 will prevent any future reinitialization.\\n     *\\n     * Emits an {Initialized} event.\\n     */\\n    modifier reinitializer(uint8 version) {\\n        require(!_initializing && _initialized < version, \\\"Initializable: contract is already initialized\\\");\\n        _initialized = version;\\n        _initializing = true;\\n        _;\\n        _initializing = false;\\n        emit Initialized(version);\\n    }\\n\\n    /**\\n     * @dev Modifier to protect an initialization function so that it can only be invoked by functions with the\\n     * {initializer} and {reinitializer} modifiers, directly or indirectly.\\n     */\\n    modifier onlyInitializing() {\\n        require(_initializing, \\\"Initializable: contract is not initializing\\\");\\n        _;\\n    }\\n\\n    /**\\n     * @dev Locks the contract, preventing any future reinitialization. This cannot be part of an initializer call.\\n     * Calling this in the constructor of a contract will prevent that contract from being initialized or reinitialized\\n     * to any version. It is recommended to use this to lock implementation contracts that are designed to be called\\n     * through proxies.\\n     *\\n     * Emits an {Initialized} event the first time it is successfully executed.\\n     */\\n    function _disableInitializers() internal virtual {\\n        require(!_initializing, \\\"Initializable: contract is initializing\\\");\\n        if (_initialized != type(uint8).max) {\\n            _initialized = type(uint8).max;\\n            emit Initialized(type(uint8).max);\\n        }\\n    }\\n\\n    /**\\n     * @dev Returns the highest version that has been initialized. See {reinitializer}.\\n     */\\n    function _getInitializedVersion() internal view returns (uint8) {\\n        return _initialized;\\n    }\\n\\n    /**\\n     * @dev Returns `true` if the contract is currently initializing. See {onlyInitializing}.\\n     */\\n    function _isInitializing() internal view returns (bool) {\\n        return _initializing;\\n    }\\n}\\n\",\"keccak256\":\"0x89be10e757d242e9b18d5a32c9fbe2019f6d63052bbe46397a430a1d60d7f794\",\"license\":\"MIT\"},\"@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts (last updated v4.7.0) (security/Pausable.sol)\\n\\npragma solidity ^0.8.0;\\n\\nimport \\\"../utils/ContextUpgradeable.sol\\\";\\nimport \\\"../proxy/utils/Initializable.sol\\\";\\n\\n/**\\n * @dev Contract module which allows children to implement an emergency stop\\n * mechanism that can be triggered by an authorized account.\\n *\\n * This module is used through inheritance. It will make available the\\n * modifiers `whenNotPaused` and `whenPaused`, which can be applied to\\n * the functions of your contract. Note that they will not be pausable by\\n * simply including this module, only once the modifiers are put in place.\\n */\\nabstract contract PausableUpgradeable is Initializable, ContextUpgradeable {\\n    /**\\n     * @dev Emitted when the pause is triggered by `account`.\\n     */\\n    event Paused(address account);\\n\\n    /**\\n     * @dev Emitted when the pause is lifted by `account`.\\n     */\\n    event Unpaused(address account);\\n\\n    bool private _paused;\\n\\n    /**\\n     * @dev Initializes the contract in unpaused state.\\n     */\\n    function __Pausable_init() internal onlyInitializing {\\n        __Pausable_init_unchained();\\n    }\\n\\n    function __Pausable_init_unchained() internal onlyInitializing {\\n        _paused = false;\\n    }\\n\\n    /**\\n     * @dev Modifier to make a function callable only when the contract is not paused.\\n     *\\n     * Requirements:\\n     *\\n     * - The contract must not be paused.\\n     */\\n    modifier whenNotPaused() {\\n        _requireNotPaused();\\n        _;\\n    }\\n\\n    /**\\n     * @dev Modifier to make a function callable only when the contract is paused.\\n     *\\n     * Requirements:\\n     *\\n     * - The contract must be paused.\\n     */\\n    modifier whenPaused() {\\n        _requirePaused();\\n        _;\\n    }\\n\\n    /**\\n     * @dev Returns true if the contract is paused, and false otherwise.\\n     */\\n    function paused() public view virtual returns (bool) {\\n        return _paused;\\n    }\\n\\n    /**\\n     * @dev Throws if the contract is paused.\\n     */\\n    function _requireNotPaused() internal view virtual {\\n        require(!paused(), \\\"Pausable: paused\\\");\\n    }\\n\\n    /**\\n     * @dev Throws if the contract is not paused.\\n     */\\n    function _requirePaused() internal view virtual {\\n        require(paused(), \\\"Pausable: not paused\\\");\\n    }\\n\\n    /**\\n     * @dev Triggers stopped state.\\n     *\\n     * Requirements:\\n     *\\n     * - The contract must not be paused.\\n     */\\n    function _pause() internal virtual whenNotPaused {\\n        _paused = true;\\n        emit Paused(_msgSender());\\n    }\\n\\n    /**\\n     * @dev Returns to normal state.\\n     *\\n     * Requirements:\\n     *\\n     * - The contract must be paused.\\n     */\\n    function _unpause() internal virtual whenPaused {\\n        _paused = false;\\n        emit Unpaused(_msgSender());\\n    }\\n\\n    /**\\n     * @dev This empty reserved space is put in place to allow future versions to add new\\n     * variables without shifting down storage in the inheritance chain.\\n     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps\\n     */\\n    uint256[49] private __gap;\\n}\\n\",\"keccak256\":\"0x40c636b4572ff5f1dc50cf22097e93c0723ee14eff87e99ac2b02636eeca1250\",\"license\":\"MIT\"},\"@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts (last updated v4.9.0) (security/ReentrancyGuard.sol)\\n\\npragma solidity ^0.8.0;\\nimport \\\"../proxy/utils/Initializable.sol\\\";\\n\\n/**\\n * @dev Contract module that helps prevent reentrant calls to a function.\\n *\\n * Inheriting from `ReentrancyGuard` will make the {nonReentrant} modifier\\n * available, which can be applied to functions to make sure there are no nested\\n * (reentrant) calls to them.\\n *\\n * Note that because there is a single `nonReentrant` guard, functions marked as\\n * `nonReentrant` may not call one another. This can be worked around by making\\n * those functions `private`, and then adding `external` `nonReentrant` entry\\n * points to them.\\n *\\n * TIP: If you would like to learn more about reentrancy and alternative ways\\n * to protect against it, check out our blog post\\n * https://blog.openzeppelin.com/reentrancy-after-istanbul/[Reentrancy After Istanbul].\\n */\\nabstract contract ReentrancyGuardUpgradeable is Initializable {\\n    // Booleans are more expensive than uint256 or any type that takes up a full\\n    // word because each write operation emits an extra SLOAD to first read the\\n    // slot's contents, replace the bits taken up by the boolean, and then write\\n    // back. This is the compiler's defense against contract upgrades and\\n    // pointer aliasing, and it cannot be disabled.\\n\\n    // The values being non-zero value makes deployment a bit more expensive,\\n    // but in exchange the refund on every call to nonReentrant will be lower in\\n    // amount. Since refunds are capped to a percentage of the total\\n    // transaction's gas, it is best to keep them low in cases like this one, to\\n    // increase the likelihood of the full refund coming into effect.\\n    uint256 private constant _NOT_ENTERED = 1;\\n    uint256 private constant _ENTERED = 2;\\n\\n    uint256 private _status;\\n\\n    function __ReentrancyGuard_init() internal onlyInitializing {\\n        __ReentrancyGuard_init_unchained();\\n    }\\n\\n    function __ReentrancyGuard_init_unchained() internal onlyInitializing {\\n        _status = _NOT_ENTERED;\\n    }\\n\\n    /**\\n     * @dev Prevents a contract from calling itself, directly or indirectly.\\n     * Calling a `nonReentrant` function from another `nonReentrant`\\n     * function is not supported. It is possible to prevent this from happening\\n     * by making the `nonReentrant` function external, and making it call a\\n     * `private` function that does the actual work.\\n     */\\n    modifier nonReentrant() {\\n        _nonReentrantBefore();\\n        _;\\n        _nonReentrantAfter();\\n    }\\n\\n    function _nonReentrantBefore() private {\\n        // On the first call to nonReentrant, _status will be _NOT_ENTERED\\n        require(_status != _ENTERED, \\\"ReentrancyGuard: reentrant call\\\");\\n\\n        // Any calls to nonReentrant after this point will fail\\n        _status = _ENTERED;\\n    }\\n\\n    function _nonReentrantAfter() private {\\n        // By storing the original value once again, a refund is triggered (see\\n        // https://eips.ethereum.org/EIPS/eip-2200)\\n        _status = _NOT_ENTERED;\\n    }\\n\\n    /**\\n     * @dev Returns true if the reentrancy guard is currently set to \\\"entered\\\", which indicates there is a\\n     * `nonReentrant` function in the call stack.\\n     */\\n    function _reentrancyGuardEntered() internal view returns (bool) {\\n        return _status == _ENTERED;\\n    }\\n\\n    /**\\n     * @dev This empty reserved space is put in place to allow future versions to add new\\n     * variables without shifting down storage in the inheritance chain.\\n     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps\\n     */\\n    uint256[49] private __gap;\\n}\\n\",\"keccak256\":\"0xb82ef33f43b6b96109687d91b39c94573fdccaaa423fe28e8ba0977b31c023e0\",\"license\":\"MIT\"},\"@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts (last updated v4.9.0) (utils/Address.sol)\\n\\npragma solidity ^0.8.1;\\n\\n/**\\n * @dev Collection of functions related to the address type\\n */\\nlibrary AddressUpgradeable {\\n    /**\\n     * @dev Returns true if `account` is a contract.\\n     *\\n     * [IMPORTANT]\\n     * ====\\n     * It is unsafe to assume that an address for which this function returns\\n     * false is an externally-owned account (EOA) and not a contract.\\n     *\\n     * Among others, `isContract` will return false for the following\\n     * types of addresses:\\n     *\\n     *  - an externally-owned account\\n     *  - a contract in construction\\n     *  - an address where a contract will be created\\n     *  - an address where a contract lived, but was destroyed\\n     *\\n     * Furthermore, `isContract` will also return true if the target contract within\\n     * the same transaction is already scheduled for destruction by `SELFDESTRUCT`,\\n     * which only has an effect at the end of a transaction.\\n     * ====\\n     *\\n     * [IMPORTANT]\\n     * ====\\n     * You shouldn't rely on `isContract` to protect against flash loan attacks!\\n     *\\n     * Preventing calls from contracts is highly discouraged. It breaks composability, breaks support for smart wallets\\n     * like Gnosis Safe, and does not provide security since it can be circumvented by calling from a contract\\n     * constructor.\\n     * ====\\n     */\\n    function isContract(address account) internal view returns (bool) {\\n        // This method relies on extcodesize/address.code.length, which returns 0\\n        // for contracts in construction, since the code is only stored at the end\\n        // of the constructor execution.\\n\\n        return account.code.length > 0;\\n    }\\n\\n    /**\\n     * @dev Replacement for Solidity's `transfer`: sends `amount` wei to\\n     * `recipient`, forwarding all available gas and reverting on errors.\\n     *\\n     * https://eips.ethereum.org/EIPS/eip-1884[EIP1884] increases the gas cost\\n     * of certain opcodes, possibly making contracts go over the 2300 gas limit\\n     * imposed by `transfer`, making them unable to receive funds via\\n     * `transfer`. {sendValue} removes this limitation.\\n     *\\n     * https://consensys.net/diligence/blog/2019/09/stop-using-soliditys-transfer-now/[Learn more].\\n     *\\n     * IMPORTANT: because control is transferred to `recipient`, care must be\\n     * taken to not create reentrancy vulnerabilities. Consider using\\n     * {ReentrancyGuard} or the\\n     * https://solidity.readthedocs.io/en/v0.8.0/security-considerations.html#use-the-checks-effects-interactions-pattern[checks-effects-interactions pattern].\\n     */\\n    function sendValue(address payable recipient, uint256 amount) internal {\\n        require(address(this).balance >= amount, \\\"Address: insufficient balance\\\");\\n\\n        (bool success, ) = recipient.call{value: amount}(\\\"\\\");\\n        require(success, \\\"Address: unable to send value, recipient may have reverted\\\");\\n    }\\n\\n    /**\\n     * @dev Performs a Solidity function call using a low level `call`. A\\n     * plain `call` is an unsafe replacement for a function call: use this\\n     * function instead.\\n     *\\n     * If `target` reverts with a revert reason, it is bubbled up by this\\n     * function (like regular Solidity function calls).\\n     *\\n     * Returns the raw returned data. To convert to the expected return value,\\n     * use https://solidity.readthedocs.io/en/latest/units-and-global-variables.html?highlight=abi.decode#abi-encoding-and-decoding-functions[`abi.decode`].\\n     *\\n     * Requirements:\\n     *\\n     * - `target` must be a contract.\\n     * - calling `target` with `data` must not revert.\\n     *\\n     * _Available since v3.1._\\n     */\\n    function functionCall(address target, bytes memory data) internal returns (bytes memory) {\\n        return functionCallWithValue(target, data, 0, \\\"Address: low-level call failed\\\");\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`], but with\\n     * `errorMessage` as a fallback revert reason when `target` reverts.\\n     *\\n     * _Available since v3.1._\\n     */\\n    function functionCall(\\n        address target,\\n        bytes memory data,\\n        string memory errorMessage\\n    ) internal returns (bytes memory) {\\n        return functionCallWithValue(target, data, 0, errorMessage);\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],\\n     * but also transferring `value` wei to `target`.\\n     *\\n     * Requirements:\\n     *\\n     * - the calling contract must have an ETH balance of at least `value`.\\n     * - the called Solidity function must be `payable`.\\n     *\\n     * _Available since v3.1._\\n     */\\n    function functionCallWithValue(address target, bytes memory data, uint256 value) internal returns (bytes memory) {\\n        return functionCallWithValue(target, data, value, \\\"Address: low-level call with value failed\\\");\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCallWithValue-address-bytes-uint256-}[`functionCallWithValue`], but\\n     * with `errorMessage` as a fallback revert reason when `target` reverts.\\n     *\\n     * _Available since v3.1._\\n     */\\n    function functionCallWithValue(\\n        address target,\\n        bytes memory data,\\n        uint256 value,\\n        string memory errorMessage\\n    ) internal returns (bytes memory) {\\n        require(address(this).balance >= value, \\\"Address: insufficient balance for call\\\");\\n        (bool success, bytes memory returndata) = target.call{value: value}(data);\\n        return verifyCallResultFromTarget(target, success, returndata, errorMessage);\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],\\n     * but performing a static call.\\n     *\\n     * _Available since v3.3._\\n     */\\n    function functionStaticCall(address target, bytes memory data) internal view returns (bytes memory) {\\n        return functionStaticCall(target, data, \\\"Address: low-level static call failed\\\");\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],\\n     * but performing a static call.\\n     *\\n     * _Available since v3.3._\\n     */\\n    function functionStaticCall(\\n        address target,\\n        bytes memory data,\\n        string memory errorMessage\\n    ) internal view returns (bytes memory) {\\n        (bool success, bytes memory returndata) = target.staticcall(data);\\n        return verifyCallResultFromTarget(target, success, returndata, errorMessage);\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],\\n     * but performing a delegate call.\\n     *\\n     * _Available since v3.4._\\n     */\\n    function functionDelegateCall(address target, bytes memory data) internal returns (bytes memory) {\\n        return functionDelegateCall(target, data, \\\"Address: low-level delegate call failed\\\");\\n    }\\n\\n    /**\\n     * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],\\n     * but performing a delegate call.\\n     *\\n     * _Available since v3.4._\\n     */\\n    function functionDelegateCall(\\n        address target,\\n        bytes memory data,\\n        string memory errorMessage\\n    ) internal returns (bytes memory) {\\n        (bool success, bytes memory returndata) = target.delegatecall(data);\\n        return verifyCallResultFromTarget(target, success, returndata, errorMessage);\\n    }\\n\\n    /**\\n     * @dev Tool to verify that a low level call to smart-contract was successful, and revert (either by bubbling\\n     * the revert reason or using the provided one) in case of unsuccessful call or if target was not a contract.\\n     *\\n     * _Available since v4.8._\\n     */\\n    function verifyCallResultFromTarget(\\n        address target,\\n        bool success,\\n        bytes memory returndata,\\n        string memory errorMessage\\n    ) internal view returns (bytes memory) {\\n        if (success) {\\n            if (returndata.length == 0) {\\n                // only check isContract if the call was successful and the return data is empty\\n                // otherwise we already know that it was a contract\\n                require(isContract(target), \\\"Address: call to non-contract\\\");\\n            }\\n            return returndata;\\n        } else {\\n            _revert(returndata, errorMessage);\\n        }\\n    }\\n\\n    /**\\n     * @dev Tool to verify that a low level call was successful, and revert if it wasn't, either by bubbling the\\n     * revert reason or using the provided one.\\n     *\\n     * _Available since v4.3._\\n     */\\n    function verifyCallResult(\\n        bool success,\\n        bytes memory returndata,\\n        string memory errorMessage\\n    ) internal pure returns (bytes memory) {\\n        if (success) {\\n            return returndata;\\n        } else {\\n            _revert(returndata, errorMessage);\\n        }\\n    }\\n\\n    function _revert(bytes memory returndata, string memory errorMessage) private pure {\\n        // Look for revert reason and bubble it up if present\\n        if (returndata.length > 0) {\\n            // The easiest way to bubble the revert reason is using memory via assembly\\n            /// @solidity memory-safe-assembly\\n            assembly {\\n                let returndata_size := mload(returndata)\\n                revert(add(32, returndata), returndata_size)\\n            }\\n        } else {\\n            revert(errorMessage);\\n        }\\n    }\\n}\\n\",\"keccak256\":\"0x9c80f545915582e63fe206c6ce27cbe85a86fc10b9cd2a0e8c9488fb7c2ee422\",\"license\":\"MIT\"},\"@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts v4.4.1 (utils/Context.sol)\\n\\npragma solidity ^0.8.0;\\nimport \\\"../proxy/utils/Initializable.sol\\\";\\n\\n/**\\n * @dev Provides information about the current execution context, including the\\n * sender of the transaction and its data. While these are generally available\\n * via msg.sender and msg.data, they should not be accessed in such a direct\\n * manner, since when dealing with meta-transactions the account sending and\\n * paying for execution may not be the actual sender (as far as an application\\n * is concerned).\\n *\\n * This contract is only required for intermediate, library-like contracts.\\n */\\nabstract contract ContextUpgradeable is Initializable {\\n    function __Context_init() internal onlyInitializing {\\n    }\\n\\n    function __Context_init_unchained() internal onlyInitializing {\\n    }\\n    function _msgSender() internal view virtual returns (address) {\\n        return msg.sender;\\n    }\\n\\n    function _msgData() internal view virtual returns (bytes calldata) {\\n        return msg.data;\\n    }\\n\\n    /**\\n     * @dev This empty reserved space is put in place to allow future versions to add new\\n     * variables without shifting down storage in the inheritance chain.\\n     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps\\n     */\\n    uint256[50] private __gap;\\n}\\n\",\"keccak256\":\"0x963ea7f0b48b032eef72fe3a7582edf78408d6f834115b9feadd673a4d5bd149\",\"license\":\"MIT\"},\"@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts v4.4.1 (utils/introspection/ERC165.sol)\\n\\npragma solidity ^0.8.0;\\n\\nimport \\\"./IERC165Upgradeable.sol\\\";\\nimport \\\"../../proxy/utils/Initializable.sol\\\";\\n\\n/**\\n * @dev Implementation of the {IERC165} interface.\\n *\\n * Contracts that want to implement ERC165 should inherit from this contract and override {supportsInterface} to check\\n * for the additional interface id that will be supported. For example:\\n *\\n * ```solidity\\n * function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {\\n *     return interfaceId == type(MyInterface).interfaceId || super.supportsInterface(interfaceId);\\n * }\\n * ```\\n *\\n * Alternatively, {ERC165Storage} provides an easier to use but more expensive implementation.\\n */\\nabstract contract ERC165Upgradeable is Initializable, IERC165Upgradeable {\\n    function __ERC165_init() internal onlyInitializing {\\n    }\\n\\n    function __ERC165_init_unchained() internal onlyInitializing {\\n    }\\n    /**\\n     * @dev See {IERC165-supportsInterface}.\\n     */\\n    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {\\n        return interfaceId == type(IERC165Upgradeable).interfaceId;\\n    }\\n\\n    /**\\n     * @dev This empty reserved space is put in place to allow future versions to add new\\n     * variables without shifting down storage in the inheritance chain.\\n     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps\\n     */\\n    uint256[50] private __gap;\\n}\\n\",\"keccak256\":\"0x9a3b990bd56d139df3e454a9edf1c64668530b5a77fc32eb063bc206f958274a\",\"license\":\"MIT\"},\"@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts v4.4.1 (utils/introspection/IERC165.sol)\\n\\npragma solidity ^0.8.0;\\n\\n/**\\n * @dev Interface of the ERC165 standard, as defined in the\\n * https://eips.ethereum.org/EIPS/eip-165[EIP].\\n *\\n * Implementers can declare support of contract interfaces, which can then be\\n * queried by others ({ERC165Checker}).\\n *\\n * For an implementation, see {ERC165}.\\n */\\ninterface IERC165Upgradeable {\\n    /**\\n     * @dev Returns true if this contract implements the interface defined by\\n     * `interfaceId`. See the corresponding\\n     * https://eips.ethereum.org/EIPS/eip-165#how-interfaces-are-identified[EIP section]\\n     * to learn more about how these ids are created.\\n     *\\n     * This function call must use less than 30 000 gas.\\n     */\\n    function supportsInterface(bytes4 interfaceId) external view returns (bool);\\n}\\n\",\"keccak256\":\"0xc6cef87559d0aeffdf0a99803de655938a7779ec0a3cd5d4383483ad85565a09\",\"license\":\"MIT\"},\"@openzeppelin/contracts/access/IAccessControl.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts v4.4.1 (access/IAccessControl.sol)\\n\\npragma solidity ^0.8.0;\\n\\n/**\\n * @dev External interface of AccessControl declared to support ERC165 detection.\\n */\\ninterface IAccessControl {\\n    /**\\n     * @dev Emitted when `newAdminRole` is set as ``role``'s admin role, replacing `previousAdminRole`\\n     *\\n     * `DEFAULT_ADMIN_ROLE` is the starting admin for all roles, despite\\n     * {RoleAdminChanged} not being emitted signaling this.\\n     *\\n     * _Available since v3.1._\\n     */\\n    event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole);\\n\\n    /**\\n     * @dev Emitted when `account` is granted `role`.\\n     *\\n     * `sender` is the account that originated the contract call, an admin role\\n     * bearer except when using {AccessControl-_setupRole}.\\n     */\\n    event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender);\\n\\n    /**\\n     * @dev Emitted when `account` is revoked `role`.\\n     *\\n     * `sender` is the account that originated the contract call:\\n     *   - if using `revokeRole`, it is the admin role bearer\\n     *   - if using `renounceRole`, it is the role bearer (i.e. `account`)\\n     */\\n    event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender);\\n\\n    /**\\n     * @dev Returns `true` if `account` has been granted `role`.\\n     */\\n    function hasRole(bytes32 role, address account) external view returns (bool);\\n\\n    /**\\n     * @dev Returns the admin role that controls `role`. See {grantRole} and\\n     * {revokeRole}.\\n     *\\n     * To change a role's admin, use {AccessControl-_setRoleAdmin}.\\n     */\\n    function getRoleAdmin(bytes32 role) external view returns (bytes32);\\n\\n    /**\\n     * @dev Grants `role` to `account`.\\n     *\\n     * If `account` had not been already granted `role`, emits a {RoleGranted}\\n     * event.\\n     *\\n     * Requirements:\\n     *\\n     * - the caller must have ``role``'s admin role.\\n     */\\n    function grantRole(bytes32 role, address account) external;\\n\\n    /**\\n     * @dev Revokes `role` from `account`.\\n     *\\n     * If `account` had been granted `role`, emits a {RoleRevoked} event.\\n     *\\n     * Requirements:\\n     *\\n     * - the caller must have ``role``'s admin role.\\n     */\\n    function revokeRole(bytes32 role, address account) external;\\n\\n    /**\\n     * @dev Revokes `role` from the calling account.\\n     *\\n     * Roles are often managed via {grantRole} and {revokeRole}: this function's\\n     * purpose is to provide a mechanism for accounts to lose their privileges\\n     * if they are compromised (such as when a trusted device is misplaced).\\n     *\\n     * If the calling account had been granted `role`, emits a {RoleRevoked}\\n     * event.\\n     *\\n     * Requirements:\\n     *\\n     * - the caller must be `account`.\\n     */\\n    function renounceRole(bytes32 role, address account) external;\\n}\\n\",\"keccak256\":\"0x59ce320a585d7e1f163cd70390a0ef2ff9cec832e2aa544293a00692465a7a57\",\"license\":\"MIT\"},\"@openzeppelin/contracts/token/ERC20/IERC20.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts (last updated v4.9.0) (token/ERC20/IERC20.sol)\\n\\npragma solidity ^0.8.0;\\n\\n/**\\n * @dev Interface of the ERC20 standard as defined in the EIP.\\n */\\ninterface IERC20 {\\n    /**\\n     * @dev Emitted when `value` tokens are moved from one account (`from`) to\\n     * another (`to`).\\n     *\\n     * Note that `value` may be zero.\\n     */\\n    event Transfer(address indexed from, address indexed to, uint256 value);\\n\\n    /**\\n     * @dev Emitted when the allowance of a `spender` for an `owner` is set by\\n     * a call to {approve}. `value` is the new allowance.\\n     */\\n    event Approval(address indexed owner, address indexed spender, uint256 value);\\n\\n    /**\\n     * @dev Returns the amount of tokens in existence.\\n     */\\n    function totalSupply() external view returns (uint256);\\n\\n    /**\\n     * @dev Returns the amount of tokens owned by `account`.\\n     */\\n    function balanceOf(address account) external view returns (uint256);\\n\\n    /**\\n     * @dev Moves `amount` tokens from the caller's account to `to`.\\n     *\\n     * Returns a boolean value indicating whether the operation succeeded.\\n     *\\n     * Emits a {Transfer} event.\\n     */\\n    function transfer(address to, uint256 amount) external returns (bool);\\n\\n    /**\\n     * @dev Returns the remaining number of tokens that `spender` will be\\n     * allowed to spend on behalf of `owner` through {transferFrom}. This is\\n     * zero by default.\\n     *\\n     * This value changes when {approve} or {transferFrom} are called.\\n     */\\n    function allowance(address owner, address spender) external view returns (uint256);\\n\\n    /**\\n     * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.\\n     *\\n     * Returns a boolean value indicating whether the operation succeeded.\\n     *\\n     * IMPORTANT: Beware that changing an allowance with this method brings the risk\\n     * that someone may use both the old and the new allowance by unfortunate\\n     * transaction ordering. One possible solution to mitigate this race\\n     * condition is to first reduce the spender's allowance to 0 and set the\\n     * desired value afterwards:\\n     * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729\\n     *\\n     * Emits an {Approval} event.\\n     */\\n    function approve(address spender, uint256 amount) external returns (bool);\\n\\n    /**\\n     * @dev Moves `amount` tokens from `from` to `to` using the\\n     * allowance mechanism. `amount` is then deducted from the caller's\\n     * allowance.\\n     *\\n     * Returns a boolean value indicating whether the operation succeeded.\\n     *\\n     * Emits a {Transfer} event.\\n     */\\n    function transferFrom(address from, address to, uint256 amount) external returns (bool);\\n}\\n\",\"keccak256\":\"0x287b55befed2961a7eabd7d7b1b2839cbca8a5b80ef8dcbb25ed3d4c2002c305\",\"license\":\"MIT\"},\"@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts v4.4.1 (token/ERC20/extensions/IERC20Metadata.sol)\\n\\npragma solidity ^0.8.0;\\n\\nimport \\\"../IERC20.sol\\\";\\n\\n/**\\n * @dev Interface for the optional metadata functions from the ERC20 standard.\\n *\\n * _Available since v4.1._\\n */\\ninterface IERC20Metadata is IERC20 {\\n    /**\\n     * @dev Returns the name of the token.\\n     */\\n    function name() external view returns (string memory);\\n\\n    /**\\n     * @dev Returns the symbol of the token.\\n     */\\n    function symbol() external view returns (string memory);\\n\\n    /**\\n     * @dev Returns the decimals places of the token.\\n     */\\n    function decimals() external view returns (uint8);\\n}\\n\",\"keccak256\":\"0x8de418a5503946cabe331f35fe242d3201a73f67f77aaeb7110acb1f30423aca\",\"license\":\"MIT\"},\"contracts/Constants.sol\":{\"content\":\"// (c) 2023 Primex.finance\\n// SPDX-License-Identifier: BUSL-1.1\\npragma solidity 0.8.18;\\n\\n// admin roles\\nbytes32 constant BIG_TIMELOCK_ADMIN = 0x00; // It's primary admin.\\nbytes32 constant MEDIUM_TIMELOCK_ADMIN = keccak256(\\\"MEDIUM_TIMELOCK_ADMIN\\\");\\nbytes32 constant SMALL_TIMELOCK_ADMIN = keccak256(\\\"SMALL_TIMELOCK_ADMIN\\\");\\nbytes32 constant EMERGENCY_ADMIN = keccak256(\\\"EMERGENCY_ADMIN\\\");\\nbytes32 constant GUARDIAN_ADMIN = keccak256(\\\"GUARDIAN_ADMIN\\\");\\nbytes32 constant NFT_MINTER = keccak256(\\\"NFT_MINTER\\\");\\nbytes32 constant TRUSTED_TOLERABLE_LIMIT_ROLE = keccak256(\\\"TRUSTED_TOLERABLE_LIMIT_ROLE\\\");\\n\\n// inter-contract interactions roles\\nbytes32 constant NO_FEE_ROLE = keccak256(\\\"NO_FEE_ROLE\\\");\\nbytes32 constant VAULT_ACCESS_ROLE = keccak256(\\\"VAULT_ACCESS_ROLE\\\");\\nbytes32 constant PM_ROLE = keccak256(\\\"PM_ROLE\\\");\\nbytes32 constant LOM_ROLE = keccak256(\\\"LOM_ROLE\\\");\\nbytes32 constant BATCH_MANAGER_ROLE = keccak256(\\\"BATCH_MANAGER_ROLE\\\");\\n\\n// token constants\\naddress constant NATIVE_CURRENCY = address(uint160(bytes20(keccak256(\\\"NATIVE_CURRENCY\\\"))));\\naddress constant USD = 0x0000000000000000000000000000000000000348;\\nuint256 constant USD_MULTIPLIER = 10 ** (18 - 8); // usd decimals in chainlink is 8\\nuint8 constant MAX_ASSET_DECIMALS = 18;\\n\\n// time constants\\nuint256 constant SECONDS_PER_YEAR = 365 days;\\nuint256 constant SECONDS_PER_DAY = 1 days;\\nuint256 constant HOUR = 1 hours;\\nuint256 constant TEN_WAD = 10 ether;\\n\",\"keccak256\":\"0xdfd1623c3bf46ff9a6fbbdff42a7d9a1b5e76c4252dd394db1b7811989dcaba3\",\"license\":\"BUSL-1.1\"},\"contracts/TraderBalanceVault/ITraderBalanceVault.sol\":{\"content\":\"// (c) 2023 Primex.finance\\n// SPDX-License-Identifier: BUSL-1.1\\npragma solidity ^0.8.18;\\n\\nimport {ITraderBalanceVaultStorage} from \\\"./ITraderBalanceVaultStorage.sol\\\";\\nimport {IPausable} from \\\"../interfaces/IPausable.sol\\\";\\n\\ninterface ITraderBalanceVault is ITraderBalanceVaultStorage, IPausable {\\n    /**\\n     * Types of way to open a position or order\\n     */\\n    enum OpenType {\\n        OPEN_BY_ORDER,\\n        OPEN,\\n        CREATE_LIMIT_ORDER\\n    }\\n\\n    /**\\n     * @param trader The trader, who opens margin deal\\n     * @param depositReceiver the address to which the deposit is transferred when blocked.\\n     * This happens because the trader's deposit is involved in the position\\n     * @param borrowedAsset The token to lock for deal in a borrowed asset\\n     * @param depositAsset The token is a deposit asset\\n     * (it is blocked when creating a limit order\\n     * For others, the operations is transferred to the account of the receiver of the deposit and is swapped )\\n     * @param depositAmount Amount of tokens in a deposit asset\\n     * @param depositInBorrowedAmount Amount of tokens to lock for deal in a borrowed asset\\n     * @param openType Corresponds to the purpose of locking\\n     */\\n    struct LockAssetParams {\\n        address trader;\\n        address depositReceiver;\\n        address depositAsset;\\n        uint256 depositAmount;\\n        OpenType openType;\\n    }\\n\\n    /**\\n     * @param trader The trader who opened the position\\n     * @param receiver The receiver of the rest of trader deposit.\\n     * @param asset Borrowed asset of the position being closed (the need for accrual of profit).\\n     * @param unlockAmount The amount of unlocked collateral for deal\\n     * @param returnToTrader The returned to trader amount when position was closed.\\n     */\\n    struct UnlockAssetParams {\\n        address trader;\\n        address receiver;\\n        address asset;\\n        uint256 amount;\\n    }\\n\\n    /**\\n     * @param traders An array of traders for which available balance should be increased\\n     * @param amounts An array of amounts corresponding to traders' addresses that should be added to their available balances\\n     * @param asset Asset address which amount will be increased\\n     * @param length The amount of traders in an array\\n     */\\n    struct BatchTopUpAvailableBalanceParams {\\n        address[] traders;\\n        uint256[] amounts;\\n        address asset;\\n        uint256 length;\\n    }\\n\\n    event Deposit(address indexed depositer, address indexed asset, uint256 amount);\\n    event Withdraw(address indexed withdrawer, address asset, uint256 amount);\\n\\n    /**\\n     * @dev contract initializer\\n     * @param _registry The address of Registry contract\\n     * @param _whiteBlackList The address of WhiteBlackList contract\\n     */\\n    function initialize(address _registry, address _whiteBlackList) external;\\n\\n    receive() external payable;\\n\\n    /**\\n     * @dev Deposits trader collateral for margin deal\\n     * @param _asset The collateral asset for deal\\n     * @param _amount The amount of '_asset' to deposit\\n     */\\n    function deposit(address _asset, uint256 _amount) external payable;\\n\\n    /**\\n     * @dev Withdraws the rest of trader's deposit after closing deal\\n     * @param _asset The collateral asset for withdraw\\n     * @param _amount The amount of '_asset' to withdraw\\n     */\\n    function withdraw(address _asset, uint256 _amount) external;\\n\\n    /**\\n     * @dev Traders lock their collateral for the limit order.\\n     * @param _trader The owner of collateral\\n     * @param _asset The collateral asset for deal\\n     * @param _amount The amount of '_asset' to deposit\\n     */\\n    function increaseLockedBalance(address _trader, address _asset, uint256 _amount) external payable;\\n\\n    /**\\n     * @dev Locks deposited trader's assets as collateral for orders.\\n     * Decreases the available balance when opening position.\\n     * Transfers deposited amount to the deposit receiver.\\n     * @param _params parameters necessary to lock asset\\n     */\\n    function useTraderAssets(LockAssetParams calldata _params) external;\\n\\n    /**\\n     * @dev Unlocks trader's collateral when open position by order or update deposit.\\n     * @param _params parameters necessary to unlock asset\\n     */\\n    function unlockAsset(UnlockAssetParams calldata _params) external;\\n\\n    /**\\n     * The function to increase available balance for several traders\\n     * @param _params A struct containing BatchTopUpAvailableBalanceParams\\n     */\\n    function batchTopUpAvailableBalance(BatchTopUpAvailableBalanceParams calldata _params) external;\\n\\n    /**\\n     * Withdraws an asset amount from an asset holder to a receiver\\n     * @param _from Withdraw from address\\n     * @param _to Withdraw to address\\n     * @param _asset Address of an asset\\n     * @param _amount Amount of an asset\\n     * @param fromLocked True if withdraw from locked balance\\n     */\\n    function withdrawFrom(address _from, address _to, address _asset, uint256 _amount, bool fromLocked) external;\\n\\n    /**\\n     * Increases available balance of a receiver in the protocol\\n     * @param receiver The address of an asset receiver\\n     * @param asset The asset address for which available balance will be increased\\n     * @param amount The amount of an asset\\n     */\\n    function topUpAvailableBalance(address receiver, address asset, uint256 amount) external payable;\\n}\\n\",\"keccak256\":\"0x7d7021be769ab6a7c4086eb6dfec873f22ae75e84d72b66492fa23d7a9b4f329\",\"license\":\"BUSL-1.1\"},\"contracts/TraderBalanceVault/ITraderBalanceVaultStorage.sol\":{\"content\":\"// (c) 2023 Primex.finance\\n// SPDX-License-Identifier: BUSL-1.1\\npragma solidity ^0.8.18;\\n\\ninterface ITraderBalanceVaultStorage {\\n    struct TraderBalance {\\n        uint256 availableBalance;\\n        uint256 lockedBalance;\\n    }\\n\\n    function registry() external view returns (address);\\n\\n    /**\\n     *\\n     * @param trader Trader's address\\n     * @param asset Asset address\\n     * @return availableBalance availableBalance\\n     * @return lockedBalance lockedBalance\\n     */\\n    function balances(\\n        address trader,\\n        address asset\\n    ) external view returns (uint256 availableBalance, uint256 lockedBalance);\\n}\\n\",\"keccak256\":\"0xd103723047a828ac9dcd2434ac3e8c4f57435faaeb310ae62f1cd67065dc2e80\",\"license\":\"BUSL-1.1\"},\"contracts/TraderBalanceVault/TraderBalanceVault.sol\":{\"content\":\"// (c) 2023 Primex.finance\\n// SPDX-License-Identifier: BUSL-1.1\\npragma solidity 0.8.18;\\n\\nimport {IERC165Upgradeable} from \\\"@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol\\\";\\nimport {IERC20Metadata} from \\\"@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol\\\";\\nimport {IAccessControl} from \\\"@openzeppelin/contracts/access/IAccessControl.sol\\\";\\n\\nimport {TokenTransfersLibrary} from \\\"../libraries/TokenTransfersLibrary.sol\\\";\\nimport \\\"../libraries/Errors.sol\\\";\\n\\nimport \\\"./TraderBalanceVaultStorage.sol\\\";\\nimport {VAULT_ACCESS_ROLE, NATIVE_CURRENCY, MAX_ASSET_DECIMALS, SMALL_TIMELOCK_ADMIN, EMERGENCY_ADMIN} from \\\"../Constants.sol\\\";\\nimport {ITraderBalanceVault} from \\\"./ITraderBalanceVault.sol\\\";\\nimport {IWhiteBlackList} from \\\"../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol\\\";\\nimport {IPausable} from \\\"../interfaces/IPausable.sol\\\";\\n\\ncontract TraderBalanceVault is ITraderBalanceVault, TraderBalanceVaultStorage {\\n    constructor() {\\n        _disableInitializers();\\n    }\\n\\n    /**\\n     * @dev Throws if caller is not granted with _role\\n     * @param _role The role that is being checked for a function caller\\n     */\\n    modifier onlyRole(bytes32 _role) {\\n        _require(IAccessControl(registry).hasRole(_role, msg.sender), Errors.FORBIDDEN.selector);\\n        _;\\n    }\\n\\n    /**\\n     * @dev Throws if caller is blacklisted\\n     */\\n    modifier notBlackListed() {\\n        _require(!whiteBlackList.isBlackListed(msg.sender), Errors.SENDER_IS_BLACKLISTED.selector);\\n        _;\\n    }\\n\\n    /**\\n     * @inheritdoc ITraderBalanceVault\\n     */\\n    function initialize(address _registry, address _whiteBlackList) public override initializer {\\n        _require(\\n            IERC165Upgradeable(_registry).supportsInterface(type(IAccessControl).interfaceId) &&\\n                IERC165Upgradeable(_whiteBlackList).supportsInterface(type(IWhiteBlackList).interfaceId),\\n            Errors.ADDRESS_NOT_SUPPORTED.selector\\n        );\\n        registry = _registry;\\n        whiteBlackList = IWhiteBlackList(_whiteBlackList);\\n        __Pausable_init();\\n        __ReentrancyGuard_init();\\n        __ERC165_init();\\n    }\\n\\n    receive() external payable override {\\n        deposit(NATIVE_CURRENCY, 0);\\n    }\\n\\n    /**\\n     * @inheritdoc ITraderBalanceVault\\n     */\\n    function withdraw(address _asset, uint256 _amount) external override nonReentrant notBlackListed {\\n        _require(_amount != 0, Errors.AMOUNT_IS_0.selector);\\n        TraderBalance storage traderBalance = balances[msg.sender][_asset];\\n        _require(_amount <= traderBalance.availableBalance, Errors.INSUFFICIENT_FREE_ASSETS.selector);\\n        traderBalance.availableBalance -= _amount;\\n        if (_asset == NATIVE_CURRENCY) {\\n            TokenTransfersLibrary.doTransferOutETH(msg.sender, _amount);\\n        } else {\\n            TokenTransfersLibrary.doTransferOut(_asset, msg.sender, _amount);\\n        }\\n        emit Withdraw(msg.sender, _asset, _amount);\\n    }\\n\\n    /**\\n     * @inheritdoc ITraderBalanceVault\\n     */\\n    function increaseLockedBalance(\\n        address _trader,\\n        address _asset,\\n        uint256 _amount\\n    ) external payable override onlyRole(VAULT_ACCESS_ROLE) {\\n        if (_asset != NATIVE_CURRENCY) {\\n            _require(\\n                IERC20Metadata(_asset).decimals() <= MAX_ASSET_DECIMALS,\\n                Errors.ASSET_DECIMALS_EXCEEDS_MAX_VALUE.selector\\n            );\\n        }\\n        _require(_amount != 0, Errors.AMOUNT_IS_0.selector);\\n        balances[_trader][_asset].lockedBalance += _amount;\\n\\n        emit Deposit(_trader, _asset, _amount);\\n    }\\n\\n    /**\\n     * @inheritdoc ITraderBalanceVault\\n     */\\n    function useTraderAssets(LockAssetParams calldata _params) external override onlyRole(VAULT_ACCESS_ROLE) {\\n        TraderBalance storage depositedBalance = balances[_params.trader][_params.depositAsset];\\n        if (_params.openType != OpenType.OPEN_BY_ORDER) {\\n            _require(\\n                _params.depositAmount <= depositedBalance.availableBalance,\\n                Errors.INSUFFICIENT_FREE_ASSETS.selector\\n            );\\n        }\\n        if (_params.openType == OpenType.OPEN) {\\n            depositedBalance.availableBalance -= _params.depositAmount;\\n        } else if (_params.openType == OpenType.OPEN_BY_ORDER) {\\n            depositedBalance.lockedBalance -= _params.depositAmount;\\n        } else if (_params.openType == OpenType.CREATE_LIMIT_ORDER) {\\n            depositedBalance.availableBalance -= _params.depositAmount;\\n            depositedBalance.lockedBalance += _params.depositAmount;\\n        }\\n        if (_params.depositReceiver != address(0)) {\\n            _require(_params.depositAsset != NATIVE_CURRENCY, Errors.NATIVE_CURRENCY_CANNOT_BE_ASSET.selector);\\n            TokenTransfersLibrary.doTransferOut(_params.depositAsset, _params.depositReceiver, _params.depositAmount);\\n        }\\n    }\\n\\n    /**\\n     * @inheritdoc ITraderBalanceVault\\n     */\\n    function batchTopUpAvailableBalance(\\n        BatchTopUpAvailableBalanceParams calldata _params\\n    ) external override onlyRole(VAULT_ACCESS_ROLE) {\\n        for (uint256 i; i < _params.length; i++) {\\n            if (_params.amounts[i] > 0) {\\n                topUpAvailableBalance(_params.traders[i], _params.asset, _params.amounts[i]);\\n            }\\n        }\\n    }\\n\\n    /**\\n     * @inheritdoc ITraderBalanceVault\\n     */\\n    function unlockAsset(UnlockAssetParams calldata _params) external override onlyRole(VAULT_ACCESS_ROLE) {\\n        balances[_params.trader][_params.asset].lockedBalance -= _params.amount;\\n        balances[_params.receiver][_params.asset].availableBalance += _params.amount;\\n    }\\n\\n    /**\\n     * @inheritdoc ITraderBalanceVault\\n     */\\n    function topUpAvailableBalance(\\n        address receiver,\\n        address asset,\\n        uint256 amount\\n    ) public payable override onlyRole(VAULT_ACCESS_ROLE) {\\n        _require(asset != address(0) && receiver != address(0), Errors.ADDRESS_NOT_SUPPORTED.selector);\\n        // >= since we use this function in batchTopUpAvailableBalance\\n        if (asset == NATIVE_CURRENCY) _require(msg.value >= amount, Errors.INVALID_AMOUNT.selector);\\n        balances[receiver][asset].availableBalance += amount;\\n    }\\n\\n    /**\\n     * @inheritdoc ITraderBalanceVault\\n     */\\n    function withdrawFrom(\\n        address _from,\\n        address _to,\\n        address _asset,\\n        uint256 _amount,\\n        bool fromLocked\\n    ) external override onlyRole(VAULT_ACCESS_ROLE) {\\n        if (fromLocked) {\\n            _require(balances[_from][_asset].lockedBalance >= _amount, Errors.INSUFFICIENT_FREE_ASSETS.selector);\\n            balances[_from][_asset].lockedBalance -= _amount;\\n        } else {\\n            _require(balances[_from][_asset].availableBalance >= _amount, Errors.INSUFFICIENT_FREE_ASSETS.selector);\\n            balances[_from][_asset].availableBalance -= _amount;\\n        }\\n        if (_asset == NATIVE_CURRENCY) {\\n            TokenTransfersLibrary.doTransferOutETH(_to, _amount);\\n        } else {\\n            TokenTransfersLibrary.doTransferOut(_asset, _to, _amount);\\n        }\\n    }\\n\\n    /**\\n     * @inheritdoc IPausable\\n     */\\n    function pause() external override onlyRole(EMERGENCY_ADMIN) {\\n        _pause();\\n    }\\n\\n    /**\\n     * @inheritdoc IPausable\\n     */\\n    function unpause() external override onlyRole(SMALL_TIMELOCK_ADMIN) {\\n        _unpause();\\n    }\\n\\n    /**\\n     * @inheritdoc ITraderBalanceVault\\n     */\\n    function deposit(\\n        address _asset,\\n        uint256 _amount\\n    ) public payable override nonReentrant notBlackListed whenNotPaused {\\n        if (_asset == NATIVE_CURRENCY) {\\n            _require(msg.value > 0 && _amount == 0, Errors.AMOUNT_IS_0.selector);\\n            _amount = msg.value;\\n        } else {\\n            _require(msg.value == 0 && _amount > 0, Errors.AMOUNT_IS_0.selector);\\n            _require(\\n                IERC20Metadata(_asset).decimals() <= MAX_ASSET_DECIMALS,\\n                Errors.ASSET_DECIMALS_EXCEEDS_MAX_VALUE.selector\\n            );\\n            TokenTransfersLibrary.doTransferIn(_asset, msg.sender, _amount);\\n        }\\n        balances[msg.sender][_asset].availableBalance += _amount;\\n        emit Deposit(msg.sender, _asset, _amount);\\n    }\\n\\n    /**\\n     * @notice Interface checker\\n     * @param _interfaceId The interface id to check\\n     */\\n    function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {\\n        return super.supportsInterface(_interfaceId) || _interfaceId == type(ITraderBalanceVault).interfaceId;\\n    }\\n}\\n\",\"keccak256\":\"0xa47cfcea8c1d822bf38fb85583be4d6c92d17d4ed9d58d4067c39759e2cc9537\",\"license\":\"BUSL-1.1\"},\"contracts/TraderBalanceVault/TraderBalanceVaultStorage.sol\":{\"content\":\"// (c) 2023 Primex.finance\\n// SPDX-License-Identifier: BUSL-1.1\\npragma solidity 0.8.18;\\n\\nimport {ReentrancyGuardUpgradeable} from \\\"@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol\\\";\\nimport {ERC165Upgradeable} from \\\"@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol\\\";\\nimport {PausableUpgradeable} from \\\"@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol\\\";\\n\\nimport {ITraderBalanceVaultStorage} from \\\"./ITraderBalanceVaultStorage.sol\\\";\\nimport {IWhiteBlackList} from \\\"../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol\\\";\\n\\nabstract contract TraderBalanceVaultStorage is\\n    ITraderBalanceVaultStorage,\\n    ReentrancyGuardUpgradeable,\\n    PausableUpgradeable,\\n    ERC165Upgradeable\\n{\\n    address public override registry;\\n\\n    // trader => asset => balance\\n    mapping(address => mapping(address => TraderBalance)) public override balances;\\n    IWhiteBlackList internal whiteBlackList;\\n}\\n\",\"keccak256\":\"0x787ceb9d6b6111d330730fb809b280821446fbd2075b694d72ec0fb89e7895b4\",\"license\":\"BUSL-1.1\"},\"contracts/WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol\":{\"content\":\"// (c) 2023 Primex.finance\\n// SPDX-License-Identifier: BUSL-1.1\\npragma solidity ^0.8.18;\\n\\ninterface IWhiteBlackList {\\n    enum AccessType {\\n        UNLISTED,\\n        WHITELISTED,\\n        BLACKLISTED\\n    }\\n    event WhitelistedAddressAdded(address indexed addr);\\n    event WhitelistedAddressRemoved(address indexed addr);\\n    event BlacklistedAddressAdded(address indexed addr);\\n    event BlacklistedAddressRemoved(address indexed addr);\\n\\n    function addAddressToWhitelist(address _address) external;\\n\\n    function addAddressesToWhitelist(address[] calldata _addresses) external;\\n\\n    function removeAddressFromWhitelist(address _address) external;\\n\\n    function removeAddressesFromWhitelist(address[] calldata _addresses) external;\\n\\n    function addAddressToBlacklist(address _address) external;\\n\\n    function addAddressesToBlacklist(address[] calldata _addresses) external;\\n\\n    function removeAddressFromBlacklist(address _address) external;\\n\\n    function removeAddressesFromBlacklist(address[] calldata _addresses) external;\\n\\n    function getAccessType(address _address) external view returns (AccessType);\\n\\n    function isBlackListed(address _address) external view returns (bool);\\n\\n    function registry() external view returns (address);\\n}\\n\",\"keccak256\":\"0xa02e0237ab68d21bb3005cac9d945da1eaab863d2321202295d72a1164d9f0ed\",\"license\":\"BUSL-1.1\"},\"contracts/interfaces/EIP20NonStandardInterface.sol\":{\"content\":\"// Copyright 2020 Compound Labs, Inc.\\n// SPDX-License-Identifier: BSD-3-Clause\\n\\npragma solidity ^0.8.10;\\n\\n/**\\n * @title EIP20NonStandardInterface\\n * @dev Version of ERC20 with no return values for `transfer` and `transferFrom`\\n *  See https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca\\n */\\ninterface EIP20NonStandardInterface {\\n    /**\\n     * @notice Get the total number of tokens in circulation\\n     * @return The supply of tokens\\n     */\\n    function totalSupply() external view returns (uint256);\\n\\n    /**\\n     * @notice Gets the balance of the specified address\\n     * @param owner The address from which the balance will be retrieved\\n     * @return balance The balance\\n     */\\n    function balanceOf(address owner) external view returns (uint256 balance);\\n\\n    ///\\n    /// !!!!!!!!!!!!!!\\n    /// !!! NOTICE !!! `transfer` does not return a value, in violation of the ERC-20 specification\\n    /// !!!!!!!!!!!!!!\\n    ///\\n\\n    /**\\n     * @notice Transfer `amount` tokens from `msg.sender` to `dst`\\n     * @param dst The address of the destination account\\n     * @param amount The number of tokens to transfer\\n     */\\n    function transfer(address dst, uint256 amount) external;\\n\\n    ///\\n    /// !!!!!!!!!!!!!!\\n    /// !!! NOTICE !!! `transferFrom` does not return a value, in violation of the ERC-20 specification\\n    /// !!!!!!!!!!!!!!\\n    ///\\n\\n    /**\\n     * @notice Transfer `amount` tokens from `src` to `dst`\\n     * @param src The address of the source account\\n     * @param dst The address of the destination account\\n     * @param amount The number of tokens to transfer\\n     */\\n    function transferFrom(address src, address dst, uint256 amount) external;\\n\\n    /**\\n     * @notice Approve `spender` to transfer up to `amount` from `src`\\n     * @dev This will overwrite the approval amount for `spender`\\n     *  and is subject to issues noted [here](https://eips.ethereum.org/EIPS/eip-20#approve)\\n     * @param spender The address of the account which may transfer tokens\\n     * @param amount The number of tokens that are approved\\n     * @return success Whether or not the approval succeeded\\n     */\\n    function approve(address spender, uint256 amount) external returns (bool success);\\n\\n    /**\\n     * @notice Get the current allowance from `owner` for `spender`\\n     * @param owner The address of the account which owns the tokens to be spent\\n     * @param spender The address of the account which may transfer tokens\\n     * @return remaining The number of tokens allowed to be spent\\n     */\\n    function allowance(address owner, address spender) external view returns (uint256 remaining);\\n\\n    event Transfer(address indexed from, address indexed to, uint256 amount);\\n    event Approval(address indexed owner, address indexed spender, uint256 amount);\\n}\\n\",\"keccak256\":\"0x4b53df7e37eeb7c34aaed6ed236909444a40d5edf62e944f55cf78cbe43948d6\",\"license\":\"BSD-3-Clause\"},\"contracts/interfaces/IPausable.sol\":{\"content\":\"// Copyright (c) 2016-2023 zOS Global Limited and contributors\\n// SPDX-License-Identifier: MIT\\n\\n// Interface for OpenZeppelin's Pausable contract from https://github.com/OpenZeppelin/openzeppelin-contracts/\\npragma solidity ^0.8.18;\\n\\ninterface IPausable {\\n    /**\\n     * @dev Triggers stopped state.\\n     * This function can only be called by an address with the EMERGENCY_ADMIN role.\\n     * Requirements:\\n     *\\n     * - The contract must not be paused.\\n     */\\n    function pause() external;\\n\\n    /**\\n     * @dev Returns to normal state.\\n     * This function can only be called by an address with the SMALL_TIMELOCK_ADMIN or MEDIUM_TIMELOCK_ADMIN role depending on the contract.\\n     * Requirements:\\n     *\\n     * - The contract must be paused.\\n     */\\n    function unpause() external;\\n}\\n\",\"keccak256\":\"0x12e1f74846ecd309150da9ae8d3e119f39ea1ed32ee0d9db5a7509c6baac94e3\",\"license\":\"MIT\"},\"contracts/libraries/Errors.sol\":{\"content\":\"// (c) 2023 Primex.finance\\n// SPDX-License-Identifier: BUSL-1.1\\npragma solidity 0.8.18;\\n\\n// solhint-disable-next-line func-visibility\\nfunction _require(bool condition, bytes4 selector) pure {\\n    if (!condition) _revert(selector);\\n}\\n\\n// solhint-disable-next-line func-visibility\\nfunction _revert(bytes4 selector) pure {\\n    // solhint-disable-next-line no-inline-assembly\\n    assembly (\\\"memory-safe\\\") {\\n        let free_mem_ptr := mload(64)\\n        mstore(free_mem_ptr, selector)\\n        revert(free_mem_ptr, 4)\\n    }\\n}\\n\\nlibrary Errors {\\n    event Log(bytes4 error);\\n\\n    //common\\n    error ADDRESS_NOT_SUPPORTED();\\n    error FORBIDDEN();\\n    error AMOUNT_IS_0();\\n    error CALLER_IS_NOT_TRADER();\\n    error CONDITION_INDEX_IS_OUT_OF_BOUNDS();\\n    error INVALID_PERCENT_NUMBER();\\n    error INVALID_SECURITY_BUFFER();\\n    error INVALID_MAINTENANCE_BUFFER();\\n    error TOKEN_ADDRESS_IS_ZERO();\\n    error IDENTICAL_TOKEN_ADDRESSES();\\n    error ASSET_DECIMALS_EXCEEDS_MAX_VALUE();\\n    error CAN_NOT_ADD_WITH_ZERO_ADDRESS();\\n    error SHOULD_BE_DIFFERENT_ASSETS_IN_SPOT();\\n    error TOKEN_NOT_SUPPORTED();\\n    error INSUFFICIENT_DEPOSIT();\\n    error DEPOSIT_IN_THIRD_ASSET_SHARES_ON_DEX_LENGTH_SHOULD_BE_0();\\n    error SHOULD_NOT_HAVE_DUPLICATES();\\n    error DEPOSITED_TO_BORROWED_SHARES_ON_DEX_LENGTH_SHOULD_BE_0();\\n    error DEPOSIT_TO_BORROWED_SHARES_ON_DEX_LENGTH_SHOULD_BE_0();\\n    // error LIMIT_PRICE_IS_ZERO();\\n    error BUCKET_IS_NOT_ACTIVE();\\n    error DIFFERENT_DATA_LENGTH();\\n    error RECIPIENT_OR_SENDER_MUST_BE_ON_WHITE_LIST();\\n    error SLIPPAGE_TOLERANCE_EXCEEDED();\\n    error OPERATION_NOT_SUPPORTED();\\n    error SENDER_IS_BLACKLISTED();\\n    error NATIVE_CURRENCY_CANNOT_BE_ASSET();\\n    error DISABLED_TRANSFER_NATIVE_CURRENCY();\\n    error INVALID_AMOUNT();\\n\\n    // bonus executor\\n    error CALLER_IS_NOT_NFT();\\n    error BONUS_FOR_BUCKET_ALREADY_ACTIVATED();\\n    error WRONG_LENGTH();\\n    error BONUS_DOES_NOT_EXIST();\\n    error CALLER_IS_NOT_DEBT_TOKEN();\\n    error CALLER_IS_NOT_P_TOKEN();\\n    error MAX_BONUS_COUNT_EXCEEDED();\\n    error TIER_IS_NOT_ACTIVE();\\n    error BONUS_PERCENT_IS_ZERO();\\n\\n    // bucket\\n    error INCORRECT_LIQUIDITY_MINING_PARAMS();\\n    error PAIR_PRICE_DROP_IS_NOT_CORRECT();\\n    error ASSET_IS_NOT_SUPPORTED();\\n    error BUCKET_OUTSIDE_PRIMEX_PROTOCOL();\\n    error DEADLINE_IS_PASSED();\\n    error DEADLINE_IS_NOT_PASSED();\\n    error BUCKET_IS_NOT_LAUNCHED();\\n    error BURN_AMOUNT_EXCEEDS_PROTOCOL_DEBT();\\n    error LIQUIDITY_INDEX_OVERFLOW();\\n    error BORROW_INDEX_OVERFLOW();\\n    error BAR_OVERFLOW();\\n    error LAR_OVERFLOW();\\n    error UR_IS_MORE_THAN_1();\\n    error ASSET_ALREADY_SUPPORTED();\\n    error DEPOSIT_IS_MORE_AMOUNT_PER_USER();\\n    error DEPOSIT_EXCEEDS_MAX_TOTAL_DEPOSIT();\\n    error MINING_AMOUNT_WITHDRAW_IS_LOCKED_ON_STABILIZATION_PERIOD();\\n    error WITHDRAW_RATE_IS_MORE_10_PERCENT();\\n    error INVALID_FEE_BUFFER();\\n    error RESERVE_RATE_SHOULD_BE_LESS_THAN_1();\\n    error MAX_TOTAL_DEPOSIT_IS_ZERO();\\n    error AMOUNT_SCALED_SHOULD_BE_GREATER_THAN_ZERO();\\n    error NOT_ENOUGH_LIQUIDITY_IN_THE_BUCKET();\\n\\n    // p/debt token, PMXToken\\n    error BUCKET_IS_IMMUTABLE();\\n    error INVALID_MINT_AMOUNT();\\n    error INVALID_BURN_AMOUNT();\\n    error TRANSFER_NOT_SUPPORTED();\\n    error APPROVE_NOT_SUPPORTED();\\n    error CALLER_IS_NOT_BUCKET();\\n    error CALLER_IS_NOT_A_BUCKET_FACTORY();\\n    error CALLER_IS_NOT_P_TOKEN_RECEIVER();\\n    error DURATION_MUST_BE_MORE_THAN_0();\\n    error INCORRECT_ID();\\n    error THERE_ARE_NO_LOCK_DEPOSITS();\\n    error LOCK_TIME_IS_NOT_EXPIRED();\\n    error TRANSFER_AMOUNT_EXCEED_ALLOWANCE();\\n    error CALLER_IS_NOT_A_MINTER();\\n    error ACTION_ONLY_WITH_AVAILABLE_BALANCE();\\n    error FEE_DECREASER_CALL_FAILED();\\n    error TRADER_REWARD_DISTRIBUTOR_CALL_FAILED();\\n    error INTEREST_INCREASER_CALL_FAILED();\\n    error LENDER_REWARD_DISTRIBUTOR_CALL_FAILED();\\n    error DEPOSIT_DOES_NOT_EXIST();\\n    error RECIPIENT_IS_BLACKLISTED();\\n\\n    //LOM\\n    error ORDER_CAN_NOT_BE_FILLED();\\n    error ORDER_DOES_NOT_EXIST();\\n    error ORDER_IS_NOT_SPOT();\\n    error LEVERAGE_MUST_BE_MORE_THAN_1();\\n    error CANNOT_CHANGE_SPOT_ORDER_TO_MARGIN();\\n    error SHOULD_HAVE_OPEN_CONDITIONS();\\n    error INCORRECT_LEVERAGE();\\n    error INCORRECT_DEADLINE();\\n    error LEVERAGE_SHOULD_BE_1();\\n    error LEVERAGE_EXCEEDS_MAX_LEVERAGE();\\n    error SHOULD_OPEN_POSITION();\\n    error IS_SPOT_ORDER();\\n    error SHOULD_NOT_HAVE_CLOSE_CONDITIONS();\\n    error ORDER_HAS_EXPIRED();\\n\\n    // LiquidityMiningRewardDistributor\\n    error BUCKET_IS_NOT_STABLE();\\n    error ATTEMPT_TO_WITHDRAW_MORE_THAN_DEPOSITED();\\n    error WITHDRAW_PMX_BY_ADMIN_FORBIDDEN();\\n\\n    // nft\\n    error TOKEN_IS_BLOCKED();\\n    error ONLY_MINTERS();\\n    error PROGRAM_IS_NOT_ACTIVE();\\n    error CALLER_IS_NOT_OWNER();\\n    error TOKEN_IS_ALREADY_ACTIVATED();\\n    error WRONG_NETWORK();\\n    error ID_DOES_NOT_EXIST();\\n    error WRONG_URIS_LENGTH();\\n\\n    // PM\\n    error ASSET_ADDRESS_NOT_SUPPORTED();\\n    error IDENTICAL_ASSET_ADDRESSES();\\n    error POSITION_DOES_NOT_EXIST();\\n    error AMOUNT_IS_MORE_THAN_POSITION_AMOUNT();\\n    error BORROWED_AMOUNT_IS_ZERO();\\n    error IS_SPOT_POSITION();\\n    error AMOUNT_IS_MORE_THAN_DEPOSIT();\\n    error DECREASE_AMOUNT_IS_ZERO();\\n    error INSUFFICIENT_DEPOSIT_SIZE();\\n    error IS_NOT_RISKY_OR_CANNOT_BE_CLOSED();\\n    error BUCKET_SHOULD_BE_UNDEFINED();\\n    error DEPOSIT_IN_THIRD_ASSET_ROUTES_LENGTH_SHOULD_BE_0();\\n    error POSITION_CANNOT_BE_CLOSED_FOR_THIS_REASON();\\n    error ADDRESS_IS_ZERO();\\n    error WRONG_TRUSTED_MULTIPLIER();\\n    error POSITION_SIZE_EXCEEDED();\\n    error POSITION_BUCKET_IS_INCORRECT();\\n    error THERE_MUST_BE_AT_LEAST_ONE_POSITION();\\n    error NOTHING_TO_CLOSE();\\n\\n    // BatchManager\\n    error PARAMS_LENGTH_MISMATCH();\\n    error BATCH_CANNOT_BE_CLOSED_FOR_THIS_REASON();\\n    error CLOSE_CONDITION_IS_NOT_CORRECT();\\n    error SOLD_ASSET_IS_INCORRECT();\\n\\n    // Price Oracle\\n    error ZERO_EXCHANGE_RATE();\\n    error NO_PRICEFEED_FOUND();\\n    error NO_PRICE_DROP_FEED_FOUND();\\n\\n    //DNS\\n    error INCORRECT_FEE_RATE();\\n    error BUCKET_ALREADY_FROZEN();\\n    error BUCKET_IS_ALREADY_ADDED();\\n    error DEX_IS_ALREADY_ACTIVATED();\\n    error DEX_IS_ALREADY_FROZEN();\\n    error DEX_IS_ALREADY_ADDED();\\n    error BUCKET_NOT_ADDED();\\n    error DEX_NOT_ACTIVE();\\n    error BUCKET_ALREADY_ACTIVATED();\\n    error DEX_NOT_ADDED();\\n    error BUCKET_IS_INACTIVE();\\n    error WITHDRAWAL_NOT_ALLOWED();\\n    error BUCKET_IS_ALREADY_DEPRECATED();\\n\\n    // Primex upkeep\\n    error NUMBER_IS_0();\\n\\n    //referral program, WhiteBlackList\\n    error CALLER_ALREADY_REGISTERED();\\n    error MISMATCH();\\n    error PARENT_NOT_WHITELISTED();\\n    error ADDRESS_ALREADY_WHITELISTED();\\n    error ADDRESS_ALREADY_BLACKLISTED();\\n    error ADDRESS_NOT_BLACKLISTED();\\n    error ADDRESS_NOT_WHITELISTED();\\n    error ADDRESS_NOT_UNLISTED();\\n    error ADDRESS_IS_WHITELISTED();\\n    error ADDRESS_IS_NOT_CONTRACT();\\n\\n    //Reserve\\n    error BURN_AMOUNT_IS_ZERO();\\n    error CALLER_IS_NOT_EXECUTOR();\\n    error ADDRESS_NOT_PRIMEX_BUCKET();\\n    error NOT_SUFFICIENT_RESERVE_BALANCE();\\n    error INCORRECT_TRANSFER_RESTRICTIONS();\\n\\n    //Vault\\n    error AMOUNT_EXCEEDS_AVAILABLE_BALANCE();\\n    error INSUFFICIENT_FREE_ASSETS();\\n    error CALLER_IS_NOT_SPENDER();\\n\\n    //Pricing Library\\n    error IDENTICAL_ASSETS();\\n    error SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO();\\n    error DIFFERENT_PRICE_DEX_AND_ORACLE();\\n    error TAKE_PROFIT_IS_LTE_LIMIT_PRICE();\\n    error STOP_LOSS_IS_GTE_LIMIT_PRICE();\\n    error STOP_LOSS_IS_LTE_LIQUIDATION_PRICE();\\n    error INSUFFICIENT_POSITION_SIZE();\\n    error INCORRECT_PATH();\\n    error DEPOSITED_TO_BORROWED_ROUTES_LENGTH_SHOULD_BE_0();\\n    error INCORRECT_CM_TYPE();\\n\\n    // Token transfers\\n    error TOKEN_TRANSFER_IN_FAILED();\\n    error TOKEN_TRANSFER_IN_OVERFLOW();\\n    error TOKEN_TRANSFER_OUT_FAILED();\\n    error NATIVE_TOKEN_TRANSFER_FAILED();\\n\\n    // Conditional Managers\\n    error LOW_PRICE_ROUND_IS_LESS_HIGH_PRICE_ROUND();\\n    error TRAILING_DELTA_IS_INCORRECT();\\n    error DATA_FOR_ROUND_DOES_NOT_EXIST();\\n    error HIGH_PRICE_TIMESTAMP_IS_INCORRECT();\\n    error NO_PRICE_FEED_INTERSECTION();\\n    error SHOULD_BE_CCM();\\n    error SHOULD_BE_COM();\\n\\n    //Lens\\n    error DEPOSITED_AMOUNT_IS_0();\\n    error SPOT_DEPOSITED_ASSET_SHOULD_BE_EQUAL_BORROWED_ASSET();\\n    error ZERO_ASSET_ADDRESS();\\n    error ASSETS_SHOULD_BE_DIFFERENT();\\n    error ZERO_SHARES();\\n    error SHARES_AMOUNT_IS_GREATER_THAN_AMOUNT_TO_SELL();\\n    error NO_ACTIVE_DEXES();\\n\\n    //Bots\\n    error WRONG_BALANCES();\\n    error INVALID_INDEX();\\n    error INVALID_DIVIDER();\\n    error ARRAYS_LENGTHS_IS_NOT_EQUAL();\\n    error DENOMINATOR_IS_0();\\n\\n    //DexAdapter\\n    error ZERO_AMOUNT_IN();\\n    error ZERO_AMOUNT();\\n    error UNKNOWN_DEX_TYPE();\\n    error REVERTED_WITHOUT_A_STRING_TRY_TO_CHECK_THE_ANCILLARY_DATA();\\n    error DELTA_OF_TOKEN_OUT_HAS_POSITIVE_VALUE();\\n    error DELTA_OF_TOKEN_IN_HAS_NEGATIVE_VALUE();\\n    error QUOTER_IS_NOT_PROVIDED();\\n    error DEX_ROUTER_NOT_SUPPORTED();\\n    error QUOTER_NOT_SUPPORTED();\\n    error SWAP_DEADLINE_PASSED();\\n\\n    //SpotTradingRewardDistributor\\n    error PERIOD_DURATION_IS_ZERO();\\n    error REWARD_AMOUNT_IS_ZERO();\\n    error REWARD_PER_PERIOD_IS_NOT_CORRECT();\\n\\n    //ActivityRewardDistributor\\n    error TOTAL_REWARD_AMOUNT_IS_ZERO();\\n    error REWARD_PER_DAY_IS_NOT_CORRECT();\\n    error ZERO_BUCKET_ADDRESS();\\n    //KeeperRewardDistributor\\n    error INCORRECT_PART_IN_REWARD();\\n\\n    //Treasury\\n    error TRANSFER_RESTRICTIONS_NOT_MET();\\n    error INSUFFICIENT_NATIVE_TOKEN_BALANCE();\\n    error INSUFFICIENT_TOKEN_BALANCE();\\n    error EXCEEDED_MAX_AMOUNT_DURING_TIMEFRAME();\\n    error EXCEEDED_MAX_SPENDING_LIMITS();\\n    error SPENDING_LIMITS_ARE_INCORRECT();\\n    error SPENDER_IS_NOT_EXIST();\\n}\\n\",\"keccak256\":\"0x126e6cc9583f24e642d29d85055a53d7d76ee84bd7f320f4369ea9e5ed3d8589\",\"license\":\"BUSL-1.1\"},\"contracts/libraries/TokenTransfersLibrary.sol\":{\"content\":\"// Copyright 2020 Compound Labs, Inc.\\n// (c) 2023 Primex.finance\\n// SPDX-License-Identifier: BSD-3-Clause\\n\\n// Modified version of token transfer logic that allows working with non-standart ERC-20 tokens, added method doTransferFromTo,\\n// modified doTransferIn\\n\\npragma solidity 0.8.18;\\n\\nimport \\\"./Errors.sol\\\";\\n\\nimport {IERC20} from \\\"@openzeppelin/contracts/token/ERC20/IERC20.sol\\\";\\nimport {EIP20NonStandardInterface} from \\\"../interfaces/EIP20NonStandardInterface.sol\\\";\\n\\nlibrary TokenTransfersLibrary {\\n    function doTransferIn(address token, address from, uint256 amount) public returns (uint256) {\\n        return doTransferFromTo(token, from, address(this), amount);\\n    }\\n\\n    function doTransferFromTo(address token, address from, address to, uint256 amount) public returns (uint256) {\\n        uint256 balanceBefore = IERC20(token).balanceOf(to);\\n        // The returned value is checked in the assembly code below.\\n        // Arbitrary `from` should be checked at a higher level. The library function cannot be called by the user.\\n        // slither-disable-next-line unchecked-transfer arbitrary-send-erc20\\n        EIP20NonStandardInterface(token).transferFrom(from, to, amount);\\n\\n        bool success;\\n        // solhint-disable-next-line no-inline-assembly\\n        assembly (\\\"memory-safe\\\") {\\n            switch returndatasize()\\n            case 0 {\\n                // This is a non-standard ERC-20\\n                success := not(0) // set success to true\\n            }\\n            case 32 {\\n                // This is a compliant ERC-20\\n                returndatacopy(0, 0, 32)\\n                success := mload(0) // Set `success = returndata` of external call\\n            }\\n            default {\\n                // This is an excessively non-compliant ERC-20, revert.\\n                revert(0, 0)\\n            }\\n        }\\n        _require(success, Errors.TOKEN_TRANSFER_IN_FAILED.selector);\\n\\n        // Calculate the amount that was *actually* transferred\\n        uint256 balanceAfter = IERC20(token).balanceOf(to);\\n        _require(balanceAfter >= balanceBefore, Errors.TOKEN_TRANSFER_IN_OVERFLOW.selector);\\n\\n        return balanceAfter - balanceBefore; // underflow already checked above, just subtract\\n    }\\n\\n    function doTransferOut(address token, address to, uint256 amount) public {\\n        // The returned value is checked in the assembly code below.\\n        // slither-disable-next-line unchecked-transfer\\n        EIP20NonStandardInterface(token).transfer(to, amount);\\n\\n        bool success;\\n        // solhint-disable-next-line no-inline-assembly\\n        assembly (\\\"memory-safe\\\") {\\n            switch returndatasize()\\n            case 0 {\\n                // This is a non-standard ERC-20\\n                success := not(0) // set success to true\\n            }\\n            case 32 {\\n                // This is a complaint ERC-20\\n                returndatacopy(0, 0, 32)\\n                success := mload(0) // Set `success = returndata` of external call\\n            }\\n            default {\\n                // This is an excessively non-compliant ERC-20, revert.\\n                revert(0, 0)\\n            }\\n        }\\n        _require(success, Errors.TOKEN_TRANSFER_OUT_FAILED.selector);\\n    }\\n\\n    function doTransferOutETH(address to, uint256 value) internal {\\n        // solhint-disable-next-line avoid-low-level-calls\\n        (bool success, ) = to.call{value: value}(new bytes(0));\\n        _require(success, Errors.NATIVE_TOKEN_TRANSFER_FAILED.selector);\\n    }\\n}\\n\",\"keccak256\":\"0x055c6c72633f72ec523e7b74a58549f12e8c92320a6a06ae74503f637cb2ab97\",\"license\":\"BSD-3-Clause\"}},\"version\":1}",
+  "bytecode": "0x608080604052346100c1576000549060ff8260081c1661006f575060ff80821603610034575b6040516118aa90816100c78239f35b60ff90811916176000557f7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498602060405160ff8152a138610025565b62461bcd60e51b815260206004820152602760248201527f496e697469616c697a61626c653a20636f6e747261637420697320696e697469604482015266616c697a696e6760c81b6064820152608490fd5b600080fdfe608080604052600436101561013a575b50361561001b57600080fd5b610023611631565b60cb54604051630723eb0360e51b81523360048201526020918290829060249082906001600160a01b03165afa90811561012e57600091610101575b506100ef5761006c61175f565b341515806100e7575b156100d5573360005260ca81526040600020907399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e9182600052815260406000206100b43482546116a0565b9055600080516020611835833981519152604051913483523392a360018055005b604051633abe877f60e11b8152600490fd5b506001610075565b6040516333df015b60e01b8152600490fd5b6101219150823d8411610127575b6101198183611574565b810190611596565b3861005f565b503d61010f565b6040513d6000823e3d90fd5b600090813560e01c90816301ffc9a71461148f575080633f4ba83a1461137e578063441d68ca1461128957806347e7ef241461107b578063485cc95514610e1a5780635c975abb14610df75780637b10399914610dce5780638291732014610c755780638456cb5914610b9e578063a0fd10ad14610a9d578063b1a11ae91461082f578063c23f001f146107d9578063c268dd31146105d8578063f3fef3a3146104355763fb4ef4660361000f57346103615760a03660031901126103615760c954604051632474521560e21b815260008051602061185583398151915260048201523360248201526001600160a01b03916020908290604490829086165afa90811561042a57839161040c575b50156103fa57806102576116ad565b16825260ca602052604082208161026c6116c3565b16600052602052604060002060843560038110156103f657801580156103d8575b600182036103865750506102a4606435825461160e565b90555b806102b06116d9565b166102b9575080f35b7399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e906102d76116c3565b16146103745780734FFa6c545a6249baF2D66ce21CeF3D2C2cCa69D06102fb6116c3565b6103036116d9565b90823b1561036f57604051636336129b60e11b81526001600160a01b0391821660048201529116602482015260648035604483015290918391839182905af480156103645761035157505080f35b61035a9061154a565b6103615780f35b80fd5b6040513d84823e3d90fd5b505050fd5b604051637414865560e01b8152600490fd5b156103a3575060010161039c606435825461160e565b90556102a7565b6002146103b1575b506102a7565b6103d06001606435926103c584825461160e565b8155019182546116a0565b9055386103ab565b8254606435111561028d575b60405163317cf4f160e01b8152600490fd5b8380fd5b60405163036be76f60e61b8152600490fd5b610424915060203d8111610127576101198183611574565b38610248565b6040513d85823e3d90fd5b50346103615760403660031901126103615761044f6114e4565b60243561045a611631565b60cb54604051630723eb0360e51b81523360048201526001600160a01b039360209290919083908290602490829089165afa9081156105cd5786916105b0575b506100ef5782156100d55733855260ca825260408520938116938460005282526040600020908154918285116103e4576104d585889461160e565b90557399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e85036105345750506104fe82336117a3565b6040519283528201527f9b1bfa7fa9ee420a16e124f794c35ac9f90472acc99140eb2f6447c714cad8eb60403392a26001805580f35b734FFa6c545a6249baF2D66ce21CeF3D2C2cCa69D0803b156105ac57604051636336129b60e11b81526001600160a01b03929092166004830152336024830152604482018590528290829060649082905af4801561036457610598575b50506104fe565b6105a19061154a565b6103f6578338610591565b8280fd5b6105c79150833d8511610127576101198183611574565b3861049a565b6040513d88823e3d90fd5b50346103615760a0366003190112610361576105f26114e4565b6105fa6114ff565b604435916001600160a01b0391908284168085036107d557606435936084359283151584036107d1578160c95416936040518095632474521560e21b8252600080516020611855833981519152600483015233602483015281604460209889935afa9081156107c6578a916107a9575b50156103fa571561074f57169081875260ca8352604087208188528352846001604089200154106103e45786927399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e92845260ca8152604084209082855252600160408420016106ce86825461160e565b90555b036106e457506106e192506117a3565b80f35b9190734FFa6c545a6249baF2D66ce21CeF3D2C2cCa69D090813b156103f657604051636336129b60e11b81526001600160a01b039586166004820152941660248501526044840191909152829060649082905af4801561036457610746575080f35b6106e19061154a565b169081875260ca8352604087208188528352846040882054106103e45786927399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e92845260ca8152604084209082855252604083206107a286825461160e565b90556106d1565b6107c09150863d8811610127576101198183611574565b3861066a565b6040513d8c823e3d90fd5b8780fd5b8580fd5b503461036157604036600319011261036157604080916107f76114e4565b6107ff6114ff565b9060018060a01b03809116835260ca60205283832091168252602052206001815491015482519182526020820152f35b503461036157600319602036820112610a995767ffffffffffffffff60043511610a9957608090600435360301126103615760018060a01b0360c95416604051632474521560e21b8152600080516020611855833981519152600482015260208160448160249533878301525afa90811561042a578391610a7a575b50156103fa57815b6064600435013581106108c4578280f35b6108e1816108db8460043501600435600401611703565b90611739565b3561090b575b60001981146108f8576001016108b3565b50634e487b7160e01b8252601160045290fd5b610925610920826108db600480350180611703565b6116ef565b6109336044600435016116ef565b61094a836108db8660043501600435600401611703565b60c954604051632474521560e21b8152600080516020611855833981519152600482015233878201529135939190602090829060449082906001600160a01b03165afa908115610a6f578791610a50575b50156103fa576001600160a01b038216151580610a3e575b15610a2c576001600160a01b0382167399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e14610a14575b60018060a01b0316855260ca602052604085209060018060a01b03168552602052610a0d604085209182546116a0565b90556108e7565b82156109dd5760405163fae8279160e01b8152600490fd5b60405163044aa57560e41b8152600490fd5b506001600160a01b03811615156109b3565b610a69915060203d602011610127576101198183611574565b3861099b565b6040513d89823e3d90fd5b610a93915060203d602011610127576101198183611574565b386108ab565b5080fd5b50346103615760803660031901126103615760c954604051632474521560e21b815260008051602061185583398151915260048201523360248201526020916001600160a01b03919083908290604490829086165afa908115610b93578491610b76575b50156103fa576064359181610b146116ad565b16845260ca81526040842082610b286116c3565b168552815260016040852001610b3f84825461160e565b905581610b4a6116d9565b16845260ca81526040842091610b5e6116c3565b16845252610b71604083209182546116a0565b905580f35b610b8d9150833d8511610127576101198183611574565b38610b01565b6040513d86823e3d90fd5b503461036157806003193601126103615760c954604051632474521560e21b81527f5c91514091af31f62f596a314af7d5be40146b2f2355969392f055e12e0982fb600482015233602482015290602090829060449082906001600160a01b03165afa908115610364578291610c57575b50156103fa57610c1d61175f565b600160ff1960655416176065557f62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a2586020604051338152a180f35b610c6f915060203d8111610127576101198183611574565b38610c0f565b50610c7f36611515565b60c954604051632474521560e21b815260008051602061185583398151915260048201523360248201526001600160a01b039492936020929091908390829060449082908a165afa908115610a6f578791610db1575b50156103fa578416937399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e8503610d40575b83156100d55760008051602061183583398151915292169283865260ca825260408620858752825260016040872001610d348282546116a0565b9055604051908152a380f35b60405163313ce56760e01b81528281600481895afa908115610a6f5760129160ff918991610d84575b50161115610cfa575b60405163b7c73c5d60e01b8152600490fd5b610da49150853d8711610daa575b610d9c8183611574565b810190611687565b38610d69565b503d610d92565b610dc89150833d8511610127576101198183611574565b38610cd5565b503461036157806003193601126103615760c9546040516001600160a01b039091168152602090f35b5034610361578060031936011261036157602060ff606554166040519015158152f35b503461036157604036600319011261036157610e346114e4565b610e3c6114ff565b82549160ff8360081c16159081809261106e575b8015611057575b15610ffb5760ff1984811660011786559382610fea575b506040516301ffc9a760e01b808252637965db0b60e01b60048301526020946001600160a01b03938416939290918682602481885afa918215610fdf578992610fc0575b5081610f64575b5015610a2c576bffffffffffffffffffffffff60a01b928360c954161760c955169060cb54161760cb55610f2584549360ff8560081c1690610efa826115ae565b610f03826115ae565b60655416606555610f13816115ae565b610f1c816115ae565b600180556115ae565b610f2d578280f35b7f7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb38474024989161ff001916835560405160018152a138808280f35b604051908152633df6cef760e01b6004820152905085816024818587165afa908115610fb5578891610f98575b5038610eb9565b610faf9150863d8811610127576101198183611574565b38610f91565b6040513d8a823e3d90fd5b610fd8919250873d8911610127576101198183611574565b9038610eb2565b6040513d8b823e3d90fd5b61ffff191661010117855538610e6e565b60405162461bcd60e51b815260206004820152602e60248201527f496e697469616c697a61626c653a20636f6e747261637420697320616c72656160448201526d191e481a5b9a5d1a585b1a5e995960921b6064820152608490fd5b50303b158015610e575750600160ff851614610e57565b50600160ff851610610e50565b506040366003190112610361576110906114e4565b60243561109b611631565b60cb54604051630723eb0360e51b81523360048201526001600160a01b039260209290919083908290602490829088165afa9081156105cd57869161126c575b506100ef576110e861175f565b80928416937399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e851460001461116b57509091503415159081611162575b50156100d55760008051602061183583398151915234915b33855260ca8152604085208486528152604085206111508482546116a0565b90556040519283523392a36001805580f35b90501538611119565b341580611263575b156100d55760405163313ce56760e01b81528381600481895afa908115610a6f5760129160ff918991611246575b501611610d725760405163c37f7f7f60e01b81526001600160a01b0391909116600482015233602482015260448101919091528181606481734FFa6c545a6249baF2D66ce21CeF3D2C2cCa69D05af4801561123b57611211575b5060008051602061183583398151915290611131565b8190813d8311611234575b6112268183611574565b810103126103f657386111fb565b503d61121c565b6040513d87823e3d90fd5b61125d9150863d8811610daa57610d9c8183611574565b386111a1565b50811515611173565b6112839150833d8511610127576101198183611574565b386110db565b5061129336611515565b60c954604051632474521560e21b815260008051602061185583398151915260048201523360248201529193926001600160a01b039290916020908290604490829087165afa9081156105cd578691611360575b50156103fa5781169182151580611355575b15610a2c577399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e831461133b575b16835260ca60205260408320908352602052610b71604083209182546116a0565b8334101561131a5760405163fae8279160e01b8152600490fd5b5081811615156112f9565b611378915060203d8111610127576101198183611574565b386112e7565b503461036157806003193601126103615760c954604051632474521560e21b81527f5a7d4408f4759dddd7fdfd0d21abd99341dc2f52cda14804988a9b2df20766d8600482015233602482015290602090829060449082906001600160a01b03165afa908115610364578291611471575b50156103fa5760655460ff8116156114355760ff19166065557f5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa6020604051338152a180f35b60405162461bcd60e51b815260206004820152601460248201527314185d5cd8589b194e881b9bdd081c185d5cd95960621b6044820152606490fd5b611489915060203d8111610127576101198183611574565b386113ef565b905034610a99576020366003190112610a995760043563ffffffff60e01b81168091036105ac57602092506301ffc9a760e01b81149081156114d3575b5015158152f35b6312b3ed2b60e01b149050386114cc565b600435906001600160a01b03821682036114fa57565b600080fd5b602435906001600160a01b03821682036114fa57565b60609060031901126114fa576001600160a01b039060043582811681036114fa579160243590811681036114fa579060443590565b67ffffffffffffffff811161155e57604052565b634e487b7160e01b600052604160045260246000fd5b90601f8019910116810190811067ffffffffffffffff82111761155e57604052565b908160209103126114fa575180151581036114fa5790565b156115b557565b60405162461bcd60e51b815260206004820152602b60248201527f496e697469616c697a61626c653a20636f6e7472616374206973206e6f74206960448201526a6e697469616c697a696e6760a81b6064820152608490fd5b9190820391821161161b57565b634e487b7160e01b600052601160045260246000fd5b600260015414611642576002600155565b60405162461bcd60e51b815260206004820152601f60248201527f5265656e7472616e637947756172643a207265656e7472616e742063616c6c006044820152606490fd5b908160209103126114fa575160ff811681036114fa5790565b9190820180921161161b57565b6004356001600160a01b03811681036114fa5790565b6044356001600160a01b03811681036114fa5790565b6024356001600160a01b03811681036114fa5790565b356001600160a01b03811681036114fa5790565b903590601e19813603018212156114fa570180359067ffffffffffffffff82116114fa57602001918160051b360383136114fa57565b91908110156117495760051b0190565b634e487b7160e01b600052603260045260246000fd5b60ff6065541661176b57565b60405162461bcd60e51b815260206004820152601060248201526f14185d5cd8589b194e881c185d5cd95960821b6044820152606490fd5b60405167ffffffffffffffff9190602081018381118282101761155e5760405260008080958194828095525af1913d1561182d573d91821161181957604051916117f7601f8201601f191660200184611574565b825260203d92013e5b1561180757565b60405163c71509d160e01b8152600490fd5b634e487b7160e01b81526041600452602490fd5b505061180056fe5548c837ab068cf56a2c2479df0882a4922fd203edb7517321831d95078c5f62e965846df3dd5b1dfa65f58e31477079e90140e0908b6dd31b5aead5a57cf365a2646970667358221220fe887f499e458781acad0663096bb3c743180caff15fc97ee755d62e4ca8c1f164736f6c63430008120033",
+  "deployedBytecode": "0x608080604052600436101561013a575b50361561001b57600080fd5b610023611631565b60cb54604051630723eb0360e51b81523360048201526020918290829060249082906001600160a01b03165afa90811561012e57600091610101575b506100ef5761006c61175f565b341515806100e7575b156100d5573360005260ca81526040600020907399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e9182600052815260406000206100b43482546116a0565b9055600080516020611835833981519152604051913483523392a360018055005b604051633abe877f60e11b8152600490fd5b506001610075565b6040516333df015b60e01b8152600490fd5b6101219150823d8411610127575b6101198183611574565b810190611596565b3861005f565b503d61010f565b6040513d6000823e3d90fd5b600090813560e01c90816301ffc9a71461148f575080633f4ba83a1461137e578063441d68ca1461128957806347e7ef241461107b578063485cc95514610e1a5780635c975abb14610df75780637b10399914610dce5780638291732014610c755780638456cb5914610b9e578063a0fd10ad14610a9d578063b1a11ae91461082f578063c23f001f146107d9578063c268dd31146105d8578063f3fef3a3146104355763fb4ef4660361000f57346103615760a03660031901126103615760c954604051632474521560e21b815260008051602061185583398151915260048201523360248201526001600160a01b03916020908290604490829086165afa90811561042a57839161040c575b50156103fa57806102576116ad565b16825260ca602052604082208161026c6116c3565b16600052602052604060002060843560038110156103f657801580156103d8575b600182036103865750506102a4606435825461160e565b90555b806102b06116d9565b166102b9575080f35b7399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e906102d76116c3565b1614610374578073__$183737d697d7aa9b5df9988cbe11bc4947$__6102fb6116c3565b6103036116d9565b90823b1561036f57604051636336129b60e11b81526001600160a01b0391821660048201529116602482015260648035604483015290918391839182905af480156103645761035157505080f35b61035a9061154a565b6103615780f35b80fd5b6040513d84823e3d90fd5b505050fd5b604051637414865560e01b8152600490fd5b156103a3575060010161039c606435825461160e565b90556102a7565b6002146103b1575b506102a7565b6103d06001606435926103c584825461160e565b8155019182546116a0565b9055386103ab565b8254606435111561028d575b60405163317cf4f160e01b8152600490fd5b8380fd5b60405163036be76f60e61b8152600490fd5b610424915060203d8111610127576101198183611574565b38610248565b6040513d85823e3d90fd5b50346103615760403660031901126103615761044f6114e4565b60243561045a611631565b60cb54604051630723eb0360e51b81523360048201526001600160a01b039360209290919083908290602490829089165afa9081156105cd5786916105b0575b506100ef5782156100d55733855260ca825260408520938116938460005282526040600020908154918285116103e4576104d585889461160e565b90557399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e85036105345750506104fe82336117a3565b6040519283528201527f9b1bfa7fa9ee420a16e124f794c35ac9f90472acc99140eb2f6447c714cad8eb60403392a26001805580f35b73__$183737d697d7aa9b5df9988cbe11bc4947$__803b156105ac57604051636336129b60e11b81526001600160a01b03929092166004830152336024830152604482018590528290829060649082905af4801561036457610598575b50506104fe565b6105a19061154a565b6103f6578338610591565b8280fd5b6105c79150833d8511610127576101198183611574565b3861049a565b6040513d88823e3d90fd5b50346103615760a0366003190112610361576105f26114e4565b6105fa6114ff565b604435916001600160a01b0391908284168085036107d557606435936084359283151584036107d1578160c95416936040518095632474521560e21b8252600080516020611855833981519152600483015233602483015281604460209889935afa9081156107c6578a916107a9575b50156103fa571561074f57169081875260ca8352604087208188528352846001604089200154106103e45786927399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e92845260ca8152604084209082855252600160408420016106ce86825461160e565b90555b036106e457506106e192506117a3565b80f35b919073__$183737d697d7aa9b5df9988cbe11bc4947$__90813b156103f657604051636336129b60e11b81526001600160a01b039586166004820152941660248501526044840191909152829060649082905af4801561036457610746575080f35b6106e19061154a565b169081875260ca8352604087208188528352846040882054106103e45786927399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e92845260ca8152604084209082855252604083206107a286825461160e565b90556106d1565b6107c09150863d8811610127576101198183611574565b3861066a565b6040513d8c823e3d90fd5b8780fd5b8580fd5b503461036157604036600319011261036157604080916107f76114e4565b6107ff6114ff565b9060018060a01b03809116835260ca60205283832091168252602052206001815491015482519182526020820152f35b503461036157600319602036820112610a995767ffffffffffffffff60043511610a9957608090600435360301126103615760018060a01b0360c95416604051632474521560e21b8152600080516020611855833981519152600482015260208160448160249533878301525afa90811561042a578391610a7a575b50156103fa57815b6064600435013581106108c4578280f35b6108e1816108db8460043501600435600401611703565b90611739565b3561090b575b60001981146108f8576001016108b3565b50634e487b7160e01b8252601160045290fd5b610925610920826108db600480350180611703565b6116ef565b6109336044600435016116ef565b61094a836108db8660043501600435600401611703565b60c954604051632474521560e21b8152600080516020611855833981519152600482015233878201529135939190602090829060449082906001600160a01b03165afa908115610a6f578791610a50575b50156103fa576001600160a01b038216151580610a3e575b15610a2c576001600160a01b0382167399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e14610a14575b60018060a01b0316855260ca602052604085209060018060a01b03168552602052610a0d604085209182546116a0565b90556108e7565b82156109dd5760405163fae8279160e01b8152600490fd5b60405163044aa57560e41b8152600490fd5b506001600160a01b03811615156109b3565b610a69915060203d602011610127576101198183611574565b3861099b565b6040513d89823e3d90fd5b610a93915060203d602011610127576101198183611574565b386108ab565b5080fd5b50346103615760803660031901126103615760c954604051632474521560e21b815260008051602061185583398151915260048201523360248201526020916001600160a01b03919083908290604490829086165afa908115610b93578491610b76575b50156103fa576064359181610b146116ad565b16845260ca81526040842082610b286116c3565b168552815260016040852001610b3f84825461160e565b905581610b4a6116d9565b16845260ca81526040842091610b5e6116c3565b16845252610b71604083209182546116a0565b905580f35b610b8d9150833d8511610127576101198183611574565b38610b01565b6040513d86823e3d90fd5b503461036157806003193601126103615760c954604051632474521560e21b81527f5c91514091af31f62f596a314af7d5be40146b2f2355969392f055e12e0982fb600482015233602482015290602090829060449082906001600160a01b03165afa908115610364578291610c57575b50156103fa57610c1d61175f565b600160ff1960655416176065557f62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a2586020604051338152a180f35b610c6f915060203d8111610127576101198183611574565b38610c0f565b50610c7f36611515565b60c954604051632474521560e21b815260008051602061185583398151915260048201523360248201526001600160a01b039492936020929091908390829060449082908a165afa908115610a6f578791610db1575b50156103fa578416937399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e8503610d40575b83156100d55760008051602061183583398151915292169283865260ca825260408620858752825260016040872001610d348282546116a0565b9055604051908152a380f35b60405163313ce56760e01b81528281600481895afa908115610a6f5760129160ff918991610d84575b50161115610cfa575b60405163b7c73c5d60e01b8152600490fd5b610da49150853d8711610daa575b610d9c8183611574565b810190611687565b38610d69565b503d610d92565b610dc89150833d8511610127576101198183611574565b38610cd5565b503461036157806003193601126103615760c9546040516001600160a01b039091168152602090f35b5034610361578060031936011261036157602060ff606554166040519015158152f35b503461036157604036600319011261036157610e346114e4565b610e3c6114ff565b82549160ff8360081c16159081809261106e575b8015611057575b15610ffb5760ff1984811660011786559382610fea575b506040516301ffc9a760e01b808252637965db0b60e01b60048301526020946001600160a01b03938416939290918682602481885afa918215610fdf578992610fc0575b5081610f64575b5015610a2c576bffffffffffffffffffffffff60a01b928360c954161760c955169060cb54161760cb55610f2584549360ff8560081c1690610efa826115ae565b610f03826115ae565b60655416606555610f13816115ae565b610f1c816115ae565b600180556115ae565b610f2d578280f35b7f7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb38474024989161ff001916835560405160018152a138808280f35b604051908152633df6cef760e01b6004820152905085816024818587165afa908115610fb5578891610f98575b5038610eb9565b610faf9150863d8811610127576101198183611574565b38610f91565b6040513d8a823e3d90fd5b610fd8919250873d8911610127576101198183611574565b9038610eb2565b6040513d8b823e3d90fd5b61ffff191661010117855538610e6e565b60405162461bcd60e51b815260206004820152602e60248201527f496e697469616c697a61626c653a20636f6e747261637420697320616c72656160448201526d191e481a5b9a5d1a585b1a5e995960921b6064820152608490fd5b50303b158015610e575750600160ff851614610e57565b50600160ff851610610e50565b506040366003190112610361576110906114e4565b60243561109b611631565b60cb54604051630723eb0360e51b81523360048201526001600160a01b039260209290919083908290602490829088165afa9081156105cd57869161126c575b506100ef576110e861175f565b80928416937399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e851460001461116b57509091503415159081611162575b50156100d55760008051602061183583398151915234915b33855260ca8152604085208486528152604085206111508482546116a0565b90556040519283523392a36001805580f35b90501538611119565b341580611263575b156100d55760405163313ce56760e01b81528381600481895afa908115610a6f5760129160ff918991611246575b501611610d725760405163c37f7f7f60e01b81526001600160a01b039190911660048201523360248201526044810191909152818160648173__$183737d697d7aa9b5df9988cbe11bc4947$__5af4801561123b57611211575b5060008051602061183583398151915290611131565b8190813d8311611234575b6112268183611574565b810103126103f657386111fb565b503d61121c565b6040513d87823e3d90fd5b61125d9150863d8811610daa57610d9c8183611574565b386111a1565b50811515611173565b6112839150833d8511610127576101198183611574565b386110db565b5061129336611515565b60c954604051632474521560e21b815260008051602061185583398151915260048201523360248201529193926001600160a01b039290916020908290604490829087165afa9081156105cd578691611360575b50156103fa5781169182151580611355575b15610a2c577399ec76235f8a5a52611b0da5f0c6b09e1dcd2c9e831461133b575b16835260ca60205260408320908352602052610b71604083209182546116a0565b8334101561131a5760405163fae8279160e01b8152600490fd5b5081811615156112f9565b611378915060203d8111610127576101198183611574565b386112e7565b503461036157806003193601126103615760c954604051632474521560e21b81527f5a7d4408f4759dddd7fdfd0d21abd99341dc2f52cda14804988a9b2df20766d8600482015233602482015290602090829060449082906001600160a01b03165afa908115610364578291611471575b50156103fa5760655460ff8116156114355760ff19166065557f5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa6020604051338152a180f35b60405162461bcd60e51b815260206004820152601460248201527314185d5cd8589b194e881b9bdd081c185d5cd95960621b6044820152606490fd5b611489915060203d8111610127576101198183611574565b386113ef565b905034610a99576020366003190112610a995760043563ffffffff60e01b81168091036105ac57602092506301ffc9a760e01b81149081156114d3575b5015158152f35b6312b3ed2b60e01b149050386114cc565b600435906001600160a01b03821682036114fa57565b600080fd5b602435906001600160a01b03821682036114fa57565b60609060031901126114fa576001600160a01b039060043582811681036114fa579160243590811681036114fa579060443590565b67ffffffffffffffff811161155e57604052565b634e487b7160e01b600052604160045260246000fd5b90601f8019910116810190811067ffffffffffffffff82111761155e57604052565b908160209103126114fa575180151581036114fa5790565b156115b557565b60405162461bcd60e51b815260206004820152602b60248201527f496e697469616c697a61626c653a20636f6e7472616374206973206e6f74206960448201526a6e697469616c697a696e6760a81b6064820152608490fd5b9190820391821161161b57565b634e487b7160e01b600052601160045260246000fd5b600260015414611642576002600155565b60405162461bcd60e51b815260206004820152601f60248201527f5265656e7472616e637947756172643a207265656e7472616e742063616c6c006044820152606490fd5b908160209103126114fa575160ff811681036114fa5790565b9190820180921161161b57565b6004356001600160a01b03811681036114fa5790565b6044356001600160a01b03811681036114fa5790565b6024356001600160a01b03811681036114fa5790565b356001600160a01b03811681036114fa5790565b903590601e19813603018212156114fa570180359067ffffffffffffffff82116114fa57602001918160051b360383136114fa57565b91908110156117495760051b0190565b634e487b7160e01b600052603260045260246000fd5b60ff6065541661176b57565b60405162461bcd60e51b815260206004820152601060248201526f14185d5cd8589b194e881c185d5cd95960821b6044820152606490fd5b60405167ffffffffffffffff9190602081018381118282101761155e5760405260008080958194828095525af1913d1561182d573d91821161181957604051916117f7601f8201601f191660200184611574565b825260203d92013e5b1561180757565b60405163c71509d160e01b8152600490fd5b634e487b7160e01b81526041600452602490fd5b505061180056fe5548c837ab068cf56a2c2479df0882a4922fd203edb7517321831d95078c5f62e965846df3dd5b1dfa65f58e31477079e90140e0908b6dd31b5aead5a57cf365a2646970667358221220fe887f499e458781acad0663096bb3c743180caff15fc97ee755d62e4ca8c1f164736f6c63430008120033",
+  "libraries": {
+    "TokenTransfersLibrary": "0x4FFa6c545a6249baF2D66ce21CeF3D2C2cCa69D0",
+    "Errors": "0x988288925196F0725268378d0C7c8aA0E50EB423"
+  },
+  "devdoc": {
+    "events": {
+      "Initialized(uint8)": {
+        "details": "Triggered when the contract has been initialized or reinitialized."
+      },
+      "Paused(address)": {
+        "details": "Emitted when the pause is triggered by `account`."
+      },
+      "Unpaused(address)": {
+        "details": "Emitted when the pause is lifted by `account`."
+      }
+    },
+    "kind": "dev",
+    "methods": {
+      "batchTopUpAvailableBalance((address[],uint256[],address,uint256))": {
+        "params": {
+          "_params": "A struct containing BatchTopUpAvailableBalanceParams"
+        }
+      },
+      "deposit(address,uint256)": {
+        "details": "Deposits trader collateral for margin deal",
+        "params": {
+          "_amount": "The amount of '_asset' to deposit",
+          "_asset": "The collateral asset for deal"
+        }
+      },
+      "increaseLockedBalance(address,address,uint256)": {
+        "details": "Traders lock their collateral for the limit order.",
+        "params": {
+          "_amount": "The amount of '_asset' to deposit",
+          "_asset": "The collateral asset for deal",
+          "_trader": "The owner of collateral"
+        }
+      },
+      "initialize(address,address)": {
+        "details": "contract initializer",
+        "params": {
+          "_registry": "The address of Registry contract",
+          "_whiteBlackList": "The address of WhiteBlackList contract"
+        }
+      },
+      "pause()": {
+        "details": "Triggers stopped state. This function can only be called by an address with the EMERGENCY_ADMIN role. Requirements: - The contract must not be paused."
+      },
+      "paused()": {
+        "details": "Returns true if the contract is paused, and false otherwise."
+      },
+      "supportsInterface(bytes4)": {
+        "params": {
+          "_interfaceId": "The interface id to check"
+        }
+      },
+      "topUpAvailableBalance(address,address,uint256)": {
+        "params": {
+          "amount": "The amount of an asset",
+          "asset": "The asset address for which available balance will be increased",
+          "receiver": "The address of an asset receiver"
+        }
+      },
+      "unlockAsset((address,address,address,uint256))": {
+        "details": "Unlocks trader's collateral when open position by order or update deposit.",
+        "params": {
+          "_params": "parameters necessary to unlock asset"
+        }
+      },
+      "unpause()": {
+        "details": "Returns to normal state. This function can only be called by an address with the SMALL_TIMELOCK_ADMIN or MEDIUM_TIMELOCK_ADMIN role depending on the contract. Requirements: - The contract must be paused."
+      },
+      "useTraderAssets((address,address,address,uint256,uint8))": {
+        "details": "Locks deposited trader's assets as collateral for orders. Decreases the available balance when opening position. Transfers deposited amount to the deposit receiver.",
+        "params": {
+          "_params": "parameters necessary to lock asset"
+        }
+      },
+      "withdraw(address,uint256)": {
+        "details": "Withdraws the rest of trader's deposit after closing deal",
+        "params": {
+          "_amount": "The amount of '_asset' to withdraw",
+          "_asset": "The collateral asset for withdraw"
+        }
+      },
+      "withdrawFrom(address,address,address,uint256,bool)": {
+        "params": {
+          "_amount": "Amount of an asset",
+          "_asset": "Address of an asset",
+          "_from": "Withdraw from address",
+          "_to": "Withdraw to address",
+          "fromLocked": "True if withdraw from locked balance"
+        }
+      }
+    },
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {
+      "batchTopUpAvailableBalance((address[],uint256[],address,uint256))": {
+        "notice": "The function to increase available balance for several traders"
+      },
+      "supportsInterface(bytes4)": {
+        "notice": "Interface checker"
+      },
+      "topUpAvailableBalance(address,address,uint256)": {
+        "notice": "Increases available balance of a receiver in the protocol"
+      },
+      "withdrawFrom(address,address,address,uint256,bool)": {
+        "notice": "Withdraws an asset amount from an asset holder to a receiver"
+      }
+    },
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [
+      {
+        "astId": 2890,
+        "contract": "contracts/TraderBalanceVault/TraderBalanceVault.sol:TraderBalanceVault",
+        "label": "_initialized",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_uint8"
+      },
+      {
+        "astId": 2893,
+        "contract": "contracts/TraderBalanceVault/TraderBalanceVault.sol:TraderBalanceVault",
+        "label": "_initializing",
+        "offset": 1,
+        "slot": "0",
+        "type": "t_bool"
+      },
+      {
+        "astId": 3193,
+        "contract": "contracts/TraderBalanceVault/TraderBalanceVault.sol:TraderBalanceVault",
+        "label": "_status",
+        "offset": 0,
+        "slot": "1",
+        "type": "t_uint256"
+      },
+      {
+        "astId": 3262,
+        "contract": "contracts/TraderBalanceVault/TraderBalanceVault.sol:TraderBalanceVault",
+        "label": "__gap",
+        "offset": 0,
+        "slot": "2",
+        "type": "t_array(t_uint256)49_storage"
+      },
+      {
+        "astId": 5867,
+        "contract": "contracts/TraderBalanceVault/TraderBalanceVault.sol:TraderBalanceVault",
+        "label": "__gap",
+        "offset": 0,
+        "slot": "51",
+        "type": "t_array(t_uint256)50_storage"
+      },
+      {
+        "astId": 3073,
+        "contract": "contracts/TraderBalanceVault/TraderBalanceVault.sol:TraderBalanceVault",
+        "label": "_paused",
+        "offset": 0,
+        "slot": "101",
+        "type": "t_bool"
+      },
+      {
+        "astId": 3178,
+        "contract": "contracts/TraderBalanceVault/TraderBalanceVault.sol:TraderBalanceVault",
+        "label": "__gap",
+        "offset": 0,
+        "slot": "102",
+        "type": "t_array(t_uint256)49_storage"
+      },
+      {
+        "astId": 6506,
+        "contract": "contracts/TraderBalanceVault/TraderBalanceVault.sol:TraderBalanceVault",
+        "label": "__gap",
+        "offset": 0,
+        "slot": "151",
+        "type": "t_array(t_uint256)50_storage"
+      },
+      {
+        "astId": 53116,
+        "contract": "contracts/TraderBalanceVault/TraderBalanceVault.sol:TraderBalanceVault",
+        "label": "registry",
+        "offset": 0,
+        "slot": "201",
+        "type": "t_address"
+      },
+      {
+        "astId": 53124,
+        "contract": "contracts/TraderBalanceVault/TraderBalanceVault.sol:TraderBalanceVault",
+        "label": "balances",
+        "offset": 0,
+        "slot": "202",
+        "type": "t_mapping(t_address,t_mapping(t_address,t_struct(TraderBalance)52311_storage))"
+      },
+      {
+        "astId": 53127,
+        "contract": "contracts/TraderBalanceVault/TraderBalanceVault.sol:TraderBalanceVault",
+        "label": "whiteBlackList",
+        "offset": 0,
+        "slot": "203",
+        "type": "t_contract(IWhiteBlackList)53981"
+      }
+    ],
+    "types": {
+      "t_address": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      },
+      "t_array(t_uint256)49_storage": {
+        "base": "t_uint256",
+        "encoding": "inplace",
+        "label": "uint256[49]",
+        "numberOfBytes": "1568"
+      },
+      "t_array(t_uint256)50_storage": {
+        "base": "t_uint256",
+        "encoding": "inplace",
+        "label": "uint256[50]",
+        "numberOfBytes": "1600"
+      },
+      "t_bool": {
+        "encoding": "inplace",
+        "label": "bool",
+        "numberOfBytes": "1"
+      },
+      "t_contract(IWhiteBlackList)53981": {
+        "encoding": "inplace",
+        "label": "contract IWhiteBlackList",
+        "numberOfBytes": "20"
+      },
+      "t_mapping(t_address,t_mapping(t_address,t_struct(TraderBalance)52311_storage))": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => mapping(address => struct ITraderBalanceVaultStorage.TraderBalance))",
+        "numberOfBytes": "32",
+        "value": "t_mapping(t_address,t_struct(TraderBalance)52311_storage)"
+      },
+      "t_mapping(t_address,t_struct(TraderBalance)52311_storage)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => struct ITraderBalanceVaultStorage.TraderBalance)",
+        "numberOfBytes": "32",
+        "value": "t_struct(TraderBalance)52311_storage"
+      },
+      "t_struct(TraderBalance)52311_storage": {
+        "encoding": "inplace",
+        "label": "struct ITraderBalanceVaultStorage.TraderBalance",
+        "members": [
+          {
+            "astId": 52308,
+            "contract": "contracts/TraderBalanceVault/TraderBalanceVault.sol:TraderBalanceVault",
+            "label": "availableBalance",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint256"
+          },
+          {
+            "astId": 52310,
+            "contract": "contracts/TraderBalanceVault/TraderBalanceVault.sol:TraderBalanceVault",
+            "label": "lockedBalance",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_uint256"
+          }
+        ],
+        "numberOfBytes": "64"
+      },
+      "t_uint256": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      },
+      "t_uint8": {
+        "encoding": "inplace",
+        "label": "uint8",
+        "numberOfBytes": "1"
+      }
+    }
+  }
+}

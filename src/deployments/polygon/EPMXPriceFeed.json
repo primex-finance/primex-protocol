@@ -1,0 +1,540 @@
+{
+  "address": "0x103A9FF33c709405DF58f8f209C53f6B5c5eA2BE",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_registry",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "int256",
+          "name": "current",
+          "type": "int256"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "roundId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "updatedAt",
+          "type": "uint256"
+        }
+      ],
+      "name": "AnswerUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "roundId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "startedBy",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "startedAt",
+          "type": "uint256"
+        }
+      ],
+      "name": "NewRound",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "decimals",
+      "outputs": [
+        {
+          "internalType": "uint8",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "description",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "roundId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getAnswer",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint80",
+          "name": "_roundId",
+          "type": "uint80"
+        }
+      ],
+      "name": "getRoundData",
+      "outputs": [
+        {
+          "internalType": "uint80",
+          "name": "",
+          "type": "uint80"
+        },
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint80",
+          "name": "",
+          "type": "uint80"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "roundId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getTimestamp",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "latestAnswer",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "latestRound",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "latestRoundData",
+      "outputs": [
+        {
+          "internalType": "uint80",
+          "name": "",
+          "type": "uint80"
+        },
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint80",
+          "name": "",
+          "type": "uint80"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "latestTimestamp",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "registry",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "int256",
+          "name": "answer",
+          "type": "int256"
+        }
+      ],
+      "name": "setAnswer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "version",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ],
+  "transactionHash": "0x4b45a1ba9a44cc2704ab7910ccb3f82468a0224e56f4b641c11c83d4ae48b58d",
+  "receipt": {
+    "to": null,
+    "from": "0xC110b6e93a51ACF1f3DEd19c754789E7A2304F07",
+    "contractAddress": "0x103A9FF33c709405DF58f8f209C53f6B5c5eA2BE",
+    "transactionIndex": 8,
+    "gasUsed": "421647",
+    "logsBloom": "0x00000000000000000000000400000000000000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000800000000000000000000100000000000000000800000000000002000000000000000000000000000080000000000000000000000000000000200000000020000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000004000000000000000000001000000000000000000000000000000100000000000000000000002000000000000000000000000000000000000000000000000100000",
+    "blockHash": "0x9f86f625596d7c319a0c2a7e16fd44c2613ffade78eb6a7712a00def2925f816",
+    "transactionHash": "0x4b45a1ba9a44cc2704ab7910ccb3f82468a0224e56f4b641c11c83d4ae48b58d",
+    "logs": [
+      {
+        "transactionIndex": 8,
+        "blockNumber": 48547783,
+        "transactionHash": "0x4b45a1ba9a44cc2704ab7910ccb3f82468a0224e56f4b641c11c83d4ae48b58d",
+        "address": "0x0000000000000000000000000000000000001010",
+        "topics": [
+          "0x4dfe1bbbcf077ddc3e01291eea2d5c70c2b422b415d95645b9adcfd678cb1d63",
+          "0x0000000000000000000000000000000000000000000000000000000000001010",
+          "0x000000000000000000000000c110b6e93a51acf1f3ded19c754789e7a2304f07",
+          "0x000000000000000000000000ec20607aa654d823dd01beb8780a44863c57ed07"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000000057535dea5dd7f50000000000000000000000000000000000000000000000019e8c5d785e3a60000000000000000000000000000000000000000000000001064df493e12d8a146a0000000000000000000000000000000000000000000000019e350a1a73dc880b0000000000000000000000000000000000000000000001064e4be73f17e7ec5f",
+        "logIndex": 38,
+        "blockHash": "0x9f86f625596d7c319a0c2a7e16fd44c2613ffade78eb6a7712a00def2925f816"
+      }
+    ],
+    "blockNumber": 48547783,
+    "cumulativeGasUsed": "1656813",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [
+    "0xD1869a3C77C17D185c9a5e8904e0e4867e5EB1D9"
+  ],
+  "numDeployments": 1,
+  "solcInputHash": "77b92b6c993777e32b56dbda936965f9",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.18+commit.87f61d96\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_registry\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"int256\",\"name\":\"current\",\"type\":\"int256\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"roundId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"updatedAt\",\"type\":\"uint256\"}],\"name\":\"AnswerUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"roundId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"startedBy\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"startedAt\",\"type\":\"uint256\"}],\"name\":\"NewRound\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"description\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"roundId\",\"type\":\"uint256\"}],\"name\":\"getAnswer\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint80\",\"name\":\"_roundId\",\"type\":\"uint80\"}],\"name\":\"getRoundData\",\"outputs\":[{\"internalType\":\"uint80\",\"name\":\"\",\"type\":\"uint80\"},{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint80\",\"name\":\"\",\"type\":\"uint80\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"roundId\",\"type\":\"uint256\"}],\"name\":\"getTimestamp\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestAnswer\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestRound\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestRoundData\",\"outputs\":[{\"internalType\":\"uint80\",\"name\":\"\",\"type\":\"uint80\"},{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint80\",\"name\":\"\",\"type\":\"uint80\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestTimestamp\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"registry\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"int256\",\"name\":\"answer\",\"type\":\"int256\"}],\"name\":\"setAnswer\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{\"description()\":{\"returns\":{\"_0\":\"The description string \\\"EPMX / USD\\\".\"}},\"getAnswer(uint256)\":{\"params\":{\"roundId\":\"The round ID for which to get the answer.\"},\"returns\":{\"_0\":\"The answer previously set with setAnswer().\"}},\"getRoundData(uint80)\":{\"params\":{\"_roundId\":\"The ID of the round to retrieve data for.\"},\"returns\":{\"_0\":\"roundId The ID of the round.\",\"_1\":\"answer The answer for the round.\",\"_2\":\"startedAt The timestamp when the round started.\",\"_3\":\"updatedAt The timestamp when the round was last updated.\",\"_4\":\"answeredInRound The ID of the round in which the answer was computed.\"}},\"getTimestamp(uint256)\":{\"params\":{\"roundId\":\"The round ID for which to retrieve the timestamp.\"},\"returns\":{\"_0\":\"The timestamp when the round was last updated.\"}},\"latestAnswer()\":{\"returns\":{\"_0\":\"The latest answer, with a precision of 8 decimal (USD decimals).\"}},\"latestRound()\":{\"returns\":{\"_0\":\"The latest round ID.\"}},\"latestRoundData()\":{\"returns\":{\"_0\":\"roundId The ID of the latest round.\",\"_1\":\"answer The answer provided in the latest round.\",\"_2\":\"startedAt The timestamp when the latest round started.\",\"_3\":\"updatedAt The timestamp when the latest round was updated.\",\"_4\":\"answeredInRound The round in which the latest answer was provided.\"}},\"latestTimestamp()\":{\"returns\":{\"_0\":\"The latest timestamp of when the round was updated, in seconds (UTC).\"}},\"setAnswer(int256)\":{\"details\":\"Only callable by the BIG_TIMELOCK_ADMIN role.\",\"params\":{\"answer\":\"The answer to be set with a precision of 8 decimal (USD decimals).\"}}},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"description()\":{\"notice\":\"Returns the description of the contract.\"},\"getAnswer(uint256)\":{\"notice\":\"Retrieves the answer for a given round ID.\"},\"getRoundData(uint80)\":{\"notice\":\"Retrieves the data for a specific round.\"},\"getTimestamp(uint256)\":{\"notice\":\"Retrieves the timestamp of a given round ID.\"},\"latestAnswer()\":{\"notice\":\"Retrieves the latest answer from the oracle.\"},\"latestRound()\":{\"notice\":\"Retrieves the latest round ID.\"},\"latestRoundData()\":{\"notice\":\"Returns the latest round data.\"},\"latestTimestamp()\":{\"notice\":\"Retrieves the latest timestamp of the round data.\"},\"setAnswer(int256)\":{\"notice\":\"Sets the answer for the current round.\"},\"version()\":{\"notice\":\"This function provides the version number of the contract.\"}},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/EPMXPriceFeed.sol\":\"EPMXPriceFeed\"},\"evmVersion\":\"paris\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[],\"viaIR\":true},\"sources\":{\"@chainlink/contracts/src/v0.8/interfaces/AggregatorInterface.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\npragma solidity ^0.8.0;\\n\\ninterface AggregatorInterface {\\n  function latestAnswer() external view returns (int256);\\n\\n  function latestTimestamp() external view returns (uint256);\\n\\n  function latestRound() external view returns (uint256);\\n\\n  function getAnswer(uint256 roundId) external view returns (int256);\\n\\n  function getTimestamp(uint256 roundId) external view returns (uint256);\\n\\n  event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 updatedAt);\\n\\n  event NewRound(uint256 indexed roundId, address indexed startedBy, uint256 startedAt);\\n}\\n\",\"keccak256\":\"0xb496651006b9a2a07920ffe116928b11e2a6458e21361cecca51409522488ca7\",\"license\":\"MIT\"},\"@chainlink/contracts/src/v0.8/interfaces/AggregatorV2V3Interface.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\npragma solidity ^0.8.0;\\n\\nimport \\\"./AggregatorInterface.sol\\\";\\nimport \\\"./AggregatorV3Interface.sol\\\";\\n\\ninterface AggregatorV2V3Interface is AggregatorInterface, AggregatorV3Interface {}\\n\",\"keccak256\":\"0x4a7757ff7bbafe044cd49c2a45c7c18ec50eff7c7af6869face5e1e9cda976f2\",\"license\":\"MIT\"},\"@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\npragma solidity ^0.8.0;\\n\\ninterface AggregatorV3Interface {\\n  function decimals() external view returns (uint8);\\n\\n  function description() external view returns (string memory);\\n\\n  function version() external view returns (uint256);\\n\\n  function getRoundData(uint80 _roundId)\\n    external\\n    view\\n    returns (\\n      uint80 roundId,\\n      int256 answer,\\n      uint256 startedAt,\\n      uint256 updatedAt,\\n      uint80 answeredInRound\\n    );\\n\\n  function latestRoundData()\\n    external\\n    view\\n    returns (\\n      uint80 roundId,\\n      int256 answer,\\n      uint256 startedAt,\\n      uint256 updatedAt,\\n      uint80 answeredInRound\\n    );\\n}\\n\",\"keccak256\":\"0x6e6e4b0835904509406b070ee173b5bc8f677c19421b76be38aea3b1b3d30846\",\"license\":\"MIT\"},\"@openzeppelin/contracts/access/IAccessControl.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts v4.4.1 (access/IAccessControl.sol)\\n\\npragma solidity ^0.8.0;\\n\\n/**\\n * @dev External interface of AccessControl declared to support ERC165 detection.\\n */\\ninterface IAccessControl {\\n    /**\\n     * @dev Emitted when `newAdminRole` is set as ``role``'s admin role, replacing `previousAdminRole`\\n     *\\n     * `DEFAULT_ADMIN_ROLE` is the starting admin for all roles, despite\\n     * {RoleAdminChanged} not being emitted signaling this.\\n     *\\n     * _Available since v3.1._\\n     */\\n    event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole);\\n\\n    /**\\n     * @dev Emitted when `account` is granted `role`.\\n     *\\n     * `sender` is the account that originated the contract call, an admin role\\n     * bearer except when using {AccessControl-_setupRole}.\\n     */\\n    event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender);\\n\\n    /**\\n     * @dev Emitted when `account` is revoked `role`.\\n     *\\n     * `sender` is the account that originated the contract call:\\n     *   - if using `revokeRole`, it is the admin role bearer\\n     *   - if using `renounceRole`, it is the role bearer (i.e. `account`)\\n     */\\n    event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender);\\n\\n    /**\\n     * @dev Returns `true` if `account` has been granted `role`.\\n     */\\n    function hasRole(bytes32 role, address account) external view returns (bool);\\n\\n    /**\\n     * @dev Returns the admin role that controls `role`. See {grantRole} and\\n     * {revokeRole}.\\n     *\\n     * To change a role's admin, use {AccessControl-_setRoleAdmin}.\\n     */\\n    function getRoleAdmin(bytes32 role) external view returns (bytes32);\\n\\n    /**\\n     * @dev Grants `role` to `account`.\\n     *\\n     * If `account` had not been already granted `role`, emits a {RoleGranted}\\n     * event.\\n     *\\n     * Requirements:\\n     *\\n     * - the caller must have ``role``'s admin role.\\n     */\\n    function grantRole(bytes32 role, address account) external;\\n\\n    /**\\n     * @dev Revokes `role` from `account`.\\n     *\\n     * If `account` had been granted `role`, emits a {RoleRevoked} event.\\n     *\\n     * Requirements:\\n     *\\n     * - the caller must have ``role``'s admin role.\\n     */\\n    function revokeRole(bytes32 role, address account) external;\\n\\n    /**\\n     * @dev Revokes `role` from the calling account.\\n     *\\n     * Roles are often managed via {grantRole} and {revokeRole}: this function's\\n     * purpose is to provide a mechanism for accounts to lose their privileges\\n     * if they are compromised (such as when a trusted device is misplaced).\\n     *\\n     * If the calling account had been granted `role`, emits a {RoleRevoked}\\n     * event.\\n     *\\n     * Requirements:\\n     *\\n     * - the caller must be `account`.\\n     */\\n    function renounceRole(bytes32 role, address account) external;\\n}\\n\",\"keccak256\":\"0x59ce320a585d7e1f163cd70390a0ef2ff9cec832e2aa544293a00692465a7a57\",\"license\":\"MIT\"},\"@openzeppelin/contracts/utils/introspection/IERC165.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// OpenZeppelin Contracts v4.4.1 (utils/introspection/IERC165.sol)\\n\\npragma solidity ^0.8.0;\\n\\n/**\\n * @dev Interface of the ERC165 standard, as defined in the\\n * https://eips.ethereum.org/EIPS/eip-165[EIP].\\n *\\n * Implementers can declare support of contract interfaces, which can then be\\n * queried by others ({ERC165Checker}).\\n *\\n * For an implementation, see {ERC165}.\\n */\\ninterface IERC165 {\\n    /**\\n     * @dev Returns true if this contract implements the interface defined by\\n     * `interfaceId`. See the corresponding\\n     * https://eips.ethereum.org/EIPS/eip-165#how-interfaces-are-identified[EIP section]\\n     * to learn more about how these ids are created.\\n     *\\n     * This function call must use less than 30 000 gas.\\n     */\\n    function supportsInterface(bytes4 interfaceId) external view returns (bool);\\n}\\n\",\"keccak256\":\"0x447a5f3ddc18419d41ff92b3773fb86471b1db25773e07f877f548918a185bf1\",\"license\":\"MIT\"},\"contracts/Constants.sol\":{\"content\":\"// (c) 2023 Primex.finance\\n// SPDX-License-Identifier: BUSL-1.1\\npragma solidity 0.8.18;\\n\\n// admin roles\\nbytes32 constant BIG_TIMELOCK_ADMIN = 0x00; // It's primary admin.\\nbytes32 constant MEDIUM_TIMELOCK_ADMIN = keccak256(\\\"MEDIUM_TIMELOCK_ADMIN\\\");\\nbytes32 constant SMALL_TIMELOCK_ADMIN = keccak256(\\\"SMALL_TIMELOCK_ADMIN\\\");\\nbytes32 constant EMERGENCY_ADMIN = keccak256(\\\"EMERGENCY_ADMIN\\\");\\nbytes32 constant GUARDIAN_ADMIN = keccak256(\\\"GUARDIAN_ADMIN\\\");\\nbytes32 constant NFT_MINTER = keccak256(\\\"NFT_MINTER\\\");\\nbytes32 constant TRUSTED_TOLERABLE_LIMIT_ROLE = keccak256(\\\"TRUSTED_TOLERABLE_LIMIT_ROLE\\\");\\n\\n// inter-contract interactions roles\\nbytes32 constant NO_FEE_ROLE = keccak256(\\\"NO_FEE_ROLE\\\");\\nbytes32 constant VAULT_ACCESS_ROLE = keccak256(\\\"VAULT_ACCESS_ROLE\\\");\\nbytes32 constant PM_ROLE = keccak256(\\\"PM_ROLE\\\");\\nbytes32 constant LOM_ROLE = keccak256(\\\"LOM_ROLE\\\");\\nbytes32 constant BATCH_MANAGER_ROLE = keccak256(\\\"BATCH_MANAGER_ROLE\\\");\\n\\n// token constants\\naddress constant NATIVE_CURRENCY = address(uint160(bytes20(keccak256(\\\"NATIVE_CURRENCY\\\"))));\\naddress constant USD = 0x0000000000000000000000000000000000000348;\\nuint256 constant USD_MULTIPLIER = 10 ** (18 - 8); // usd decimals in chainlink is 8\\nuint8 constant MAX_ASSET_DECIMALS = 18;\\n\\n// time constants\\nuint256 constant SECONDS_PER_YEAR = 365 days;\\nuint256 constant SECONDS_PER_DAY = 1 days;\\nuint256 constant HOUR = 1 hours;\\nuint256 constant TEN_WAD = 10 ether;\\n\",\"keccak256\":\"0xdfd1623c3bf46ff9a6fbbdff42a7d9a1b5e76c4252dd394db1b7811989dcaba3\",\"license\":\"BUSL-1.1\"},\"contracts/EPMXPriceFeed.sol\":{\"content\":\"// (c) 2023 Primex.finance\\n// SPDX-License-Identifier: BUSL-1.1\\npragma solidity 0.8.18;\\n\\nimport {IAccessControl} from \\\"@openzeppelin/contracts/access/IAccessControl.sol\\\";\\nimport {IERC165} from \\\"@openzeppelin/contracts/utils/introspection/IERC165.sol\\\";\\nimport {AggregatorV2V3Interface} from \\\"@chainlink/contracts/src/v0.8/interfaces/AggregatorV2V3Interface.sol\\\";\\n\\nimport \\\"./libraries/Errors.sol\\\";\\n\\nimport {BIG_TIMELOCK_ADMIN} from \\\"./Constants.sol\\\";\\nimport {IEPMXPriceFeed} from \\\"./interfaces/IEPMXPriceFeed.sol\\\";\\n\\ncontract EPMXPriceFeed is IEPMXPriceFeed, AggregatorV2V3Interface {\\n    uint80 internal constant MAX_UINT80_HEX = type(uint80).max;\\n\\n    struct RoundData {\\n        uint80 roundId;\\n        int256 answer;\\n        uint256 startedAt;\\n        uint256 updatedAt;\\n        uint80 answeredInRound;\\n    }\\n\\n    address public immutable registry;\\n    uint8 public override decimals = 8; // USD decimals\\n    uint80 private _currentRound;\\n    RoundData private _latestRoundData;\\n    mapping(uint80 => RoundData) private _answers;\\n\\n    /**\\n     * @dev Modifier that checks if the caller has a specific role.\\n     * @param _role The role identifier to check.\\n     */\\n    modifier onlyRole(bytes32 _role) {\\n        _require(IAccessControl(registry).hasRole(_role, msg.sender), Errors.FORBIDDEN.selector);\\n        _;\\n    }\\n\\n    constructor(address _registry) {\\n        _require(\\n            IERC165(_registry).supportsInterface(type(IAccessControl).interfaceId),\\n            Errors.ADDRESS_NOT_SUPPORTED.selector\\n        );\\n        registry = _registry;\\n    }\\n\\n    /**\\n     * @notice Retrieves the latest answer from the oracle.\\n     * @return The latest answer, with a precision of 8 decimal (USD decimals).\\n     */\\n    function latestAnswer() external view override returns (int256) {\\n        return _latestRoundData.answer;\\n    }\\n\\n    /**\\n     * @notice Returns the latest round data.\\n     * @return roundId The ID of the latest round.\\n     * @return answer The answer provided in the latest round.\\n     * @return startedAt The timestamp when the latest round started.\\n     * @return updatedAt The timestamp when the latest round was updated.\\n     * @return answeredInRound The round in which the latest answer was provided.\\n     */\\n    function latestRoundData() external view override returns (uint80, int256, uint256, uint256, uint80) {\\n        return (\\n            _latestRoundData.roundId,\\n            _latestRoundData.answer,\\n            _latestRoundData.startedAt,\\n            _latestRoundData.updatedAt,\\n            _latestRoundData.answeredInRound\\n        );\\n    }\\n\\n    /**\\n     * @notice Retrieves the latest timestamp of the round data.\\n     * @return The latest timestamp of when the round was updated, in seconds (UTC).\\n     */\\n    function latestTimestamp() external view override returns (uint256) {\\n        return _latestRoundData.updatedAt;\\n    }\\n\\n    /**\\n     * @notice Retrieves the answer for a given round ID.\\n     * @param roundId The round ID for which to get the answer.\\n     * @return The answer previously set with setAnswer().\\n     */\\n    function getAnswer(uint256 roundId) external view override returns (int256) {\\n        if (roundId > MAX_UINT80_HEX) {\\n            return 0;\\n        }\\n        return _answers[uint80(roundId)].answer;\\n    }\\n\\n    /**\\n     * @notice Retrieves the timestamp of a given round ID.\\n     * @param roundId The round ID for which to retrieve the timestamp.\\n     * @return The timestamp when the round was last updated.\\n     */\\n    function getTimestamp(uint256 roundId) external view override returns (uint256) {\\n        if (roundId > MAX_UINT80_HEX) {\\n            return 0;\\n        }\\n        return _answers[uint80(roundId)].updatedAt;\\n    }\\n\\n    /**\\n     * @notice Retrieves the latest round ID.\\n     * @return The latest round ID.\\n     */\\n    function latestRound() external view override returns (uint256) {\\n        return _latestRoundData.roundId;\\n    }\\n\\n    /**\\n     * @inheritdoc IEPMXPriceFeed\\n     */\\n    function setAnswer(int256 answer) public override onlyRole(BIG_TIMELOCK_ADMIN) {\\n        _latestRoundData.answer = answer;\\n        _latestRoundData.roundId = _currentRound;\\n        _latestRoundData.startedAt = block.timestamp;\\n        _latestRoundData.updatedAt = block.timestamp;\\n        _latestRoundData.answeredInRound = _currentRound;\\n        _answers[_currentRound] = _latestRoundData;\\n        _currentRound++;\\n        emit AnswerUpdated(answer, _latestRoundData.roundId, block.timestamp);\\n    }\\n\\n    /**\\n     * @notice Retrieves the data for a specific round.\\n     * @param _roundId The ID of the round to retrieve data for.\\n     * @return roundId The ID of the round.\\n     * @return answer The answer for the round.\\n     * @return startedAt The timestamp when the round started.\\n     * @return updatedAt The timestamp when the round was last updated.\\n     * @return answeredInRound The ID of the round in which the answer was computed.\\n     */\\n    function getRoundData(uint80 _roundId) public view override returns (uint80, int256, uint256, uint256, uint80) {\\n        RoundData memory roundData = _answers[_roundId];\\n        return (\\n            roundData.roundId,\\n            roundData.answer,\\n            roundData.startedAt,\\n            roundData.updatedAt,\\n            roundData.answeredInRound\\n        );\\n    }\\n\\n    /**\\n     * @notice Returns the description of the contract.\\n     * @return The description string \\\"EPMX / USD\\\".\\n     */\\n    function description() public pure override returns (string memory) {\\n        return \\\"EPMX / USD\\\";\\n    }\\n\\n    /**\\n     * @notice This function provides the version number of the contract.\\n     */\\n    function version() public pure override returns (uint256) {\\n        return 0;\\n    }\\n}\\n\",\"keccak256\":\"0xdba10d657480746b20a9b62fa936bace011b11ac0cab16c390e8aeed0e281a50\",\"license\":\"BUSL-1.1\"},\"contracts/interfaces/IEPMXPriceFeed.sol\":{\"content\":\"// (c) 2023 Primex.finance\\n// SPDX-License-Identifier: BUSL-1.1\\npragma solidity ^0.8.18;\\n\\ninterface IEPMXPriceFeed {\\n    /**\\n     * @notice Sets the answer for the current round.\\n     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.\\n     * @param answer The answer to be set with a precision of 8 decimal (USD decimals).\\n     */\\n    function setAnswer(int256 answer) external;\\n}\\n\",\"keccak256\":\"0xcf4a66dcd906ee01f9b9acbd58995214f36d3d6ade496295d577481c5067e095\",\"license\":\"BUSL-1.1\"},\"contracts/libraries/Errors.sol\":{\"content\":\"// (c) 2023 Primex.finance\\n// SPDX-License-Identifier: BUSL-1.1\\npragma solidity 0.8.18;\\n\\n// solhint-disable-next-line func-visibility\\nfunction _require(bool condition, bytes4 selector) pure {\\n    if (!condition) _revert(selector);\\n}\\n\\n// solhint-disable-next-line func-visibility\\nfunction _revert(bytes4 selector) pure {\\n    // solhint-disable-next-line no-inline-assembly\\n    assembly (\\\"memory-safe\\\") {\\n        let free_mem_ptr := mload(64)\\n        mstore(free_mem_ptr, selector)\\n        revert(free_mem_ptr, 4)\\n    }\\n}\\n\\nlibrary Errors {\\n    event Log(bytes4 error);\\n\\n    //common\\n    error ADDRESS_NOT_SUPPORTED();\\n    error FORBIDDEN();\\n    error AMOUNT_IS_0();\\n    error CALLER_IS_NOT_TRADER();\\n    error CONDITION_INDEX_IS_OUT_OF_BOUNDS();\\n    error INVALID_PERCENT_NUMBER();\\n    error INVALID_SECURITY_BUFFER();\\n    error INVALID_MAINTENANCE_BUFFER();\\n    error TOKEN_ADDRESS_IS_ZERO();\\n    error IDENTICAL_TOKEN_ADDRESSES();\\n    error ASSET_DECIMALS_EXCEEDS_MAX_VALUE();\\n    error CAN_NOT_ADD_WITH_ZERO_ADDRESS();\\n    error SHOULD_BE_DIFFERENT_ASSETS_IN_SPOT();\\n    error TOKEN_NOT_SUPPORTED();\\n    error INSUFFICIENT_DEPOSIT();\\n    error DEPOSIT_IN_THIRD_ASSET_SHARES_ON_DEX_LENGTH_SHOULD_BE_0();\\n    error SHOULD_NOT_HAVE_DUPLICATES();\\n    error DEPOSITED_TO_BORROWED_SHARES_ON_DEX_LENGTH_SHOULD_BE_0();\\n    error DEPOSIT_TO_BORROWED_SHARES_ON_DEX_LENGTH_SHOULD_BE_0();\\n    // error LIMIT_PRICE_IS_ZERO();\\n    error BUCKET_IS_NOT_ACTIVE();\\n    error DIFFERENT_DATA_LENGTH();\\n    error RECIPIENT_OR_SENDER_MUST_BE_ON_WHITE_LIST();\\n    error SLIPPAGE_TOLERANCE_EXCEEDED();\\n    error OPERATION_NOT_SUPPORTED();\\n    error SENDER_IS_BLACKLISTED();\\n    error NATIVE_CURRENCY_CANNOT_BE_ASSET();\\n    error DISABLED_TRANSFER_NATIVE_CURRENCY();\\n    error INVALID_AMOUNT();\\n\\n    // bonus executor\\n    error CALLER_IS_NOT_NFT();\\n    error BONUS_FOR_BUCKET_ALREADY_ACTIVATED();\\n    error WRONG_LENGTH();\\n    error BONUS_DOES_NOT_EXIST();\\n    error CALLER_IS_NOT_DEBT_TOKEN();\\n    error CALLER_IS_NOT_P_TOKEN();\\n    error MAX_BONUS_COUNT_EXCEEDED();\\n    error TIER_IS_NOT_ACTIVE();\\n    error BONUS_PERCENT_IS_ZERO();\\n\\n    // bucket\\n    error INCORRECT_LIQUIDITY_MINING_PARAMS();\\n    error PAIR_PRICE_DROP_IS_NOT_CORRECT();\\n    error ASSET_IS_NOT_SUPPORTED();\\n    error BUCKET_OUTSIDE_PRIMEX_PROTOCOL();\\n    error DEADLINE_IS_PASSED();\\n    error DEADLINE_IS_NOT_PASSED();\\n    error BUCKET_IS_NOT_LAUNCHED();\\n    error BURN_AMOUNT_EXCEEDS_PROTOCOL_DEBT();\\n    error LIQUIDITY_INDEX_OVERFLOW();\\n    error BORROW_INDEX_OVERFLOW();\\n    error BAR_OVERFLOW();\\n    error LAR_OVERFLOW();\\n    error UR_IS_MORE_THAN_1();\\n    error ASSET_ALREADY_SUPPORTED();\\n    error DEPOSIT_IS_MORE_AMOUNT_PER_USER();\\n    error DEPOSIT_EXCEEDS_MAX_TOTAL_DEPOSIT();\\n    error MINING_AMOUNT_WITHDRAW_IS_LOCKED_ON_STABILIZATION_PERIOD();\\n    error WITHDRAW_RATE_IS_MORE_10_PERCENT();\\n    error INVALID_FEE_BUFFER();\\n    error RESERVE_RATE_SHOULD_BE_LESS_THAN_1();\\n    error MAX_TOTAL_DEPOSIT_IS_ZERO();\\n    error AMOUNT_SCALED_SHOULD_BE_GREATER_THAN_ZERO();\\n    error NOT_ENOUGH_LIQUIDITY_IN_THE_BUCKET();\\n\\n    // p/debt token, PMXToken\\n    error BUCKET_IS_IMMUTABLE();\\n    error INVALID_MINT_AMOUNT();\\n    error INVALID_BURN_AMOUNT();\\n    error TRANSFER_NOT_SUPPORTED();\\n    error APPROVE_NOT_SUPPORTED();\\n    error CALLER_IS_NOT_BUCKET();\\n    error CALLER_IS_NOT_A_BUCKET_FACTORY();\\n    error CALLER_IS_NOT_P_TOKEN_RECEIVER();\\n    error DURATION_MUST_BE_MORE_THAN_0();\\n    error INCORRECT_ID();\\n    error THERE_ARE_NO_LOCK_DEPOSITS();\\n    error LOCK_TIME_IS_NOT_EXPIRED();\\n    error TRANSFER_AMOUNT_EXCEED_ALLOWANCE();\\n    error CALLER_IS_NOT_A_MINTER();\\n    error ACTION_ONLY_WITH_AVAILABLE_BALANCE();\\n    error FEE_DECREASER_CALL_FAILED();\\n    error TRADER_REWARD_DISTRIBUTOR_CALL_FAILED();\\n    error INTEREST_INCREASER_CALL_FAILED();\\n    error LENDER_REWARD_DISTRIBUTOR_CALL_FAILED();\\n    error DEPOSIT_DOES_NOT_EXIST();\\n    error RECIPIENT_IS_BLACKLISTED();\\n\\n    //LOM\\n    error ORDER_CAN_NOT_BE_FILLED();\\n    error ORDER_DOES_NOT_EXIST();\\n    error ORDER_IS_NOT_SPOT();\\n    error LEVERAGE_MUST_BE_MORE_THAN_1();\\n    error CANNOT_CHANGE_SPOT_ORDER_TO_MARGIN();\\n    error SHOULD_HAVE_OPEN_CONDITIONS();\\n    error INCORRECT_LEVERAGE();\\n    error INCORRECT_DEADLINE();\\n    error LEVERAGE_SHOULD_BE_1();\\n    error LEVERAGE_EXCEEDS_MAX_LEVERAGE();\\n    error SHOULD_OPEN_POSITION();\\n    error IS_SPOT_ORDER();\\n    error SHOULD_NOT_HAVE_CLOSE_CONDITIONS();\\n    error ORDER_HAS_EXPIRED();\\n\\n    // LiquidityMiningRewardDistributor\\n    error BUCKET_IS_NOT_STABLE();\\n    error ATTEMPT_TO_WITHDRAW_MORE_THAN_DEPOSITED();\\n    error WITHDRAW_PMX_BY_ADMIN_FORBIDDEN();\\n\\n    // nft\\n    error TOKEN_IS_BLOCKED();\\n    error ONLY_MINTERS();\\n    error PROGRAM_IS_NOT_ACTIVE();\\n    error CALLER_IS_NOT_OWNER();\\n    error TOKEN_IS_ALREADY_ACTIVATED();\\n    error WRONG_NETWORK();\\n    error ID_DOES_NOT_EXIST();\\n    error WRONG_URIS_LENGTH();\\n\\n    // PM\\n    error ASSET_ADDRESS_NOT_SUPPORTED();\\n    error IDENTICAL_ASSET_ADDRESSES();\\n    error POSITION_DOES_NOT_EXIST();\\n    error AMOUNT_IS_MORE_THAN_POSITION_AMOUNT();\\n    error BORROWED_AMOUNT_IS_ZERO();\\n    error IS_SPOT_POSITION();\\n    error AMOUNT_IS_MORE_THAN_DEPOSIT();\\n    error DECREASE_AMOUNT_IS_ZERO();\\n    error INSUFFICIENT_DEPOSIT_SIZE();\\n    error IS_NOT_RISKY_OR_CANNOT_BE_CLOSED();\\n    error BUCKET_SHOULD_BE_UNDEFINED();\\n    error DEPOSIT_IN_THIRD_ASSET_ROUTES_LENGTH_SHOULD_BE_0();\\n    error POSITION_CANNOT_BE_CLOSED_FOR_THIS_REASON();\\n    error ADDRESS_IS_ZERO();\\n    error WRONG_TRUSTED_MULTIPLIER();\\n    error POSITION_SIZE_EXCEEDED();\\n    error POSITION_BUCKET_IS_INCORRECT();\\n    error THERE_MUST_BE_AT_LEAST_ONE_POSITION();\\n    error NOTHING_TO_CLOSE();\\n\\n    // BatchManager\\n    error PARAMS_LENGTH_MISMATCH();\\n    error BATCH_CANNOT_BE_CLOSED_FOR_THIS_REASON();\\n    error CLOSE_CONDITION_IS_NOT_CORRECT();\\n    error SOLD_ASSET_IS_INCORRECT();\\n\\n    // Price Oracle\\n    error ZERO_EXCHANGE_RATE();\\n    error NO_PRICEFEED_FOUND();\\n    error NO_PRICE_DROP_FEED_FOUND();\\n\\n    //DNS\\n    error INCORRECT_FEE_RATE();\\n    error BUCKET_ALREADY_FROZEN();\\n    error BUCKET_IS_ALREADY_ADDED();\\n    error DEX_IS_ALREADY_ACTIVATED();\\n    error DEX_IS_ALREADY_FROZEN();\\n    error DEX_IS_ALREADY_ADDED();\\n    error BUCKET_NOT_ADDED();\\n    error DEX_NOT_ACTIVE();\\n    error BUCKET_ALREADY_ACTIVATED();\\n    error DEX_NOT_ADDED();\\n    error BUCKET_IS_INACTIVE();\\n    error WITHDRAWAL_NOT_ALLOWED();\\n    error BUCKET_IS_ALREADY_DEPRECATED();\\n\\n    // Primex upkeep\\n    error NUMBER_IS_0();\\n\\n    //referral program, WhiteBlackList\\n    error CALLER_ALREADY_REGISTERED();\\n    error MISMATCH();\\n    error PARENT_NOT_WHITELISTED();\\n    error ADDRESS_ALREADY_WHITELISTED();\\n    error ADDRESS_ALREADY_BLACKLISTED();\\n    error ADDRESS_NOT_BLACKLISTED();\\n    error ADDRESS_NOT_WHITELISTED();\\n    error ADDRESS_NOT_UNLISTED();\\n    error ADDRESS_IS_WHITELISTED();\\n    error ADDRESS_IS_NOT_CONTRACT();\\n\\n    //Reserve\\n    error BURN_AMOUNT_IS_ZERO();\\n    error CALLER_IS_NOT_EXECUTOR();\\n    error ADDRESS_NOT_PRIMEX_BUCKET();\\n    error NOT_SUFFICIENT_RESERVE_BALANCE();\\n    error INCORRECT_TRANSFER_RESTRICTIONS();\\n\\n    //Vault\\n    error AMOUNT_EXCEEDS_AVAILABLE_BALANCE();\\n    error INSUFFICIENT_FREE_ASSETS();\\n    error CALLER_IS_NOT_SPENDER();\\n\\n    //Pricing Library\\n    error IDENTICAL_ASSETS();\\n    error SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO();\\n    error DIFFERENT_PRICE_DEX_AND_ORACLE();\\n    error TAKE_PROFIT_IS_LTE_LIMIT_PRICE();\\n    error STOP_LOSS_IS_GTE_LIMIT_PRICE();\\n    error STOP_LOSS_IS_LTE_LIQUIDATION_PRICE();\\n    error INSUFFICIENT_POSITION_SIZE();\\n    error INCORRECT_PATH();\\n    error DEPOSITED_TO_BORROWED_ROUTES_LENGTH_SHOULD_BE_0();\\n    error INCORRECT_CM_TYPE();\\n\\n    // Token transfers\\n    error TOKEN_TRANSFER_IN_FAILED();\\n    error TOKEN_TRANSFER_IN_OVERFLOW();\\n    error TOKEN_TRANSFER_OUT_FAILED();\\n    error NATIVE_TOKEN_TRANSFER_FAILED();\\n\\n    // Conditional Managers\\n    error LOW_PRICE_ROUND_IS_LESS_HIGH_PRICE_ROUND();\\n    error TRAILING_DELTA_IS_INCORRECT();\\n    error DATA_FOR_ROUND_DOES_NOT_EXIST();\\n    error HIGH_PRICE_TIMESTAMP_IS_INCORRECT();\\n    error NO_PRICE_FEED_INTERSECTION();\\n    error SHOULD_BE_CCM();\\n    error SHOULD_BE_COM();\\n\\n    //Lens\\n    error DEPOSITED_AMOUNT_IS_0();\\n    error SPOT_DEPOSITED_ASSET_SHOULD_BE_EQUAL_BORROWED_ASSET();\\n    error ZERO_ASSET_ADDRESS();\\n    error ASSETS_SHOULD_BE_DIFFERENT();\\n    error ZERO_SHARES();\\n    error SHARES_AMOUNT_IS_GREATER_THAN_AMOUNT_TO_SELL();\\n    error NO_ACTIVE_DEXES();\\n\\n    //Bots\\n    error WRONG_BALANCES();\\n    error INVALID_INDEX();\\n    error INVALID_DIVIDER();\\n    error ARRAYS_LENGTHS_IS_NOT_EQUAL();\\n    error DENOMINATOR_IS_0();\\n\\n    //DexAdapter\\n    error ZERO_AMOUNT_IN();\\n    error ZERO_AMOUNT();\\n    error UNKNOWN_DEX_TYPE();\\n    error REVERTED_WITHOUT_A_STRING_TRY_TO_CHECK_THE_ANCILLARY_DATA();\\n    error DELTA_OF_TOKEN_OUT_HAS_POSITIVE_VALUE();\\n    error DELTA_OF_TOKEN_IN_HAS_NEGATIVE_VALUE();\\n    error QUOTER_IS_NOT_PROVIDED();\\n    error DEX_ROUTER_NOT_SUPPORTED();\\n    error QUOTER_NOT_SUPPORTED();\\n    error SWAP_DEADLINE_PASSED();\\n\\n    //SpotTradingRewardDistributor\\n    error PERIOD_DURATION_IS_ZERO();\\n    error REWARD_AMOUNT_IS_ZERO();\\n    error REWARD_PER_PERIOD_IS_NOT_CORRECT();\\n\\n    //ActivityRewardDistributor\\n    error TOTAL_REWARD_AMOUNT_IS_ZERO();\\n    error REWARD_PER_DAY_IS_NOT_CORRECT();\\n    error ZERO_BUCKET_ADDRESS();\\n    //KeeperRewardDistributor\\n    error INCORRECT_PART_IN_REWARD();\\n\\n    //Treasury\\n    error TRANSFER_RESTRICTIONS_NOT_MET();\\n    error INSUFFICIENT_NATIVE_TOKEN_BALANCE();\\n    error INSUFFICIENT_TOKEN_BALANCE();\\n    error EXCEEDED_MAX_AMOUNT_DURING_TIMEFRAME();\\n    error EXCEEDED_MAX_SPENDING_LIMITS();\\n    error SPENDING_LIMITS_ARE_INCORRECT();\\n    error SPENDER_IS_NOT_EXIST();\\n}\\n\",\"keccak256\":\"0x126e6cc9583f24e642d29d85055a53d7d76ee84bd7f320f4369ea9e5ed3d8589\",\"license\":\"BUSL-1.1\"}},\"version\":1}",
+  "bytecode": "0x60a0806040523461010a57602081610767803803809161001f828561010f565b83398101031261010a57516001600160a01b03811680820361010a576000805460ff191660081781556040516301ffc9a760e01b8152637965db0b60e01b600482015291602090839060249082905afa9182156100fd5781926100b8575b5050156100a65760805260405161061e9081610149823960805181818161025a01526104480152f35b60405163044aa57560e41b8152600490fd5b9091506020813d82116100f5575b816100d36020938361010f565b810103126100f157519081151582036100ee5750388061007d565b80fd5b5080fd5b3d91506100c6565b50604051903d90823e3d90fd5b600080fd5b601f909101601f19168101906001600160401b0382119082101761013257604052565b634e487b7160e01b600052604160045260246000fdfe608060408181526004918236101561001657600080fd5b600090813560e01c908163313ce5671461057a5750806350d25bcd1461055b57806354fd4d5014610540578063668a0f02146105185780637284e416146104775780637b103999146104335780638205bf6a1461041557806399213cd8146102235780639a6fc8f514610145578063b5ab58dc14610126578063b633620c146101005763feaf968c146100a857600080fd5b346100fd57806003193601126100fd5750600154600254600354935460055493516001600160501b03938416815260208101929092526040820194909452606081019390935216608082015260a090f35b0390f35b80fd5b50346100fd5760203660031901126100fd575061011f602092356105c3565b9051908152f35b50346100fd5760203660031901126100fd575061011f60209235610597565b50903461021f57602036600319011261021f578235926001600160501b039384811680910361021b57835260066020528183209180519360a085019085821067ffffffffffffffff831117610208575091816080936100f9959352868354169586815260018401549788602083015260028501549384848401526003860154958660608501520154169485910152519586958693608093969591929660a08601976001600160501b03809516875260208701526040860152606085015216910152565b634e487b7160e01b815260418452602490fd5b8380fd5b5080fd5b50903461021f57602080600319360112610411578151632474521560e21b81528085018490523360248201528435919081816044817f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03165afa9081156104075785916103a3575b501561039357816002556001600160501b0380855460081c166001600160501b03198760019280838554161784554260035542825580836005541617600555808952600686528789209084820361035f575b505050508554828160081c1683811461034c57906affffffffffffffffffff00837f0559884fd3a460db3073b7fc896cc77986f16e378210ded43186175bf646fc5f969594930160081b16906affffffffffffffffffff00191617875554169351428152a380f35b634e487b7160e01b885260118952602488fd5b83825416178155600254848201556003546002820155815460038201550190836005541690825416179055388781806102e4565b825163036be76f60e61b81528590fd5b9050813d8311610400575b601f8101601f1916820167ffffffffffffffff8111838210176103ed57839183918752810103126103e9575180151581036103e95738610292565b8480fd5b634e487b7160e01b875260418852602487fd5b503d6103ae565b84513d87823e3d90fd5b8280fd5b50913461041157826003193601126104115760209250549051908152f35b50903461021f578160031936011261021f57517f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03168152602090f35b5091346104115782600319360112610411578151908282019082821067ffffffffffffffff83111761050557508252600a81526020906911541356080bc81554d160b21b8282015282519382859384528251928382860152825b8481106104ef57505050828201840152601f01601f19168101030190f35b81810183015188820188015287955082016104d1565b634e487b7160e01b855260419052602484fd5b50903461021f578160031936011261021f576020906001600160501b03600154169051908152f35b50903461021f578160031936011261021f5751908152602090f35b50903461021f578160031936011261021f576020906002549051908152f35b90503461021f578160031936011261021f5760ff60209254168152f35b6001600160501b03908181116105bc5716600052600660205260016040600020015490565b5050600090565b6001600160501b03908181116105bc571660005260066020526003604060002001549056fea264697066735822122036fef0684495516436073629dd640b039c5b9f970f9ba578d0ab1e64b3c9dd2b64736f6c63430008120033",
+  "deployedBytecode": "0x608060408181526004918236101561001657600080fd5b600090813560e01c908163313ce5671461057a5750806350d25bcd1461055b57806354fd4d5014610540578063668a0f02146105185780637284e416146104775780637b103999146104335780638205bf6a1461041557806399213cd8146102235780639a6fc8f514610145578063b5ab58dc14610126578063b633620c146101005763feaf968c146100a857600080fd5b346100fd57806003193601126100fd5750600154600254600354935460055493516001600160501b03938416815260208101929092526040820194909452606081019390935216608082015260a090f35b0390f35b80fd5b50346100fd5760203660031901126100fd575061011f602092356105c3565b9051908152f35b50346100fd5760203660031901126100fd575061011f60209235610597565b50903461021f57602036600319011261021f578235926001600160501b039384811680910361021b57835260066020528183209180519360a085019085821067ffffffffffffffff831117610208575091816080936100f9959352868354169586815260018401549788602083015260028501549384848401526003860154958660608501520154169485910152519586958693608093969591929660a08601976001600160501b03809516875260208701526040860152606085015216910152565b634e487b7160e01b815260418452602490fd5b8380fd5b5080fd5b50903461021f57602080600319360112610411578151632474521560e21b81528085018490523360248201528435919081816044817f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03165afa9081156104075785916103a3575b501561039357816002556001600160501b0380855460081c166001600160501b03198760019280838554161784554260035542825580836005541617600555808952600686528789209084820361035f575b505050508554828160081c1683811461034c57906affffffffffffffffffff00837f0559884fd3a460db3073b7fc896cc77986f16e378210ded43186175bf646fc5f969594930160081b16906affffffffffffffffffff00191617875554169351428152a380f35b634e487b7160e01b885260118952602488fd5b83825416178155600254848201556003546002820155815460038201550190836005541690825416179055388781806102e4565b825163036be76f60e61b81528590fd5b9050813d8311610400575b601f8101601f1916820167ffffffffffffffff8111838210176103ed57839183918752810103126103e9575180151581036103e95738610292565b8480fd5b634e487b7160e01b875260418852602487fd5b503d6103ae565b84513d87823e3d90fd5b8280fd5b50913461041157826003193601126104115760209250549051908152f35b50903461021f578160031936011261021f57517f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03168152602090f35b5091346104115782600319360112610411578151908282019082821067ffffffffffffffff83111761050557508252600a81526020906911541356080bc81554d160b21b8282015282519382859384528251928382860152825b8481106104ef57505050828201840152601f01601f19168101030190f35b81810183015188820188015287955082016104d1565b634e487b7160e01b855260419052602484fd5b50903461021f578160031936011261021f576020906001600160501b03600154169051908152f35b50903461021f578160031936011261021f5751908152602090f35b50903461021f578160031936011261021f576020906002549051908152f35b90503461021f578160031936011261021f5760ff60209254168152f35b6001600160501b03908181116105bc5716600052600660205260016040600020015490565b5050600090565b6001600160501b03908181116105bc571660005260066020526003604060002001549056fea264697066735822122036fef0684495516436073629dd640b039c5b9f970f9ba578d0ab1e64b3c9dd2b64736f6c63430008120033",
+  "libraries": {
+    "Errors": "0x988288925196F0725268378d0C7c8aA0E50EB423"
+  },
+  "devdoc": {
+    "kind": "dev",
+    "methods": {
+      "description()": {
+        "returns": {
+          "_0": "The description string \"EPMX / USD\"."
+        }
+      },
+      "getAnswer(uint256)": {
+        "params": {
+          "roundId": "The round ID for which to get the answer."
+        },
+        "returns": {
+          "_0": "The answer previously set with setAnswer()."
+        }
+      },
+      "getRoundData(uint80)": {
+        "params": {
+          "_roundId": "The ID of the round to retrieve data for."
+        },
+        "returns": {
+          "_0": "roundId The ID of the round.",
+          "_1": "answer The answer for the round.",
+          "_2": "startedAt The timestamp when the round started.",
+          "_3": "updatedAt The timestamp when the round was last updated.",
+          "_4": "answeredInRound The ID of the round in which the answer was computed."
+        }
+      },
+      "getTimestamp(uint256)": {
+        "params": {
+          "roundId": "The round ID for which to retrieve the timestamp."
+        },
+        "returns": {
+          "_0": "The timestamp when the round was last updated."
+        }
+      },
+      "latestAnswer()": {
+        "returns": {
+          "_0": "The latest answer, with a precision of 8 decimal (USD decimals)."
+        }
+      },
+      "latestRound()": {
+        "returns": {
+          "_0": "The latest round ID."
+        }
+      },
+      "latestRoundData()": {
+        "returns": {
+          "_0": "roundId The ID of the latest round.",
+          "_1": "answer The answer provided in the latest round.",
+          "_2": "startedAt The timestamp when the latest round started.",
+          "_3": "updatedAt The timestamp when the latest round was updated.",
+          "_4": "answeredInRound The round in which the latest answer was provided."
+        }
+      },
+      "latestTimestamp()": {
+        "returns": {
+          "_0": "The latest timestamp of when the round was updated, in seconds (UTC)."
+        }
+      },
+      "setAnswer(int256)": {
+        "details": "Only callable by the BIG_TIMELOCK_ADMIN role.",
+        "params": {
+          "answer": "The answer to be set with a precision of 8 decimal (USD decimals)."
+        }
+      }
+    },
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {
+      "description()": {
+        "notice": "Returns the description of the contract."
+      },
+      "getAnswer(uint256)": {
+        "notice": "Retrieves the answer for a given round ID."
+      },
+      "getRoundData(uint80)": {
+        "notice": "Retrieves the data for a specific round."
+      },
+      "getTimestamp(uint256)": {
+        "notice": "Retrieves the timestamp of a given round ID."
+      },
+      "latestAnswer()": {
+        "notice": "Retrieves the latest answer from the oracle."
+      },
+      "latestRound()": {
+        "notice": "Retrieves the latest round ID."
+      },
+      "latestRoundData()": {
+        "notice": "Returns the latest round data."
+      },
+      "latestTimestamp()": {
+        "notice": "Retrieves the latest timestamp of the round data."
+      },
+      "setAnswer(int256)": {
+        "notice": "Sets the answer for the current round."
+      },
+      "version()": {
+        "notice": "This function provides the version number of the contract."
+      }
+    },
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [
+      {
+        "astId": 30008,
+        "contract": "contracts/EPMXPriceFeed.sol:EPMXPriceFeed",
+        "label": "decimals",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_uint8"
+      },
+      {
+        "astId": 30010,
+        "contract": "contracts/EPMXPriceFeed.sol:EPMXPriceFeed",
+        "label": "_currentRound",
+        "offset": 1,
+        "slot": "0",
+        "type": "t_uint80"
+      },
+      {
+        "astId": 30013,
+        "contract": "contracts/EPMXPriceFeed.sol:EPMXPriceFeed",
+        "label": "_latestRoundData",
+        "offset": 0,
+        "slot": "1",
+        "type": "t_struct(RoundData)30002_storage"
+      },
+      {
+        "astId": 30018,
+        "contract": "contracts/EPMXPriceFeed.sol:EPMXPriceFeed",
+        "label": "_answers",
+        "offset": 0,
+        "slot": "6",
+        "type": "t_mapping(t_uint80,t_struct(RoundData)30002_storage)"
+      }
+    ],
+    "types": {
+      "t_int256": {
+        "encoding": "inplace",
+        "label": "int256",
+        "numberOfBytes": "32"
+      },
+      "t_mapping(t_uint80,t_struct(RoundData)30002_storage)": {
+        "encoding": "mapping",
+        "key": "t_uint80",
+        "label": "mapping(uint80 => struct EPMXPriceFeed.RoundData)",
+        "numberOfBytes": "32",
+        "value": "t_struct(RoundData)30002_storage"
+      },
+      "t_struct(RoundData)30002_storage": {
+        "encoding": "inplace",
+        "label": "struct EPMXPriceFeed.RoundData",
+        "members": [
+          {
+            "astId": 29993,
+            "contract": "contracts/EPMXPriceFeed.sol:EPMXPriceFeed",
+            "label": "roundId",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint80"
+          },
+          {
+            "astId": 29995,
+            "contract": "contracts/EPMXPriceFeed.sol:EPMXPriceFeed",
+            "label": "answer",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_int256"
+          },
+          {
+            "astId": 29997,
+            "contract": "contracts/EPMXPriceFeed.sol:EPMXPriceFeed",
+            "label": "startedAt",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_uint256"
+          },
+          {
+            "astId": 29999,
+            "contract": "contracts/EPMXPriceFeed.sol:EPMXPriceFeed",
+            "label": "updatedAt",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_uint256"
+          },
+          {
+            "astId": 30001,
+            "contract": "contracts/EPMXPriceFeed.sol:EPMXPriceFeed",
+            "label": "answeredInRound",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_uint80"
+          }
+        ],
+        "numberOfBytes": "160"
+      },
+      "t_uint256": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      },
+      "t_uint8": {
+        "encoding": "inplace",
+        "label": "uint8",
+        "numberOfBytes": "1"
+      },
+      "t_uint80": {
+        "encoding": "inplace",
+        "label": "uint80",
+        "numberOfBytes": "10"
+      }
+    }
+  }
+}
