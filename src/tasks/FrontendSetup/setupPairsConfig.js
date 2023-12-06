@@ -28,9 +28,18 @@ module.exports = async function (
   for (const pair in pairsConfig) {
     const pairContracts = await Promise.all(
       pair.split("-").map(async asset => {
-        return await getContractAt("ERC20", assets[asset]);
+        try {
+          return await getContractAt("ERC20", assets[asset]);
+        } catch {
+          console.log(`\n!!!WARNING: Address not found for token: ${asset} \n`);
+          return null;
+        }
       }),
     );
+
+    if (pairContracts.some(contract => contract === null)) {
+      continue;
+    }
 
     if (decimalsByAddress[pairContracts[0].address] === undefined) {
       decimalsByAddress[pairContracts[0].address] = await pairContracts[0].decimals();

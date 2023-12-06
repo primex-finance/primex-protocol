@@ -178,7 +178,13 @@ describe("SpotTrading", function () {
     await priceOracle.updatePriceFeed(testTokenC.address, PMXToken.address, priceFeedTTAPMX.address);
     await priceOracle.updatePriceFeed(testTokenC.address, await priceOracle.eth(), priceFeedTTCETH.address);
     await priceOracle.updatePriceFeed(testTokenD.address, await priceOracle.eth(), priceFeedTTCETH.address);
-    await priceOracle.updatePriceFeed(PMXToken.address, await priceOracle.eth(), priceFeedTTCETH.address);
+
+    // need to calculate minFee and maxFee from native to PMX
+    const priceFeedETHPMX = await PrimexAggregatorV3TestServiceFactory.deploy("ETH_PMX", deployer.address);
+    // 1 tta=0.2 pmx; 1 tta=0.3 eth -> 1 eth = 0.2/0.3 pmx
+    await priceFeedETHPMX.setAnswer(parseUnits("0.666666666666666666", 18));
+    await priceFeedETHPMX.setDecimals(decimalsPMX);
+    await priceOracle.updatePriceFeed(await priceOracle.eth(), PMXToken.address, priceFeedETHPMX.address);
 
     const tokenUSD = await getContract("USD Coin");
     const priceFeedTTDUSD = await PrimexAggregatorV3TestServiceFactory.deploy("TTD_USD", deployer.address);

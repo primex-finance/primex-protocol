@@ -176,7 +176,7 @@ describe("TakeProfitStopLossCCM_integration", function () {
 
       await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
 
-      await bucket.connect(lender).deposit(lender.address, lenderAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
 
       await testTokenA.connect(trader).approve(traderBalanceVault.address, depositAmount);
       await traderBalanceVault.connect(trader).deposit(testTokenA.address, depositAmount);

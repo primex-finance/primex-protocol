@@ -9,10 +9,10 @@ import {TokenTransfersLibrary} from "../libraries/TokenTransfersLibrary.sol";
 import "./BucketStorage.sol";
 import {VAULT_ACCESS_ROLE, PM_ROLE, BATCH_MANAGER_ROLE, MAX_ASSET_DECIMALS, SECONDS_PER_YEAR} from "../Constants.sol";
 import {BIG_TIMELOCK_ADMIN, MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN} from "../Constants.sol";
-import {IBucket} from "./IBucket.sol";
+import {IBucket, IBucketV2} from "./IBucket.sol";
 
 /* solhint-disable max-states-count */
-contract Bucket is IBucket, BucketStorage {
+contract Bucket is IBucketV2, BucketStorage {
     using WadRayMath for uint256;
 
     constructor() {
@@ -202,10 +202,31 @@ contract Bucket is IBucket, BucketStorage {
     /**
      * @inheritdoc IBucket
      */
-    function deposit(address _pTokenReceiver, uint256 _amount) external override nonReentrant {
+    function deposit(address _pTokenReceiver, uint256 _amount) external override {
+        deposit(_pTokenReceiver, _amount, true);
+    }
+
+    /**
+     * @inheritdoc IBucketV2
+     */
+    function deposit(
+        address _pTokenReceiver,
+        uint256 _amount,
+        bool _takeDepositFromWallet
+    ) public override nonReentrant {
         _notBlackListed();
         _require(pToken.totalSupply() + _amount < maxTotalDeposit, Errors.DEPOSIT_EXCEEDS_MAX_TOTAL_DEPOSIT.selector);
-        TokenTransfersLibrary.doTransferIn(address(borrowedAsset), msg.sender, _amount);
+        if (_takeDepositFromWallet) {
+            TokenTransfersLibrary.doTransferIn(address(borrowedAsset), msg.sender, _amount);
+        } else {
+            positionManager.traderBalanceVault().withdrawFrom(
+                msg.sender,
+                address(this),
+                address(borrowedAsset),
+                _amount,
+                false
+            );
+        }
         if (LMparams.isBucketLaunched) {
             _deposit(_pTokenReceiver, _amount);
         } else {
@@ -543,7 +564,10 @@ contract Bucket is IBucket, BucketStorage {
 
     /// @notice Interface checker
     function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
-        return _interfaceId == type(IBucket).interfaceId || super.supportsInterface(_interfaceId);
+        return
+            _interfaceId == type(IBucketV2).interfaceId ||
+            _interfaceId == type(IBucket).interfaceId ||
+            super.supportsInterface(_interfaceId);
     }
 
     /**
@@ -677,6 +701,7 @@ contract Bucket is IBucket, BucketStorage {
         uint256 aaveBalance = IAToken(IPool(aavePool).getReserveData(address(borrowedAsset)).aTokenAddress).balanceOf(
             address(this)
         );
+        isReinvestToAaveEnabled = false;
         if (aaveBalance == 0) return;
 
         IPool(aavePool).withdraw(address(borrowedAsset), type(uint256).max, address(this));
@@ -689,7 +714,6 @@ contract Bucket is IBucket, BucketStorage {
             emit TopUpTreasury(aavePool, interest);
         }
         aaveDeposit = 0;
-        isReinvestToAaveEnabled = false;
     }
 
     /**

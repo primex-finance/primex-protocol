@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if docker run -v "$(pwd)"/coverage:/data/coverage -v "$(pwd)"/coverage.json:/data/coverage.json -e COVERAGE=true "${IMAGE}" yarn hardhat coverage > test_results.txt ; then 
+if docker run -v "$(pwd)"/coverage:/data/coverage -v "$(pwd)"/coverage.json:/data/coverage.json -e COVERAGE=true "${IMAGE}" yarn coverage > test_results.txt ; then 
     echo "Tests passed successfully" >> test_results.txt
     docker run -v "$(pwd)"/cobertura-coverage.xml:/data/cobertura-coverage.xml -v "$(pwd)"/coverage.json:/data/coverage.json "${IMAGE}" bash -c "npm install -g istanbul && istanbul report cobertura --root /data --dir /data"
 else 

@@ -5,7 +5,8 @@ module.exports = async ({
   run,
   ethers: {
     getContract,
-    utils: { parseUnits },
+    utils: { parseUnits, parseEther },
+    constants: { MaxUint256 },
   },
 }) => {
   const PMXToken = await getContract("EPMXToken");
@@ -20,6 +21,7 @@ module.exports = async ({
   const adminWithdrawalDelay = PrimexDNSconfig.adminWithdrawalDelayInDays * SECONDS_PER_DAY;
 
   const rates = [];
+  const restrictions = [];
 
   for (const orderType in OrderType) {
     rates.push({
@@ -32,6 +34,13 @@ module.exports = async ({
       feeToken: NATIVE_CURRENCY,
       rate: parseUnits(PrimexDNSconfig.rates[orderType].protocolRate, 18).toString(),
     });
+    const minProtocolFee = PrimexDNSconfig.feeRestrictions[orderType].minProtocolFee;
+    const maxProtocolFee = PrimexDNSconfig.feeRestrictions[orderType].maxProtocolFee;
+    const orderRestrictions = {
+      minProtocolFee: (minProtocolFee === "MaxUint256" ? MaxUint256 : parseEther(minProtocolFee)).toString(),
+      maxProtocolFee: (maxProtocolFee === "MaxUint256" ? MaxUint256 : parseEther(maxProtocolFee)).toString(),
+    };
+    restrictions.push({ orderType: OrderType[orderType], orderRestrictions: orderRestrictions });
   }
 
   await run("deploy:PrimexDNS", {
@@ -42,6 +51,7 @@ module.exports = async ({
     delistingDelay: delistingDelay.toString(),
     adminWithdrawalDelay: adminWithdrawalDelay.toString(),
     rates: JSON.stringify(rates),
+    restrictions: JSON.stringify(restrictions),
   });
 };
 module.exports.tags = ["PrimexDNS", "Test", "PrimexCore"];

@@ -808,7 +808,7 @@ describe("Bucket", function () {
     });
 
     it("Should withdrawAfterDelisting to treasury", async function () {
-      await bucket.connect(lender).deposit(lender.address, deposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
 
       await PrimexDNS.deprecateBucket(await bucket.name());
       await network.provider.send("evm_increaseTime", [
@@ -920,7 +920,7 @@ describe("Bucket", function () {
 
     it("Should openPosition when bucket is launched", async function () {
       await testTokenA.connect(lender).approve(bucket.address, liquidityMiningAmount);
-      await bucket.connect(lender).deposit(lender.address, liquidityMiningAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, liquidityMiningAmount, true);
 
       const assetRoutes = await getSingleRoute([testTokenA.address, testTokenB.address], dex);
       await openPosition(testTokenA, traderBalanceVault, bucket, priceFeed, positionManager, dex, testTokenB, assetRoutes);
@@ -928,7 +928,10 @@ describe("Bucket", function () {
 
     it("Should emit BucketLaunched event when bucket is launched", async function () {
       await testTokenA.connect(lender).approve(bucket.address, liquidityMiningAmount);
-      await expect(bucket.connect(lender).deposit(lender.address, liquidityMiningAmount)).to.emit(bucket, "BucketLaunched");
+      await expect(bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, liquidityMiningAmount, true)).to.emit(
+        bucket,
+        "BucketLaunched",
+      );
     });
 
     it("claimReward should transfer pmx on balance in TraderBalanceVault", async function () {
@@ -939,7 +942,7 @@ describe("Bucket", function () {
       for (let i = 0; i < data.length; i++) {
         await testTokenA.mint(data[i].account.address, data[i].deposit);
         await testTokenA.connect(data[i].account).approve(bucket.address, data[i].deposit);
-        await bucket.connect(data[i].account).deposit(data[i].account.address, data[i].deposit);
+        await bucket.connect(data[i].account)["deposit(address,uint256,bool)"](data[i].account.address, data[i].deposit, true);
       }
 
       const timestamp = (await provider.getBlock("latest")).timestamp;
@@ -966,7 +969,7 @@ describe("Bucket", function () {
       for (let i = 0; i < data.length; i++) {
         await testTokenA.mint(data[i].account.address, data[i].deposit);
         await testTokenA.connect(data[i].account).approve(bucket.address, data[i].deposit);
-        await bucket.connect(data[i].account).deposit(data[i].account.address, data[i].deposit);
+        await bucket.connect(data[i].account)["deposit(address,uint256,bool)"](data[i].account.address, data[i].deposit, true);
       }
 
       const timestamp = (await provider.getBlock("latest")).timestamp;
@@ -1017,7 +1020,10 @@ describe("Bucket", function () {
       });
       it("Should revert when the msg.sender is on the blacklist", async function () {
         await mockWhiteBlackList.mock.isBlackListed.returns(true);
-        await expect(bucket.deposit(deployer.address, 100)).to.be.revertedWithCustomError(ErrorsLibrary, "SENDER_IS_BLACKLISTED");
+        await expect(bucket["deposit(address,uint256,bool)"](deployer.address, 100, true)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "SENDER_IS_BLACKLISTED",
+        );
       });
 
       it("Should revert when liquidityMiningDeadline is passed", async function () {
@@ -1025,7 +1031,10 @@ describe("Bucket", function () {
         await testTokenA.mint(deployer.address, 100);
         await testTokenA.approve(bucket.address, 100);
 
-        await expect(bucket.deposit(deployer.address, 100)).to.be.revertedWithCustomError(ErrorsLibrary, "DEADLINE_IS_PASSED");
+        await expect(bucket["deposit(address,uint256,bool)"](deployer.address, 100, true)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "DEADLINE_IS_PASSED",
+        );
       });
 
       it("Should revert when user deposit is more than maxAmountPerUser", async function () {
@@ -1051,12 +1060,18 @@ describe("Bucket", function () {
         const bucket = await getContractAt("Bucket", newBucketAddress);
         await testTokenA.mint(deployer.address, liquidityMiningAmount);
         await testTokenA.approve(newBucketAddress, liquidityMiningAmount);
-        await expect(bucket.deposit(deployer.address, liquidityMiningAmount)).to.be.revertedWithCustomError(
+        await expect(bucket["deposit(address,uint256,bool)"](deployer.address, liquidityMiningAmount, true)).to.be.revertedWithCustomError(
           ErrorsLibrary,
           "DEPOSIT_IS_MORE_AMOUNT_PER_USER",
         );
       });
-
+      it("Should overload deposit(address,uint256) work fine", async function () {
+        const amount = "1.111111111111111111";
+        const depositAmount = parseUnits(Number(amount).toFixed(decimalsA), decimalsA);
+        await testTokenA.mint(lender.address, depositAmount);
+        await testTokenA.connect(lender).approve(bucket.address, depositAmount);
+        await bucket.connect(lender)["deposit(address,uint256)"](lender.address, depositAmount);
+      });
       it("Should transfer underlying asset and mint ptokens", async function () {
         const depositAmount = BigNumber.from(100);
         const accounts = [lender, deployer, caller];
@@ -1067,16 +1082,40 @@ describe("Bucket", function () {
           await testTokenA.connect(accountO).approve(bucket.address, depositAmountI);
 
           const balanceBefore = await pTestTokenA.balanceOf(accountO.address);
-          await expect(() => bucket.connect(accountO).deposit(accountO.address, depositAmountI)).to.changeTokenBalances(
-            testTokenA,
-            [accountO, bucket],
-            [depositAmountI.mul(NegativeOne), depositAmountI],
-          );
+          await expect(() =>
+            bucket.connect(accountO)["deposit(address,uint256,bool)"](accountO.address, depositAmountI, true),
+          ).to.changeTokenBalances(testTokenA, [accountO, bucket], [depositAmountI.mul(NegativeOne), depositAmountI]);
           const balanceAfter = await pTestTokenA.balanceOf(accountO.address);
           expect(balanceAfter.sub(balanceBefore)).to.equal(depositAmountI);
         }
       });
-
+      it("Should revert transfer underlying asset from the Vault due to insufficient available assets", async function () {
+        const depositAmount = BigNumber.from(100);
+        await expect(bucket["deposit(address,uint256,bool)"](deployer.address, depositAmount, false)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "INSUFFICIENT_FREE_ASSETS",
+        );
+      });
+      it("Should transfer underlying asset from the Vault and mint ptokens when the takeDepositFromWallet is false", async function () {
+        const depositAmount = BigNumber.from(100);
+        const accounts = [lender, deployer, caller];
+        for (let i = 0; i < 10; i++) {
+          const accountO = accounts[i % 3];
+          const depositAmountI = depositAmount.mul(i + 1);
+          await testTokenA.mint(accountO.address, depositAmountI);
+          await testTokenA.connect(accountO).approve(traderBalanceVault.address, depositAmountI);
+          await traderBalanceVault.connect(accountO).deposit(testTokenA.address, depositAmountI);
+          const { availableBalance: availableBalanceBefore } = await traderBalanceVault.balances(accountO.address, testTokenA.address);
+          const balanceBefore = await pTestTokenA.balanceOf(accountO.address);
+          await expect(() =>
+            bucket.connect(accountO)["deposit(address,uint256,bool)"](accountO.address, depositAmountI, false),
+          ).to.changeTokenBalances(testTokenA, [traderBalanceVault, bucket], [depositAmountI.mul(NegativeOne), depositAmountI]);
+          const { availableBalance: availableBalanceAfter } = await traderBalanceVault.balances(accountO.address, testTokenA.address);
+          const balanceAfter = await pTestTokenA.balanceOf(accountO.address);
+          expect(balanceAfter.sub(balanceBefore)).to.equal(depositAmountI);
+          expect(availableBalanceBefore.sub(availableBalanceAfter)).to.equal(depositAmountI);
+        }
+      });
       function calculatePoints(currentTimestamp, miningAmount) {
         let points = miningAmount.mul(maxStabilizationEndTimestamp - currentTimestamp).toString();
         points = wadDiv(points, maxDuration.toString()).toString();
@@ -1113,7 +1152,7 @@ describe("Bucket", function () {
         const currentTimestamp = (await provider.getBlock("latest")).timestamp + 500;
         await network.provider.send("evm_setNextBlockTimestamp", [currentTimestamp]);
 
-        await bucket.connect(lender).deposit(lender.address, liquidityMiningAmount.mul(2));
+        await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, liquidityMiningAmount.mul(2), true);
 
         const { isBucketLaunched, stabilizationEndTimestamp } = await bucket.getLiquidityMiningParams();
 
@@ -1134,7 +1173,7 @@ describe("Bucket", function () {
         const points = await calculatePoints(currentTimestamp, depositAmount);
 
         await network.provider.send("evm_setNextBlockTimestamp", [currentTimestamp]);
-        await bucket.connect(lender).deposit(lender.address, depositAmount);
+        await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, depositAmount, true);
 
         const expectedRewards = await getRewards(BigNumber.from(points), currentTimestamp);
 
@@ -1154,10 +1193,9 @@ describe("Bucket", function () {
         const depositAmount = parseUnits("100", decimalsA);
         await testTokenA.mint(lender.address, depositAmount);
         await testTokenA.connect(lender).approve(bucket.address, depositAmount);
-        await expect(bucket.connect(lender).deposit(trader.address, depositAmount)).to.be.revertedWithCustomError(
-          ErrorsLibrary,
-          "CALLER_IS_NOT_P_TOKEN_RECEIVER",
-        );
+        await expect(
+          bucket.connect(lender)["deposit(address,uint256,bool)"](trader.address, depositAmount, true),
+        ).to.be.revertedWithCustomError(ErrorsLibrary, "CALLER_IS_NOT_P_TOKEN_RECEIVER");
       });
 
       it("Should update trader info in LiquidityMiningRewardDistributor", async function () {
@@ -1207,7 +1245,7 @@ describe("Bucket", function () {
           }
 
           await network.provider.send("evm_setNextBlockTimestamp", [currentTimestamp]);
-          await bucket.connect(account).deposit(account.address, depositAmountI);
+          await bucket.connect(account)["deposit(address,uint256,bool)"](account.address, depositAmountI, true);
 
           const expectedRewards = await getRewards(BigNumber.from(userPoints), currentTimestamp);
 
@@ -1247,7 +1285,7 @@ describe("Bucket", function () {
 
         depositAmount = BigNumber.from(100);
         await testTokenA.connect(lender).approve(bucket.address, depositAmount);
-        await bucket.connect(lender).deposit(lender.address, depositAmount);
+        await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, depositAmount, true);
       });
       beforeEach(async function () {
         snapshotId = await network.provider.request({
@@ -1319,7 +1357,7 @@ describe("Bucket", function () {
       it("Should revert withdraw if bucket is launched but stabilizationDuration isn't passed and user withdraws its mining liquidity amount", async function () {
         await testTokenA.connect(lender).approve(bucket.address, liquidityMiningAmount);
 
-        const tx = await bucket.connect(lender).deposit(lender.address, liquidityMiningAmount);
+        const tx = await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, liquidityMiningAmount, true);
         const timestamp = (await provider.getBlock(tx.blockNumber)).timestamp;
 
         const { isBucketLaunched } = await bucket.getLiquidityMiningParams();
@@ -1336,7 +1374,7 @@ describe("Bucket", function () {
       it("Shouldn't reset to zero all user points if bucket is launched, stabilizationDuration hasn't passed and user withdraws amount not participated in liquidity mining event", async function () {
         await testTokenA.connect(lender).approve(bucket.address, liquidityMiningAmount.mul(2));
 
-        const tx = await bucket.connect(lender).deposit(lender.address, liquidityMiningAmount.mul(2));
+        const tx = await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, liquidityMiningAmount.mul(2), true);
         const timestamp = (await provider.getBlock(tx.blockNumber)).timestamp;
 
         const { isBucketLaunched } = await bucket.getLiquidityMiningParams();
@@ -1360,7 +1398,7 @@ describe("Bucket", function () {
       it("Shouldn't reset to zero all user points if bucket is launch and stabilizationDuration is passed", async function () {
         await testTokenA.connect(lender).approve(bucket.address, liquidityMiningAmount);
 
-        const tx = await bucket.connect(lender).deposit(lender.address, liquidityMiningAmount);
+        const tx = await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, liquidityMiningAmount, true);
         const timestamp = (await provider.getBlock(tx.blockNumber)).timestamp;
 
         const { isBucketLaunched } = await bucket.getLiquidityMiningParams();
@@ -1386,7 +1424,7 @@ describe("Bucket", function () {
         const treasury = await getContract("Treasury");
 
         await testTokenA.connect(lender).approve(bucket.address, liquidityMiningAmount);
-        const tx = await bucket.connect(lender).deposit(lender.address, liquidityMiningAmount);
+        const tx = await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, liquidityMiningAmount, true);
         const timestamp = (await provider.getBlock(tx.blockNumber)).timestamp;
 
         const lenderBalanceBefore = await testTokenA.balanceOf(lender.address);
@@ -1418,7 +1456,7 @@ describe("Bucket", function () {
 
       it("Should emit TopUpTreasury event", async function () {
         await testTokenA.connect(lender).approve(bucket.address, liquidityMiningAmount);
-        const tx0 = await bucket.connect(lender).deposit(lender.address, liquidityMiningAmount);
+        const tx0 = await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, liquidityMiningAmount, true);
         const timestamp = (await provider.getBlock(tx0.blockNumber)).timestamp;
 
         const amountToWithdraw = liquidityMiningAmount;
@@ -1446,7 +1484,7 @@ describe("Bucket", function () {
         swapManager = await getContract("SwapManager");
         depositAmount = BigNumber.from(100);
         await testTokenA.connect(lender).approve(bucket.address, depositAmount);
-        await bucket.connect(lender).deposit(lender.address, depositAmount);
+        await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, depositAmount, true);
         const currentTimestamp = liquidityMiningDeadline + 1;
         await network.provider.send("evm_setNextBlockTimestamp", [currentTimestamp]);
 
@@ -1538,7 +1576,7 @@ describe("Bucket", function () {
 
       it("Should revert depositFromBucket when bucket is launched", async function () {
         await testTokenA.connect(lender).approve(bucketSame.address, liquidityMiningAmount);
-        await bucketSame.connect(lender).deposit(lender.address, liquidityMiningAmount);
+        await bucketSame.connect(lender)["deposit(address,uint256,bool)"](lender.address, liquidityMiningAmount, true);
         expect((await bucketSame.getLiquidityMiningParams()).isBucketLaunched).to.equal(true);
         await expect(
           bucketSame.connect(lender).depositFromBucket(await bucket.name(), swapManager.address, [], 0),
@@ -1546,7 +1584,7 @@ describe("Bucket", function () {
       });
       it("Should revert depositFromBucket when bucket isn't launched and deadline isn't passed", async function () {
         await testTokenA.connect(lender).approve(bucketSame.address, liquidityMiningAmount.div(2));
-        await bucketSame.connect(lender).deposit(lender.address, liquidityMiningAmount.div(2));
+        await bucketSame.connect(lender)["deposit(address,uint256,bool)"](lender.address, liquidityMiningAmount.div(2), true);
         expect((await bucketSame.getLiquidityMiningParams()).isBucketLaunched).to.equal(false);
         await expect(
           bucketSame.connect(lender).depositFromBucket(await bucket.name(), swapManager.address, [], 0),
@@ -1617,7 +1655,7 @@ describe("Bucket", function () {
         const timestamp = (await provider.getBlock("latest")).timestamp;
 
         await testTokenA.connect(lender).approve(bucketSame.address, liquidityMiningAmount);
-        await bucketSame.connect(lender).deposit(lender.address, liquidityMiningAmount);
+        await bucketSame.connect(lender)["deposit(address,uint256,bool)"](lender.address, liquidityMiningAmount, true);
         expect((await bucketSame.getLiquidityMiningParams()).isBucketLaunched).to.equal(true);
         const {
           rewardsInPMX: { minReward: reward },
@@ -1664,8 +1702,8 @@ describe("Bucket", function () {
 
         await testTokenA.connect(lender).approve(bucketSame.address, liquidityMiningAmount);
         await testTokenA.connect(trader).approve(bucketSame.address, liquidityMiningAmount);
-        await bucketSame.connect(trader).deposit(trader.address, traderDepositedInLM);
-        await bucketSame.connect(lender).deposit(lender.address, lenderDepositedInLM);
+        await bucketSame.connect(trader)["deposit(address,uint256,bool)"](trader.address, traderDepositedInLM, true);
+        await bucketSame.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderDepositedInLM, true);
 
         const actualLenderAmountInLm = liquidityMiningAmount.sub(traderDepositedInLM);
         expect((await bucketSame.getLiquidityMiningParams()).isBucketLaunched).to.equal(true);
@@ -1931,7 +1969,7 @@ describe("Bucket", function () {
     });
     it("Should mint correct amount of token to the reserve for Utilization Ratio 5%", async function () {
       const deposit = parseUnits("100", decimalsA);
-      await bucket.connect(lender).deposit(lender.address, deposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
       const borrow = parseUnits("5", decimalsA);
       await testTokenA.connect(trader).approve(positionManager.address, deposit);
 
@@ -1972,7 +2010,7 @@ describe("Bucket", function () {
       const newDebt = rayMul(borrow.toString(), newBorrowedIndex);
       const lastDebt = rayMul(borrow.toString(), RAY);
       const secondDeposit = parseUnits("50", decimalsA);
-      await bucket.connect(lender).deposit(lender.address, secondDeposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, secondDeposit, true);
       const liquidityRate = calculateLinearInterest(LAR.toString(), lastUpdBlockTimestamp, txBlockTimestamp);
       const debtAccrued = wadMul(newDebt.minus(lastDebt).toString(), reserveRate);
       const toMint = rayDiv(debtAccrued, liquidityRate);
@@ -1981,7 +2019,7 @@ describe("Bucket", function () {
 
     it("Should mint correct amount of token to the reserve for Utilization Ratio 30%", async function () {
       const deposit = parseUnits("100", decimalsA);
-      await bucket.connect(lender).deposit(lender.address, deposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
 
       const borrow = parseUnits("30", decimalsA);
       const amountOutMin = 0;
@@ -2023,7 +2061,7 @@ describe("Bucket", function () {
       const newDebt = rayMul(borrow.toString(), newBorrowedIndex);
       const lastDebt = rayMul(borrow.toString(), RAY);
       const secondDeposit = parseUnits("50", decimalsA);
-      await bucket.connect(lender).deposit(lender.address, secondDeposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, secondDeposit, true);
       const liquidityRate = calculateLinearInterest(LAR.toString(), lastUpdBlockTimestamp, txBlockTimestamp);
       const debtAccrued = wadMul(newDebt.minus(lastDebt).toString(), reserveRate);
       const toMint = rayDiv(debtAccrued, liquidityRate);
@@ -2033,7 +2071,7 @@ describe("Bucket", function () {
 
     it("Should mint correct amount of token to the reserve for Utilization Ratio 70%", async function () {
       const deposit = parseUnits("100", decimalsA);
-      await bucket.connect(lender).deposit(lender.address, deposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
 
       const borrow = parseUnits("70", decimalsA);
       const amountOutMin = 0;
@@ -2075,7 +2113,7 @@ describe("Bucket", function () {
       const newDebt = rayMul(borrow.toString(), newBorrowedIndex);
       const lastDebt = rayMul(borrow.toString(), RAY);
       const secondDeposit = parseUnits("50", decimalsA);
-      await bucket.connect(lender).deposit(lender.address, secondDeposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, secondDeposit, true);
       const liquidityRate = calculateLinearInterest(LAR.toString(), lastUpdBlockTimestamp, txBlockTimestamp);
       const debtAccrued = wadMul(newDebt.minus(lastDebt).toString(), reserveRate);
       const toMint = rayDiv(debtAccrued, liquidityRate);
@@ -2087,7 +2125,7 @@ describe("Bucket", function () {
     it("Should return correct balances of ptoken which sum is less or equal to availableLiquidity", async function () {
       const numberOfDeposits = 15;
       const deposit = parseUnits("100", decimalsA);
-      await bucket.connect(lender).deposit(lender.address, deposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
       const borrow = parseUnits("20", decimalsA);
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
@@ -2140,7 +2178,7 @@ describe("Bucket", function () {
       for (let i = 0; i < numberOfDeposits; i++) {
         await network.provider.send("evm_setNextBlockTimestamp", [timestamp + i]);
         // to upd rates
-        await bucket.connect(lender).deposit(lender.address, parseUnits("1", decimalsA));
+        await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, parseUnits("1", decimalsA), true);
       }
 
       await positionManager
@@ -2152,7 +2190,7 @@ describe("Bucket", function () {
 
     it("Should return correct balances of ptoken which sum is less than availableLiquidity when updating indexes and rates isn't called", async function () {
       const deposit = parseUnits("100", decimalsA);
-      await bucket.connect(lender).deposit(lender.address, deposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
       const borrow = parseUnits("20", decimalsA);
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
@@ -2228,7 +2266,7 @@ describe("Bucket", function () {
 
     it("Should revert deposit if bucket not active in dns", async function () {
       await PrimexDNS.freezeBucket(await bucket.name());
-      await expect(bucket.connect(lender).deposit(lender.address, "100")).to.be.revertedWithCustomError(
+      await expect(bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, "100", true)).to.be.revertedWithCustomError(
         ErrorsLibrary,
         "BUCKET_IS_INACTIVE",
       );
@@ -2266,7 +2304,10 @@ describe("Bucket", function () {
 
       const bucket2 = await getContractAt("Bucket", await BucketsFactory.buckets(1));
       await testTokenA.connect(lender).approve(bucket2.address, "100");
-      await expect(bucket2.connect(lender).deposit(lender.address, "100")).to.be.revertedWithCustomError(ErrorsLibrary, "BUCKET_NOT_ADDED");
+      await expect(bucket2.connect(lender)["deposit(address,uint256,bool)"](lender.address, "100", true)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "BUCKET_NOT_ADDED",
+      );
     });
 
     it("Should revert deposit if bucket not in primex protocol", async function () {
@@ -2301,7 +2342,7 @@ describe("Bucket", function () {
       const bucket2 = await getContractAt("Bucket", await BucketsFactory.buckets(1));
       await testTokenA.connect(lender).approve(bucket2.address, "100");
 
-      await expect(bucket2.connect(lender).deposit(lender.address, "100")).to.be.revertedWithCustomError(
+      await expect(bucket2.connect(lender)["deposit(address,uint256,bool)"](lender.address, "100", true)).to.be.revertedWithCustomError(
         ErrorsLibrary,
         "BUCKET_OUTSIDE_PRIMEX_PROTOCOL",
       );
@@ -2309,14 +2350,16 @@ describe("Bucket", function () {
 
     it("Should revert deposit if user has not approved tokens", async function () {
       const deposit = parseUnits("100", decimalsA);
-      await expect(bucket.connect(caller).deposit(caller.address, deposit)).to.be.revertedWith("ERC20: insufficient allowance");
+      await expect(bucket.connect(caller)["deposit(address,uint256,bool)"](caller.address, deposit, true)).to.be.revertedWith(
+        "ERC20: insufficient allowance",
+      );
     });
 
     it("Should emit RatesIndexesUpdated when deposit into a launched bucket", async function () {
       const amount = parseUnits("0.001", decimalsA);
       await testTokenA.mint(deployer.address, amount);
       await testTokenA.connect(deployer).approve(bucket.address, amount);
-      const tx = await bucket.deposit(deployer.address, amount);
+      const tx = await bucket["deposit(address,uint256,bool)"](deployer.address, amount, true);
 
       const bar = await bucket.bar();
       const lar = await bucket.lar();
@@ -2339,7 +2382,7 @@ describe("Bucket", function () {
       await bucket.setMaxTotalDeposit(maxTotalDeposit);
       expect(await bucket.maxTotalDeposit()).to.equal(maxTotalDeposit);
 
-      await expect(bucket.deposit(deployer.address, depositAmount)).to.be.revertedWithCustomError(
+      await expect(bucket["deposit(address,uint256,bool)"](deployer.address, depositAmount, true)).to.be.revertedWithCustomError(
         ErrorsLibrary,
         "DEPOSIT_EXCEEDS_MAX_TOTAL_DEPOSIT",
       );
@@ -2357,7 +2400,7 @@ describe("Bucket", function () {
       await bucket.setMaxTotalDeposit(maxTotalDeposit);
       expect(await bucket.maxTotalDeposit()).to.equal(maxTotalDeposit);
 
-      await expect(bucket.deposit(deployer.address, depositAmount)).to.emit(bucket, "Deposit"); // todo: should check values in event Deposit after deposit
+      await expect(bucket["deposit(address,uint256,bool)"](deployer.address, depositAmount, true)).to.emit(bucket, "Deposit"); // todo: should check values in event Deposit after deposit
     });
 
     // todo: should revert if blacklisted user call deposit
@@ -2511,7 +2554,7 @@ describe("Bucket", function () {
     const depositAmount = parseUnits("20", decimalsA);
 
     await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
-    await bucket.connect(lender).deposit(lender.address, lenderAmount);
+    await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
 
     const borrowedAmount = parseUnits("30", decimalsA);
     const amountOutMin = 0;
@@ -2678,7 +2721,7 @@ describe("Bucket", function () {
 
       const permanentLoss = await bucket.permanentLoss();
 
-      await bucket.connect(lender).deposit(lender.address, parseUnits("2", decimalsA));
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, parseUnits("2", decimalsA), true);
       const balance = await pToken.balanceOf(lender.address);
 
       const amount = balance.gt(permanentLoss) ? balance.mod(permanentLoss) : balance;
@@ -2711,7 +2754,7 @@ describe("Bucket", function () {
       const permanentLossBefore = await bucket.permanentLoss();
       const liquidityIndexBefore = await bucket.liquidityIndex();
       await network.provider.send("evm_increaseTime", [60 * 60 * 24]);
-      await bucket.connect(lender).deposit(lender.address, parseUnits("2", decimalsA));
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, parseUnits("2", decimalsA), true);
       const liquidityIndexAfter = await bucket.liquidityIndex();
       const expectedDebt = rayMul(
         rayDiv(permanentLossBefore.toString(), liquidityIndexBefore.toString()).toString(),
@@ -2801,7 +2844,7 @@ describe("Bucket", function () {
       await usdCoin.mint(lender.address, depositAmount);
       await usdCoin.connect(lender).approve(bucket.address, depositAmount);
 
-      await expect(bucket.connect(lender).deposit(lender.address, depositAmount))
+      await expect(bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, depositAmount, true))
         .to.emit(bucket, "DepositToAave")
         .withArgs(poolAddress, depositAmount);
       expect(await aaveAToken.balanceOf(bucket.address)).to.be.equal(depositAmount);
@@ -2819,7 +2862,7 @@ describe("Bucket", function () {
       await usdCoin.mint(lender.address, depositAmount.add(directAmount));
       await usdCoin.connect(lender).approve(bucket.address, depositAmount);
       await usdCoin.connect(lender).transfer(bucket.address, directAmount);
-      await bucket.connect(lender).deposit(lender.address, depositAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, depositAmount, true);
 
       expect(await aaveAToken.balanceOf(bucket.address)).to.be.equal(depositAmount.add(directAmount));
       expect(await usdCoin.balanceOf(bucket.address)).to.be.equal(0);
@@ -2833,7 +2876,7 @@ describe("Bucket", function () {
 
       await usdCoin.mint(lender.address, depositAmount);
       await usdCoin.connect(lender).approve(bucket.address, depositAmount);
-      await bucket.connect(lender).deposit(lender.address, depositAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, depositAmount, true);
 
       const balanceInAaveBefore = await aaveAToken.balanceOf(bucket.address);
       const lenderBalanceBefore = await usdCoin.balanceOf(lender.address);
@@ -2863,7 +2906,7 @@ describe("Bucket", function () {
       const depositAmount = parseUnits(amount, decimalsUSDC);
       await usdCoin.mint(lender.address, depositAmount);
       await usdCoin.connect(lender).approve(bucket.address, depositAmount);
-      await bucket.connect(lender).deposit(lender.address, depositAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, depositAmount, true);
       await bucket.connect(lender).withdraw(lender.address, MaxUint256);
     });
 
@@ -2875,7 +2918,7 @@ describe("Bucket", function () {
 
       await usdCoin.mint(lender.address, depositAmount);
       await usdCoin.connect(lender).approve(bucket.address, depositAmount);
-      await bucket.connect(lender).deposit(lender.address, depositAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, depositAmount, true);
       await network.provider.send("evm_setNextBlockTimestamp", [liquidityMiningDeadline + 1]);
       await bucket.connect(lender).withdraw(lender.address, withdrawAmount);
 
@@ -2914,11 +2957,11 @@ describe("Bucket", function () {
 
       await usdCoin.mint(lender.address, depositAmount);
       await usdCoin.connect(lender).approve(bucket.address, depositAmount);
-      await bucket.connect(lender).deposit(lender.address, depositAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, depositAmount, true);
 
       await usdCoin.mint(deployer.address, depositAmount2);
       await usdCoin.approve(bucket.address, depositAmount2);
-      await bucket.deposit(deployer.address, depositAmount2);
+      await bucket["deposit(address,uint256,bool)"](deployer.address, depositAmount2, true);
 
       await network.provider.send("evm_setNextBlockTimestamp", [liquidityMiningDeadline + 1]);
       await bucket.connect(lender).depositFromBucket(bucketSameName, swapManager.address, [], 0);
@@ -2935,10 +2978,10 @@ describe("Bucket", function () {
 
       await usdCoin.mint(lender.address, depositAmount.add(secondDepositAmount));
       await usdCoin.connect(lender).approve(bucket.address, depositAmount.add(secondDepositAmount));
-      await bucket.connect(lender).deposit(lender.address, depositAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, depositAmount, true);
       expect(await aaveAToken.balanceOf(bucket.address)).to.be.equal(depositAmount);
       // make second deposit to launch the bucket
-      await bucket.connect(lender).deposit(lender.address, secondDepositAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, secondDepositAmount, true);
 
       expect(await aaveAToken.balanceOf(bucket.address)).to.be.equal(0);
       expect(await usdCoin.balanceOf(bucket.address)).to.be.equal(depositAmount.add(secondDepositAmount));
@@ -2952,7 +2995,7 @@ describe("Bucket", function () {
 
       await usdCoin.mint(lender.address, depositAmount.add(secondDepositAmount));
       await usdCoin.connect(lender).approve(bucket.address, depositAmount.add(secondDepositAmount));
-      await bucket.connect(lender).deposit(lender.address, depositAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, depositAmount, true);
       expect(await aaveAToken.balanceOf(bucket.address)).to.be.equal(depositAmount);
 
       // borrow some funds from aave to create interest for lender
@@ -2970,7 +3013,7 @@ describe("Bucket", function () {
 
       const earnedInterest = (await aaveAToken.balanceOf(bucket.address)).sub(depositAmount);
       // make second deposit to launch the bucket
-      await expect(bucket.connect(lender).deposit(lender.address, secondDepositAmount))
+      await expect(bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, secondDepositAmount, true))
         .to.emit(bucket, "TopUpTreasury")
         .withArgs(poolAddress, earnedInterest);
       expect(await usdCoin.balanceOf(bucket.address)).to.be.equal(depositAmount.add(secondDepositAmount));
@@ -2985,7 +3028,7 @@ describe("Bucket", function () {
 
       await usdCoin.mint(lender.address, depositAmount);
       await usdCoin.connect(lender).approve(bucket.address, depositAmount);
-      await bucket.connect(lender).deposit(lender.address, depositAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, depositAmount, true);
 
       await expect(() => bucket.connect(SmallTimelockAdmin).returnLiquidityFromAaveToBucket()).to.changeTokenBalance(
         usdCoin,
@@ -3002,7 +3045,7 @@ describe("Bucket", function () {
       const deposit = parseUnits("100", decimalsA);
       const borrow = parseUnits("20", decimalsA);
       await testTokenA.connect(lender).approve(bucket.address, deposit);
-      await bucket.connect(lender).deposit(lender.address, deposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
       await testTokenA.mint(trader.address, deposit);
       await testTokenA.connect(trader).approve(positionManager.address, deposit);
       const amountOutMin = 0;

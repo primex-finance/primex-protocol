@@ -756,7 +756,11 @@ describe("Ptoken", function () {
 
       await testTokenA.connect(lender).approve(bucket.address, amount);
 
-      await expect(() => bucket.connect(lender).deposit(lender.address, amount)).to.changeTokenBalance(pTestTokenA, lender, amount);
+      await expect(() => bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, amount, true)).to.changeTokenBalance(
+        pTestTokenA,
+        lender,
+        amount,
+      );
     });
 
     it("Should transfer testTokenA to Bucket contract", async function () {
@@ -764,7 +768,7 @@ describe("Ptoken", function () {
 
       await testTokenA.connect(lender).approve(bucket.address, amount);
 
-      await expect(() => bucket.connect(lender).deposit(lender.address, amount)).to.changeTokenBalances(
+      await expect(() => bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, amount, true)).to.changeTokenBalances(
         testTokenA,
         [lender, bucket],
         [amount.mul(NegativeOne), amount],
@@ -776,7 +780,7 @@ describe("Ptoken", function () {
 
       await testTokenA.connect(lender).approve(bucket.address, amount);
 
-      await expect(bucket.connect(lender).deposit(lender.address, amount))
+      await expect(bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, amount, true))
         .to.emit(pTestTokenA, "Transfer")
         .withArgs(AddressZero, lender.address, amount);
     });
@@ -786,7 +790,9 @@ describe("Ptoken", function () {
 
       await testTokenA.connect(lender).approve(bucket.address, amount);
 
-      await expect(bucket.connect(lender).deposit(lender.address, amount)).to.emit(pTestTokenA, "Mint").withArgs(lender.address, amount);
+      await expect(bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, amount, true))
+        .to.emit(pTestTokenA, "Mint")
+        .withArgs(lender.address, amount);
     });
   });
 
@@ -795,7 +801,7 @@ describe("Ptoken", function () {
     before(async function () {
       lenderAmount = parseUnits("10", decimalsA);
       await testTokenA.connect(lender).approve(bucket.address, lenderAmount);
-      await bucket.connect(lender).deposit(lender.address, lenderAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
     });
 
     after(async function () {
@@ -860,7 +866,7 @@ describe("Ptoken", function () {
         PriceInETH.toString(),
       ).toString();
 
-      await bucket.connect(lender).deposit(lender.address, lenderAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
 
       const tx = await positionManager.connect(trader).openPosition(
         {
@@ -912,7 +918,7 @@ describe("Ptoken", function () {
       lenderAmount = parseUnits("10", decimalsA);
       await testTokenA.mint(deployer.address, lenderAmount);
       await testTokenA.connect(deployer).approve(bucket.address, lenderAmount);
-      await bucket.connect(deployer).deposit(deployer.address, lenderAmount);
+      await bucket.connect(deployer)["deposit(address,uint256,bool)"](deployer.address, lenderAmount, true);
       bucketSigner = await getImpersonateSigner(bucket);
     });
 
@@ -1039,7 +1045,7 @@ describe("Ptoken", function () {
       await testTokenA.mint(bucket.address, initialLenderAmount);
 
       await testTokenA.connect(lender).approve(bucket.address, initialLenderAmount);
-      await bucket.connect(lender).deposit(lender.address, initialLenderAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, initialLenderAmount, true);
       bucketSigner = await getImpersonateSigner(bucket);
     });
 
@@ -1363,10 +1369,10 @@ describe("Ptoken", function () {
       await testTokenA.mint(lender2.address, amount);
 
       await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
-      await bucket.connect(lender).deposit(lender.address, amount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, amount, true);
 
       await testTokenA.connect(lender2).approve(bucket.address, MaxUint256);
-      await bucket.connect(lender2).deposit(lender.address, amount);
+      await bucket.connect(lender2)["deposit(address,uint256,bool)"](lender.address, amount, true);
     });
 
     after(async function () {
@@ -1466,7 +1472,7 @@ describe("Ptoken", function () {
       amount = parseUnits("10", decimalsA);
       await testTokenA.mint(bucket.address, amount);
       await testTokenA.connect(lender).approve(bucket.address, amount);
-      await bucket.connect(lender).deposit(lender.address, amount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, amount, true);
       bucketSigner = await getImpersonateSigner(bucket);
     });
 

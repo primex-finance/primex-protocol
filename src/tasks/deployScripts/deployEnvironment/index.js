@@ -85,7 +85,7 @@ task(
 );
 
 task(
-  "deployEnv:arbitrum-goerli",
-  "Deploy environment (test tokens, add liquidity to dexes, price feeds) on Arbitrum Goerli",
-  require("./deployEnvArbitrumGoerli.js"),
+  "deployEnv:arbitrum-sepolia",
+  "Deploy environment (test tokens, add liquidity to dexes, price feeds) on Arbitrum Sepolia",
+  require("./deployEnvArbitrumSepolia.js"),
 );

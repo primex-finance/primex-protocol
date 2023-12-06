@@ -32,6 +32,7 @@ const { TRUSTED_TOLERABLE_LIMIT_ROLE } = require("../Constants");
 const { setBadOraclePrice, fivePercent } = require("./utils/setBadOraclePrice");
 const { wadDiv, wadMul, rayMul, rayDiv, calculateCompoundInterest } = require("./utils/math");
 const { increaseBlocksBy, getAdminSigners, getImpersonateSigner } = require("./utils/hardhatUtils");
+const { calculateMinMaxFeeInFeeToken } = require("./utils/protocolFeeUtils");
 
 const {
   getAmountsOut,
@@ -204,8 +205,14 @@ describe("PositionManager", function () {
     await priceOracle.updatePriceFeed(testTokenA.address, PMXToken.address, priceFeedTTAPMX.address);
     await priceOracle.updatePriceFeed(testTokenA.address, await priceOracle.eth(), priceFeedTTAETH.address);
     await priceOracle.updatePriceFeed(testTokenB.address, await priceOracle.eth(), priceFeedTTAETH.address);
-    await priceOracle.updatePriceFeed(PMXToken.address, await priceOracle.eth(), priceFeedTTAETH.address);
     await priceOracle.updatePriceFeed(testTokenB.address, tokenUSD.address, priceFeedTTBUSD.address);
+
+    // need to calculate minFee and maxFee from native to PMX
+    const priceFeedETHPMX = await PrimexAggregatorV3TestServiceFactory.deploy("ETH_PMX", deployer.address);
+    // 1 tta=0.2 pmx; 1 tta=0.3 eth -> 1 eth = 0.2/0.3 pmx
+    await priceFeedETHPMX.setAnswer(parseUnits("0.666666666666666666", 18));
+    await priceFeedETHPMX.setDecimals(decimalsPMX);
+    await priceOracle.updatePriceFeed(await priceOracle.eth(), PMXToken.address, priceFeedETHPMX.address);
 
     mockReserve = await deployMockReserve(deployer);
     mockRegistry = await deployMockAccessControl(deployer);
@@ -238,7 +245,7 @@ describe("PositionManager", function () {
 
     const lenderAmount = parseUnits("50", decimalsA);
     await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
-    await bucket.connect(lender).deposit(lender.address, lenderAmount);
+    await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
     await testTokenA.connect(trader).approve(positionManager.address, depositAmount);
     const deadline = new Date().getTime() + 600;
 
@@ -770,6 +777,27 @@ describe("PositionManager", function () {
         [BigNumber.from(feeAmountInEth).mul(NegativeOne), BigNumber.from(feeAmountInEth)],
       );
     });
+
+    it("Should create position and send minimal fee to Treasury", async function () {
+      const minFee = BigNumber.from(feeAmountInEth).mul(2);
+      await traderBalanceVault.connect(trader).deposit(NATIVE_CURRENCY, 0, {
+        value: minFee.sub(feeAmountInEth),
+      });
+      await PrimexDNS.setFeeRestrictions(OrderType.MARKET_ORDER, { minProtocolFee: minFee, maxProtocolFee: minFee.mul(2) });
+      await expect(() => positionManager.connect(trader).openPosition(OpenPositionParams)).to.changeEtherBalances(
+        [traderBalanceVault, Treasury],
+        [BigNumber.from(minFee).mul(NegativeOne), BigNumber.from(minFee)],
+      );
+    });
+
+    it("Should create position and send max fee to Treasury", async function () {
+      const maxFee = BigNumber.from(feeAmountInEth).div(2);
+      await PrimexDNS.setFeeRestrictions(OrderType.MARKET_ORDER, { minProtocolFee: 0, maxProtocolFee: maxFee });
+      await expect(() => positionManager.connect(trader).openPosition(OpenPositionParams)).to.changeEtherBalances(
+        [traderBalanceVault, Treasury],
+        [BigNumber.from(maxFee).mul(NegativeOne), BigNumber.from(maxFee)],
+      );
+    });
     it("Should create position and the treasury receive fee amount in the native token when source of deposit is different from fee source", async function () {
       const openPositionParams = { ...OpenPositionParams, takeDepositFromWallet: false, payFeeFromWallet: true };
       await expect(() =>
@@ -808,6 +836,38 @@ describe("PositionManager", function () {
         PMXToken,
         [traderBalanceVault, Treasury],
         [BigNumber.from(feeAmountInPmx).mul(NegativeOne), BigNumber.from(feeAmountInPmx)],
+      );
+    });
+
+    it("Should create position and send minimal fee in PMX", async function () {
+      const minFee = BigNumber.from(feeAmountInEth).mul(2);
+      await PrimexDNS.setFeeRestrictions(OrderType.MARKET_ORDER, { minProtocolFee: minFee, maxProtocolFee: minFee.mul(2) });
+      const { minFeeInFeeToken } = await calculateMinMaxFeeInFeeToken(OrderType.MARKET_ORDER, PMXToken.address);
+
+      OpenPositionParams.isProtocolFeeInPmx = true;
+      await PMXToken.transfer(trader.address, minFeeInFeeToken);
+      await PMXToken.connect(trader).approve(traderBalanceVault.address, minFeeInFeeToken);
+      await traderBalanceVault.connect(trader).deposit(PMXToken.address, minFeeInFeeToken);
+      await expect(() => positionManager.connect(trader).openPosition(OpenPositionParams)).to.changeTokenBalances(
+        PMXToken,
+        [traderBalanceVault, Treasury],
+        [BigNumber.from(minFeeInFeeToken).mul(NegativeOne), BigNumber.from(minFeeInFeeToken)],
+      );
+    });
+
+    it("Should create position and send max fee in PMX", async function () {
+      const maxFee = BigNumber.from(feeAmountInEth).div(2);
+      await PrimexDNS.setFeeRestrictions(OrderType.MARKET_ORDER, { minProtocolFee: 0, maxProtocolFee: maxFee });
+      const { maxFeeInFeeToken } = await calculateMinMaxFeeInFeeToken(OrderType.MARKET_ORDER, PMXToken.address);
+
+      OpenPositionParams.isProtocolFeeInPmx = true;
+      await PMXToken.transfer(trader.address, maxFeeInFeeToken);
+      await PMXToken.connect(trader).approve(traderBalanceVault.address, maxFeeInFeeToken);
+      await traderBalanceVault.connect(trader).deposit(PMXToken.address, maxFeeInFeeToken);
+      await expect(() => positionManager.connect(trader).openPosition(OpenPositionParams)).to.changeTokenBalances(
+        PMXToken,
+        [traderBalanceVault, Treasury],
+        [BigNumber.from(maxFeeInFeeToken).mul(NegativeOne), BigNumber.from(maxFeeInFeeToken)],
       );
     });
 
@@ -1024,7 +1084,7 @@ describe("PositionManager", function () {
 
       const newBucket = await getContractAt("Bucket", newBucketAddress);
       await testTokenA.connect(lender).approve(newBucketAddress, MaxUint256);
-      await newBucket.connect(lender).deposit(lender.address, parseUnits("50", decimalsA));
+      await newBucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, parseUnits("50", decimalsA), true);
 
       const borrowedAmount = parseUnits("0.002", decimalsA);
       const depositAmount = parseUnits("0.0015", decimalsA);
@@ -1227,7 +1287,28 @@ describe("PositionManager", function () {
         }),
       ).to.changeEtherBalances([trader, Treasury], [BigNumber.from(feeAmountInEth).mul(NegativeOne), feeAmountInEth]);
     });
+    it("Should create position and send minimal fee to Treasury", async function () {
+      const minFee = BigNumber.from(feeAmountInEth).mul(2);
+      await traderBalanceVault.connect(trader).deposit(NATIVE_CURRENCY, 0, {
+        value: minFee.sub(feeAmountInEth),
+      });
+      await PrimexDNS.setFeeRestrictions(OrderType.MARKET_ORDER, { minProtocolFee: minFee, maxProtocolFee: minFee.mul(2) });
+      await expect(() =>
+        positionManager.connect(trader).openPosition(OpenPositionParams, {
+          value: minFee,
+        }),
+      ).to.changeEtherBalances([trader, Treasury], [BigNumber.from(minFee).mul(NegativeOne), minFee]);
+    });
 
+    it("Should create position and send max fee to Treasury", async function () {
+      const maxFee = BigNumber.from(feeAmountInEth).div(2);
+      await PrimexDNS.setFeeRestrictions(OrderType.MARKET_ORDER, { minProtocolFee: 0, maxProtocolFee: maxFee });
+      await expect(() =>
+        positionManager.connect(trader).openPosition(OpenPositionParams, {
+          value: maxFee,
+        }),
+      ).to.changeEtherBalances([trader, Treasury], [BigNumber.from(maxFee).mul(NegativeOne), maxFee]);
+    });
     it("Should revert when isProtocolFeeInPmx is true & when trader balance in PMX in traderBalanceVault is smaller then feeAmountInPmx", async function () {
       OpenPositionParams.isProtocolFeeInPmx = true;
       await expect(positionManager.connect(trader).openPosition(OpenPositionParams)).to.be.revertedWith("ERC20: insufficient allowance");
@@ -1247,6 +1328,37 @@ describe("PositionManager", function () {
         PMXToken,
         [trader, Treasury],
         [BigNumber.from(feeAmountInPmx).mul(NegativeOne), feeAmountInPmx],
+      );
+    });
+    it("Should create position and send minimal fee in PMX", async function () {
+      const minFee = BigNumber.from(feeAmountInEth).mul(2);
+      await PrimexDNS.setFeeRestrictions(OrderType.MARKET_ORDER, { minProtocolFee: minFee, maxProtocolFee: minFee.mul(2) });
+      const { minFeeInFeeToken } = await calculateMinMaxFeeInFeeToken(OrderType.MARKET_ORDER, PMXToken.address);
+
+      OpenPositionParams.isProtocolFeeInPmx = true;
+      await PMXToken.transfer(trader.address, minFeeInFeeToken);
+      await PMXToken.connect(trader).approve(positionManager.address, minFeeInFeeToken);
+
+      await expect(() => positionManager.connect(trader).openPosition(OpenPositionParams)).to.changeTokenBalances(
+        PMXToken,
+        [trader, Treasury],
+        [BigNumber.from(minFeeInFeeToken).mul(NegativeOne), minFeeInFeeToken],
+      );
+    });
+
+    it("Should create position and send max fee in PMX", async function () {
+      const maxFee = BigNumber.from(feeAmountInEth).div(2);
+      await PrimexDNS.setFeeRestrictions(OrderType.MARKET_ORDER, { minProtocolFee: 0, maxProtocolFee: maxFee });
+      const { maxFeeInFeeToken } = await calculateMinMaxFeeInFeeToken(OrderType.MARKET_ORDER, PMXToken.address);
+
+      OpenPositionParams.isProtocolFeeInPmx = true;
+      await PMXToken.transfer(trader.address, maxFeeInFeeToken);
+      await PMXToken.connect(trader).approve(positionManager.address, maxFeeInFeeToken);
+
+      await expect(() => positionManager.connect(trader).openPosition(OpenPositionParams)).to.changeTokenBalances(
+        PMXToken,
+        [trader, Treasury],
+        [BigNumber.from(maxFeeInFeeToken).mul(NegativeOne), maxFeeInFeeToken],
       );
     });
     it("Should revert open position when isProtocolFeeInPmx is true, payFeeFromWallet is true  and msg.value more than zero", async function () {

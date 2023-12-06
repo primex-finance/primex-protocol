@@ -59,7 +59,7 @@ describe("TraderRewardDistributor_integration", function () {
     const bucketAddress = (await PrimexDNS.buckets("bucket1")).bucketAddress;
     bucket = await getContractAt("Bucket", bucketAddress);
     await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
-    await bucket.connect(lender).deposit(lender.address, parseUnits("1000", decimalsA));
+    await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, parseUnits("1000", decimalsA), true);
 
     debtToken = await getContractAt("DebtToken", await bucket.debtToken());
     await debtToken.setTraderRewardDistributor(activityRewardDistributor.address);

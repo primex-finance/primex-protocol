@@ -77,7 +77,7 @@ describe("LiquidityMiningRewardDistributor_integration", function () {
 
   it("Should set minReward = maxReward if liquidityMiningDeadline is reached and the bucket is launched", async function () {
     await testTokenA.connect(lender).approve(bucket.address, LMparams.accumulatingAmount);
-    await bucket.connect(lender).deposit(lender.address, LMparams.accumulatingAmount);
+    await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, LMparams.accumulatingAmount, true);
 
     let timestamp = LMparams.deadlineTimestamp;
     timestamp = timestamp.toNumber() + 1;
@@ -94,7 +94,7 @@ describe("LiquidityMiningRewardDistributor_integration", function () {
 
   it("Should not launch the bucket if availableLiquidity > liquidityMiningAmount (top-up bucket via transfer) and liquidityMiningDeadline is not reached", async function () {
     await testTokenA.connect(lender).approve(bucket.address, LMparams.accumulatingAmount);
-    await bucket.connect(lender).deposit(lender.address, LMparams.accumulatingAmount.div(2));
+    await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, LMparams.accumulatingAmount.div(2), true);
     await testTokenA.connect(lender).transfer(bucket.address, LMparams.accumulatingAmount);
 
     const newLMparams = await bucket.getLiquidityMiningParams();
@@ -106,7 +106,7 @@ describe("LiquidityMiningRewardDistributor_integration", function () {
 
   it("Should not change lender info if the lender added liquidity to the bucket via transfer", async function () {
     await testTokenA.connect(lender).approve(bucket.address, LMparams.accumulatingAmount);
-    await bucket.connect(lender).deposit(lender.address, LMparams.accumulatingAmount.div(2));
+    await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, LMparams.accumulatingAmount.div(2), true);
 
     let timestamp = (await provider.getBlock("latest")).timestamp;
     const result1 = await LiquidityMiningRewardDistributor.getLenderInfo(nameBucket, lender.address, timestamp);
@@ -140,7 +140,7 @@ describe("LiquidityMiningRewardDistributor_integration", function () {
 
       it("Should revert if reinvestment period is over but the bucket is launched", async function () {
         await testTokenA.connect(lender).approve(bucket.address, LMparams.accumulatingAmount);
-        await bucket.connect(lender).deposit(lender.address, LMparams.accumulatingAmount);
+        await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, LMparams.accumulatingAmount, true);
 
         await network.provider.send("evm_setNextBlockTimestamp", [timestampAfterReinvestmentPeriod.toNumber()]);
         await network.provider.send("evm_mine");
@@ -234,7 +234,7 @@ describe("LiquidityMiningRewardDistributor_integration", function () {
     describe("delisted bucket", function () {
       it("Should emit WithdrawPmxByAdmin when transfer to treasury is successful", async function () {
         await testTokenA.connect(lender).approve(bucket.address, LMparams.accumulatingAmount);
-        await bucket.connect(lender).deposit(lender.address, LMparams.accumulatingAmount);
+        await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, LMparams.accumulatingAmount, true);
 
         await PrimexDNS.deprecateBucket(nameBucket);
         await network.provider.send("evm_increaseTime", [

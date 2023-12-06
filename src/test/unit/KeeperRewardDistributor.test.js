@@ -319,6 +319,35 @@ describe("KeeperRewardDistributor_unit", function () {
         "FORBIDDEN",
       );
     });
+    it("Should revert if not MEDIUM_TIMELOCK_ADMIN call setMinPositionSizeMultiplier", async function () {
+      const minPositionSizeMultiplier = WAD;
+      await expect(
+        keeperRewardDistributor.connect(user).setMinPositionSizeMultiplier(minPositionSizeMultiplier),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
+    });
+    it("Should revert setMinPositionSizeMultiplier when multiplier is not correct", async function () {
+      let minPositionSizeMultiplier = Zero;
+      await expect(keeperRewardDistributor.setMinPositionSizeMultiplier(minPositionSizeMultiplier)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "INCORRECT_MULTIPLIER",
+      );
+      minPositionSizeMultiplier = WAD.mul("2").add("1");
+      await expect(keeperRewardDistributor.setMinPositionSizeMultiplier(minPositionSizeMultiplier)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "INCORRECT_MULTIPLIER",
+      );
+    });
+    it("Should set minPositionSizeMultiplier", async function () {
+      const minPositionSizeMultiplier = WAD;
+      await keeperRewardDistributor.setMinPositionSizeMultiplier(minPositionSizeMultiplier);
+      expect(await keeperRewardDistributor.minPositionSizeMultiplier()).to.be.equal(minPositionSizeMultiplier);
+    });
+    it("Should emit MinPositionSizeMultiplierChanged when set minPositionSizeMultiplier is successful", async function () {
+      const minPositionSizeMultiplier = WAD;
+      await expect(keeperRewardDistributor.setMinPositionSizeMultiplier(minPositionSizeMultiplier))
+        .to.emit(keeperRewardDistributor, "MinPositionSizeMultiplierChanged")
+        .withArgs(minPositionSizeMultiplier);
+    });
     it("Should set setMaxGasPerPosition", async function () {
       const actionType = KeeperActionType.Liquidation;
       const config = {
@@ -540,9 +569,12 @@ describe("KeeperRewardDistributor_unit", function () {
       return BigNumber.from(config.baseMaxGas2).add(config.multiplier2.mul(numberOfActions));
     }
 
-    async function calculateRewards(positionSize, pureGas, maxGasAmount, txGasPrice) {
+    async function calculateRewards(positionSize, pureGas, maxGasAmount, txGasPrice, minPositionSizeMultiplier = Zero) {
       const oracleAmountsOut = wadMul(positionSize, positionUsdExchangeRate);
-      const positionSizeMultiplier = wadMul(oracleAmountsOut, initParams.positionSizeCoefficientA).add(initParams.positionSizeCoefficientB);
+      let positionSizeMultiplier = wadMul(oracleAmountsOut, initParams.positionSizeCoefficientA).add(initParams.positionSizeCoefficientB);
+      if (positionSizeMultiplier.lt(minPositionSizeMultiplier)) {
+        positionSizeMultiplier = minPositionSizeMultiplier;
+      }
       let gasAmount = BigNumber.from(initParams.additionalGas).add(pureGas);
       if (gasAmount.gt(maxGasAmount)) {
         gasAmount = maxGasAmount;
@@ -597,6 +629,32 @@ describe("KeeperRewardDistributor_unit", function () {
         pureGas,
         maxGasAmount,
         receipt.effectiveGasPrice,
+      );
+      expect(pmxRewardAfter).to.be.equal(rewardInPmx);
+      expect(nativeRewardAfter).to.be.equal(rewardInNativeCurrency);
+    });
+    it("Should correct calculate rewards when positionSizeMultiplier < minPositionSizeMultiplier ", async function () {
+      const minPositionSizeMultiplier = WAD.mul("2");
+      await keeperRewardDistributor.setMinPositionSizeMultiplier(minPositionSizeMultiplier);
+
+      const tx = await keeperRewardDistributor.connect(liquidator).updateReward(updateRewardParams);
+      const receipt = await tx.wait();
+      const { pmxBalance: pmxRewardAfter, nativeBalance: nativeRewardAfter } = await keeperRewardDistributor.keeperBalance(
+        liquidator.address,
+      );
+      const pureGas = await pureGasSpent(updateRewardParams.gasSpent, updateRewardParams.decreasingCounter);
+      const maxGasAmount = await getMaxGasAmount(updateRewardParams.action, updateRewardParams.numberOfActions);
+
+      const oracleAmountsOut = wadMul(updateRewardParams.positionSize, positionUsdExchangeRate);
+      const positionSizeMultiplier = wadMul(oracleAmountsOut, initParams.positionSizeCoefficientA).add(initParams.positionSizeCoefficientB);
+
+      expect(positionSizeMultiplier).to.be.lt(minPositionSizeMultiplier);
+      const { rewardInNativeCurrency, rewardInPmx } = await calculateRewards(
+        updateRewardParams.positionSize,
+        pureGas,
+        maxGasAmount,
+        receipt.effectiveGasPrice,
+        minPositionSizeMultiplier,
       );
       expect(pmxRewardAfter).to.be.equal(rewardInPmx);
       expect(nativeRewardAfter).to.be.equal(rewardInNativeCurrency);

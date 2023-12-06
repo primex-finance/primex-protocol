@@ -1,27 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 const { getConfigByName, getConfig } = require("../../config/configUtils");
 
-module.exports = async ({
-  run,
-  getNamedAccounts,
-  ethers: {
-    getContract,
-    constants: { AddressZero },
-  },
-}) => {
+module.exports = async ({ run, getNamedAccounts, ethers: { getContract } }) => {
   const registry = await getContract("Registry");
 
   const { deployer } = await getNamedAccounts();
 
   const adminAddress = getConfig().adminAddress ?? deployer;
-  let timelockAdmin = AddressZero;
+  const timelockAdmin = deployer;
 
-  // if there is no admin multisig at the time of the deployment,
-  // you need to give admin rights to the deployer
-  // so that he can transfer all rights to the multisig created after without delay
-  if (adminAddress === deployer) {
-    timelockAdmin = deployer;
-  }
   const proposers = JSON.stringify([adminAddress]);
   const executors = JSON.stringify([adminAddress]);
   const errorsLibrary = await getContract("Errors");
@@ -45,6 +32,16 @@ module.exports = async ({
   if (BigTimelockAdmin.newlyDeployed) {
     await run("AccessControl:AddRole", {
       role: "DEFAULT_ADMIN_ROLE",
+      account: BigTimelockAdmin.address,
+      registryAddress: registry.address,
+    });
+    await run("AccessControl:AddRole", {
+      role: "MEDIUM_TIMELOCK_ADMIN",
+      account: BigTimelockAdmin.address,
+      registryAddress: registry.address,
+    });
+    await run("AccessControl:AddRole", {
+      role: "SMALL_TIMELOCK_ADMIN",
       account: BigTimelockAdmin.address,
       registryAddress: registry.address,
     });

@@ -198,20 +198,20 @@ library LimitOrderLibrary {
             _params.depositAmount != _order.depositAmount ||
             feeToken != _order.feeToken
         ) {
-            uint256 feeRate = _primexDNS.feeRates(
+            uint256 newProtocolFee = PrimexPricingLibrary.calculateProtocolFee(
+                PrimexPricingLibrary.DepositData({
+                    protocolFee: 0,
+                    depositAsset: _order.depositAsset,
+                    depositAmount: _params.depositAmount,
+                    leverage: _params.leverage
+                }),
+                _primexDNS,
+                _priceOracle,
                 _order.shouldOpenPosition
                     ? IPrimexDNSStorage.OrderType.LIMIT_ORDER
                     : IPrimexDNSStorage.OrderType.SWAP_LIMIT_ORDER,
                 feeToken
             );
-            uint256 newProtocolFee = feeRate > 0
-                ? PrimexPricingLibrary.getOracleAmountsOut(
-                    _order.depositAsset,
-                    feeToken,
-                    _params.depositAmount.wmul(_params.leverage).wmul(feeRate),
-                    _priceOracle
-                )
-                : 0;
             if (feeToken == _order.feeToken) {
                 uint256 amount;
                 unchecked {
@@ -418,19 +418,23 @@ library LimitOrderLibrary {
         } else {
             vars.feeToken = NATIVE_CURRENCY;
         }
-        vars.rate = primexDNS.feeRates(
+
+        order.protocolFee = PrimexPricingLibrary.calculateProtocolFee(
+            PrimexPricingLibrary.DepositData({
+                protocolFee: 0,
+                depositAsset: _params.depositAsset,
+                depositAmount: _params.depositAmount,
+                leverage: _params.leverage
+            }),
+            primexDNS,
+            vars.priceOracle,
             order.shouldOpenPosition
                 ? IPrimexDNSStorage.OrderType.LIMIT_ORDER
                 : IPrimexDNSStorage.OrderType.SWAP_LIMIT_ORDER,
             vars.feeToken
         );
-        if (vars.rate > 0) {
-            order.protocolFee = PrimexPricingLibrary.getOracleAmountsOut(
-                _params.depositAsset,
-                vars.feeToken,
-                _params.depositAmount.wmul(_params.leverage).wmul(vars.rate),
-                address(pm.priceOracle())
-            );
+
+        if (order.protocolFee > 0) {
             // fee locking
             depositLockOrUnlock(traderBalanceVault, vars.feeToken, order.protocolFee, _params.payFeeFromWallet, true);
         }
@@ -488,20 +492,21 @@ library LimitOrderLibrary {
             vars.closeReason = CloseReason.FilledSwap;
             vars.amountIn = order.depositAmount;
 
+            // calculateFee is false so 'depositData' and 'priceOracle' are default values except 'protocolFee'
             PrimexPricingLibrary.payProtocolFee(
                 PrimexPricingLibrary.ProtocolFeeParams({
                     depositData: PrimexPricingLibrary.DepositData({
                         protocolFee: order.protocolFee,
-                        depositAsset: order.depositAsset,
-                        depositAmount: order.depositAmount,
-                        leverage: order.leverage
+                        depositAsset: address(0),
+                        depositAmount: 0,
+                        leverage: 0
                     }),
                     feeToken: order.feeToken,
                     isSwapFromWallet: false,
                     calculateFee: false,
-                    feeRate: 0, //because of calculateFee is false
+                    orderType: IPrimexDNSStorage.OrderType.SWAP_LIMIT_ORDER,
                     trader: order.trader,
-                    priceOracle: address(pm.priceOracle()),
+                    priceOracle: address(0),
                     traderBalanceVault: traderBalanceVault,
                     primexDNS: primexDNS
                 })

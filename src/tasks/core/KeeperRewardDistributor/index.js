@@ -13,6 +13,7 @@ task("deploy:KeeperRewardDistributor", "Deploy KeeperRewardDistributor contract"
   .addParam("pmx", "The address of PMXToken")
   .addParam("maxGasPerPositionParams", "")
   .addParam("decreasingGasByReasonParams", "")
+  .addOptionalParam("minPositionSizeMultiplier", "The multiplier to be applied if positionSizeMultiplier < this value")
   .addOptionalParam("registry", "The address of registry contract")
   .addOptionalParam("treasury", "The address of treasury contract")
   .addOptionalParam("priceOracle", "The address of priceOracle contract")

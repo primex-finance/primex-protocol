@@ -2,7 +2,9 @@
 module.exports = async function ({ _ }, { run }) {
   process.env.ARBITRUM = true;
   await run("setup:deployEnv", {
+    deployUniswapv3: true,
     addLiquidityUniswapv3: true,
     deployCurve: true,
+    deployUniswapMulticall: true,
   });
 };

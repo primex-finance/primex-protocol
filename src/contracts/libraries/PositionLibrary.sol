@@ -693,9 +693,9 @@ library PositionLibrary {
                 feeToken: _vars.feeToken,
                 isSwapFromWallet: _vars.payFeeFromWallet,
                 calculateFee: !_vars.byOrder,
-                feeRate: _vars.byOrder
-                    ? 0
-                    : _pmParams.primexDNS.feeRates(IPrimexDNSStorage.OrderType.MARKET_ORDER, _vars.feeToken),
+                orderType: _vars.byOrder
+                    ? IPrimexDNSStorage.OrderType.LIMIT_ORDER
+                    : IPrimexDNSStorage.OrderType.MARKET_ORDER,
                 trader: _position.trader,
                 priceOracle: address(_pmParams.priceOracle),
                 traderBalanceVault: _pmParams.traderBalanceVault,

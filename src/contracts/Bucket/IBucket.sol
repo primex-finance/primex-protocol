@@ -321,3 +321,13 @@ interface IBucket is IBucketStorage {
      */
     function availableLiquidity() external view returns (uint256);
 }
+
+interface IBucketV2 is IBucket {
+    /**
+     * @dev Deposits the 'amount' of underlying asset into the bucket. The 'PTokenReceiver' receives overlying pTokens.
+     * @param _pTokenReceiver The address to receive the deposited pTokens.
+     * @param _amount The amount of underlying tokens to be deposited
+     * @param _takeDepositFromWallet A flag indicating whether to make the deposit from user wallet
+     */
+    function deposit(address _pTokenReceiver, uint256 _amount, bool _takeDepositFromWallet) external;
+}

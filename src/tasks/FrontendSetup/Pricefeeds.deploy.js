@@ -8,9 +8,8 @@ module.exports = async function ({ _ }, { ethers: { getContract } }) {
   if (allPriceFeeds === undefined) {
     allPriceFeeds = {};
     allPriceFeeds.selfDeployed = {};
-  } else if (allPriceFeeds.selfDeployed === undefined) {
-    allPriceFeeds.selfDeployed = {};
   }
+  allPriceFeeds.selfDeployed = {};
 
   for (const tokenSymbol in assets) {
     const name = `${tokenSymbol}-usd`;

@@ -53,3 +53,13 @@ task("setup:revokeDeployerAccess", "Setup pair priceDrops, maxSize and OracleTor
 task("setFinalParamsOnPolygonMainnet", "Set final params on Polygon Mainnet", require("./setFinalParamsOnPolygonMainnet"));
 
 task("setup:setRolesForContractsOnly", "Set which roles are intended only for contracts", require("./setRolesForContractsOnly.js"));
+task("setup:EarlyRewardsData", "---", require("./setupEarlySimple.js"));
+
+task("setup:AssetsForSpot",
+  "Gathers input parameters for a proposal to add new assets for spot trading via a timelock. This entails configuring price feeds, maxSize, and oracleTorelableLimit for these new assets",
+  require("./setupAssetsForSpot.js"))
+  .addParam("tokens", "Tokens symbols representing assets which will be setup for spot, e.g. 'aave, bal'");
+
+task("setup:assetsConfigSpotForTestnet",
+  "Setup to testnet assets for spot: deployERC20, deploy priceFeeds, pricefeedSetup, addLiquidity on dex",
+  require("./setAssetsConfigSpotForTestnet.js"));

@@ -204,7 +204,7 @@ describe("Operation with the Curve dex_integration", function () {
       await testTokenA.connect(trader).approve(positionManager.address, MaxUint256);
       await testTokenA.connect(lender).approve(bucketAddressCurve, MaxUint256);
 
-      await bucketCurve.connect(lender).deposit(lender.address, lenderAmount);
+      await bucketCurve.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
 
       const pairPriceDrop = parseEther("0.01");
       await priceOracle.setPairPriceDrop(testTokenX.address, testTokenA.address, pairPriceDrop);

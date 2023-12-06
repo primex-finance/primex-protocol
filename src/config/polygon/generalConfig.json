@@ -14,30 +14,48 @@
     "oracleTolerableLimitMultiplier": "5",
     "maintenanceBuffer": "0.1",
     "securityBuffer": "0",
-    "minPositionAsset": { "contract": "native" },
-    "minPositionSize": "200"
+    "minPositionAsset": { "contract": "usd" },
+    "minPositionSize": "1"
   },
   "PrimexDNSconfig": {
     "rates": {
       "MARKET_ORDER": {
-        "protocolRate": "0.005",
-        "protocolRateInPmx": "0.004"
+        "protocolRate": "0.003",
+        "protocolRateInPmx": "0.0024"
       },
       "LIMIT_ORDER": {
-        "protocolRate": "0.005",
-        "protocolRateInPmx": "0.004"
+        "protocolRate": "0.003",
+        "protocolRateInPmx": "0.0024"
       },
       "SWAP_MARKET_ORDER": {
         "protocolRate": "0",
         "protocolRateInPmx": "0"
       },
       "SWAP_LIMIT_ORDER": {
-        "protocolRate": "0.005",
-        "protocolRateInPmx": "0.004"
+        "protocolRate": "0.003",
+        "protocolRateInPmx": "0.0024"
       }
     },
     "delistingDelayInDays": 180,
-    "adminWithdrawalDelayInDays": 180
+    "adminWithdrawalDelayInDays": 180,
+    "feeRestrictions":{
+      "MARKET_ORDER": {
+        "minProtocolFee": "1",
+        "maxProtocolFee": "MaxUint256"
+      },
+      "LIMIT_ORDER": {
+        "minProtocolFee": "1",
+        "maxProtocolFee": "MaxUint256"
+      },
+      "SWAP_MARKET_ORDER": {
+        "minProtocolFee": "0",
+        "maxProtocolFee": "0"
+      },
+      "SWAP_LIMIT_ORDER": {
+        "minProtocolFee": "1",
+        "maxProtocolFee": "MaxUint256"
+      }
+    }
   },  
   "SpotTradingRD":{
     "increaseAmount":"1000000",
@@ -55,6 +73,7 @@
     "additionalGas": "150000",
     "defaultMaxGasPriceGwei": "200",
     "oracleGasPriceTolerance": "0.25",
+    "minPositionSizeMultiplier": "1.1",
     "paymentModel":"DEFAULT",
     "maxGasPerPositionParams": {
       "OpenByOrder": {

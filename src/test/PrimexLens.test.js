@@ -322,9 +322,16 @@ describe("PrimexLens", function () {
     await priceOracle.updatePriceFeed(testTokenX.address, testTokenA.address, priceFeedTTXTTA.address);
     await priceOracle.updatePriceFeed(testTokenB.address, tokenUSD.address, priceFeedTTBUSD.address);
 
+    // need to calculate minFee and maxFee from native to PMX
+    const priceFeedETHPMX = await PrimexAggregatorV3TestServiceFactory.deploy("ETH_PMX", deployer.address);
+    // 1 tta=0.2 pmx; 1 tta=0.3 eth -> 1 eth = 0.2/0.3 pmx
+    await priceFeedETHPMX.setAnswer(parseUnits("0.666666666666666666", 18));
+    await priceFeedETHPMX.setDecimals(decimalsPMX);
+    await priceOracle.updatePriceFeed(await priceOracle.eth(), PMXToken.address, priceFeedETHPMX.address);
+
     const lenderAmountA = parseUnits("1000", decimalsA);
     await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
-    await bucket.connect(lender).deposit(lender.address, lenderAmountA);
+    await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmountA, true);
 
     depositAmountA = parseUnits("15", decimalsA);
     depositAmountB = parseUnits("15", decimalsB);
@@ -1280,7 +1287,7 @@ describe("PrimexLens", function () {
   });
 
   it("getBucketsArray returns correct values if the bucket is deprecated and 'showDeprecated' param is false but there is user's deposit in a bucket", async function () {
-    await bucket.connect(lender).deposit(lender.address, parseUnits("100", decimalsA));
+    await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, parseUnits("100", decimalsA), true);
 
     await PrimexDNS.deprecateBucket(await bucket.name());
     expect(await bucket.isDeprecated()).to.be.equal(true);
@@ -1307,7 +1314,7 @@ describe("PrimexLens", function () {
 
   it("getBucketsArray does not return empty buckets", async function () {
     // bucket 1 - deprecated, with deposit
-    await bucket.connect(lender).deposit(lender.address, parseUnits("100", decimalsA));
+    await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, parseUnits("100", decimalsA), true);
     await PrimexDNS.deprecateBucket(await bucket.name());
     expect(await bucket.isDeprecated()).to.be.equal(true);
 

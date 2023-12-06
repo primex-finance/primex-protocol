@@ -113,7 +113,7 @@ describe("CrossDexClosePosition", function () {
 
       await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
 
-      await bucket.connect(lender).deposit(lender.address, lenderAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
 
       const borrowedAmount = parseUnits("30", decimalsA);
       const amountOutMin = 0;
@@ -491,7 +491,7 @@ describe("CrossDexClosePosition", function () {
 
       await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
 
-      await bucket.connect(lender).deposit(lender.address, lenderAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
       const borrowedAmount = parseUnits("30", decimalsA);
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;

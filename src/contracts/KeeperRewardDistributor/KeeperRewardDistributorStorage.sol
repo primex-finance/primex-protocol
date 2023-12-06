@@ -10,7 +10,7 @@ import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/
 import "../libraries/Errors.sol";
 
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
-import {IKeeperRewardDistributorStorage} from "./IKeeperRewardDistributorStorage.sol";
+import {IKeeperRewardDistributorStorage, IKeeperRewardDistributorStorageV2} from "./IKeeperRewardDistributorStorage.sol";
 
 abstract contract KeeperRewardDistributorStorage is
     IKeeperRewardDistributorStorage,
@@ -36,4 +36,11 @@ abstract contract KeeperRewardDistributorStorage is
     mapping(KeeperCallingMethod => DataLengthRestrictions) public override dataLengthRestrictions;
     mapping(DecreasingReason => uint256) public override decreasingGasByReason;
     IWhiteBlackList internal whiteBlackList;
+}
+
+abstract contract KeeperRewardDistributorStorageV2 is
+    IKeeperRewardDistributorStorageV2,
+    KeeperRewardDistributorStorage
+{
+    int256 public override minPositionSizeMultiplier;
 }

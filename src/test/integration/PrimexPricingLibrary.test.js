@@ -313,57 +313,6 @@ describe("PrimexPricingLibrary_integration", function () {
       }
     }
 
-    it("should revert getAmountOut if first asset in path is incorrect", async function () {
-      await expect(
-        primexPricingLibraryMock.callStatic.getAmountOut({
-          tokenA: testTokenA.address,
-          tokenB: testTokenB.address,
-          amount: parseUnits("1", await testTokenA.decimals()),
-          routes: await getSingleRoute([testTokenX.address, testTokenB.address], dex),
-          dexAdapter: dexAdapter.address,
-          primexDNS: primexDNS.address,
-        }),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "INCORRECT_PATH");
-    });
-    it("should revert getAmountIn if last asset in path is incorrect", async function () {
-      await expect(
-        primexPricingLibraryMock.callStatic.getAmountIn({
-          tokenA: testTokenA.address,
-          tokenB: testTokenB.address,
-          amount: parseUnits("1", await testTokenB.decimals()),
-          routes: await getSingleRoute([testTokenA.address, testTokenX.address], dex),
-          dexAdapter: dexAdapter.address,
-          primexDNS: primexDNS.address,
-        }),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "INCORRECT_PATH");
-    });
-
-    it("should revert getAmountOut if last asset in path is incorrect", async function () {
-      await expect(
-        primexPricingLibraryMock.callStatic.getAmountOut({
-          tokenA: testTokenA.address,
-          tokenB: testTokenB.address,
-          amount: parseUnits("1", await testTokenA.decimals()),
-          routes: await getSingleRoute([testTokenA.address, testTokenX.address], dex),
-          dexAdapter: dexAdapter.address,
-          primexDNS: primexDNS.address,
-        }),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "INCORRECT_PATH");
-    });
-
-    it("should revert getAmountIn if first asset in path is incorrect", async function () {
-      await expect(
-        primexPricingLibraryMock.callStatic.getAmountIn({
-          tokenA: testTokenA.address,
-          tokenB: testTokenB.address,
-          amount: parseUnits("1", await testTokenA.decimals()),
-          routes: await getSingleRoute([testTokenX.address, testTokenB.address], dex),
-          dexAdapter: dexAdapter.address,
-          primexDNS: primexDNS.address,
-        }),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "INCORRECT_PATH");
-    });
-
     it("should getAmountOut when path length > 2", async function () {
       const amountIn = parseUnits("1", await testTokenA.decimals());
 

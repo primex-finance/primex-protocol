@@ -144,7 +144,7 @@ module.exports = async function (
     if ((await borrowedToken.balanceOf(bucketUSDC.address)).lt(borrowedAmount)) {
       tx = await borrowedToken.approve(bucketUSDC.address, borrowedAmount);
       await tx.wait();
-      tx = await bucketUSDC.deposit(deployer.address, borrowedAmount, 0);
+      tx = await bucketUSDC.deposit(deployer.address, borrowedAmount, 0, true);
       await tx.wait();
     }
   }

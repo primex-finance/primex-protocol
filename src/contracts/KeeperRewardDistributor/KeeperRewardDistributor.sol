@@ -12,7 +12,7 @@ import {TokenTransfersLibrary} from "../libraries/TokenTransfersLibrary.sol";
 
 import "./KeeperRewardDistributorStorage.sol";
 import "../Constants.sol";
-import {IKeeperRewardDistributor} from "./IKeeperRewardDistributor.sol";
+import {IKeeperRewardDistributor, IKeeperRewardDistributorV2} from "./IKeeperRewardDistributor.sol";
 import {IPriceOracle} from "../PriceOracle/IPriceOracle.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
 import {IPositionManager} from "../PositionManager/IPositionManager.sol";
@@ -20,7 +20,7 @@ import {ITreasury} from "../Treasury/ITreasury.sol";
 import {IPausable} from "../interfaces/IPausable.sol";
 import {IArbGasInfo} from "../interfaces/IArbGasInfo.sol";
 
-contract KeeperRewardDistributor is IKeeperRewardDistributor, KeeperRewardDistributorStorage {
+contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDistributorStorageV2 {
     using WadRayMath for uint256;
     IArbGasInfo internal constant ARB_NITRO_ORACLE = IArbGasInfo(0x000000000000000000000000000000000000006C);
     uint256 internal constant GAS_FOR_BYTE = 16;
@@ -117,6 +117,7 @@ contract KeeperRewardDistributor is IKeeperRewardDistributor, KeeperRewardDistri
             ).wmul(positionSizeCoefficientA)
         ) + positionSizeCoefficientB;
         if (positionSizeMultiplier <= 0) return;
+        if (positionSizeMultiplier < minPositionSizeMultiplier) positionSizeMultiplier = minPositionSizeMultiplier;
 
         uint256 gasAmount = additionalGas + _pureGasSpent(_params.gasSpent, _params.decreasingCounter);
         uint256 maxGasAmount = _getMaxGasAmount(_params.action, _params.numberOfActions);
@@ -208,6 +209,21 @@ contract KeeperRewardDistributor is IKeeperRewardDistributor, KeeperRewardDistri
         uint256 _amount
     ) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
         _setDecreasingGasByReason(_reason, _amount);
+    }
+
+    /**
+     * @inheritdoc IKeeperRewardDistributorV2
+     */
+
+    function setMinPositionSizeMultiplier(
+        int256 _minPositionSizeMultiplier
+    ) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
+        _require(
+            _minPositionSizeMultiplier > 0 && uint256(_minPositionSizeMultiplier) <= WadRayMath.WAD * 2,
+            Errors.INCORRECT_MULTIPLIER.selector
+        );
+        minPositionSizeMultiplier = _minPositionSizeMultiplier;
+        emit MinPositionSizeMultiplierChanged(_minPositionSizeMultiplier);
     }
 
     /**
@@ -307,7 +323,10 @@ contract KeeperRewardDistributor is IKeeperRewardDistributor, KeeperRewardDistri
      * @param _interfaceId The interface id to check
      */
     function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
-        return _interfaceId == type(IKeeperRewardDistributor).interfaceId || super.supportsInterface(_interfaceId);
+        return
+            _interfaceId == type(IKeeperRewardDistributorV2).interfaceId ||
+            _interfaceId == type(IKeeperRewardDistributor).interfaceId ||
+            super.supportsInterface(_interfaceId);
     }
 
     function _setMaxGasPerPosition(KeeperActionType _actionType, KeeperActionRewardConfig calldata _config) internal {

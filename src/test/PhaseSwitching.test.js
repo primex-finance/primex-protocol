@@ -103,7 +103,7 @@ describe("PhaseSwitching", function () {
 
     const lenderAmount = parseUnits("50", decimalsA);
     await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
-    await bucket.connect(lender).deposit(lender.address, lenderAmount);
+    await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
     await testTokenA.connect(trader).approve(positionManager.address, MaxUint256);
     const deadline = new Date().getTime() + 600;
 
@@ -163,7 +163,7 @@ describe("PhaseSwitching", function () {
         expect(bucketInfo.totalReward).to.equal(0);
       }
       // deposit to bucket and check reward is 0
-      await bucket.connect(lender).deposit(lender.address, parseUnits("10", decimalsA));
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, parseUnits("10", decimalsA), true);
       const lenderInfo = await activityRewardDistributor.getUserInfoFromBucket(bucket.address, Role.LENDER, lender.address);
       expect(lenderInfo.fixedReward).to.equal(0);
     });
@@ -272,7 +272,7 @@ describe("PhaseSwitching", function () {
       }
     });
     it("Should add rewards for early lenders", async function () {
-      await bucket.connect(lender).deposit(lender.address, parseUnits("10", decimalsA));
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, parseUnits("10", decimalsA), true);
       await network.provider.send("evm_mine");
       const reward = await activityRewardDistributor.getClaimableReward([[bucket.address, Role.LENDER]], lender.address);
       expect(reward).to.be.gt(0);

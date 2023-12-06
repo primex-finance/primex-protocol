@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
-import {IPrimexDNSStorage} from "./IPrimexDNSStorage.sol";
+import {IPrimexDNSStorage, IPrimexDNSStorageV2} from "./IPrimexDNSStorage.sol";
 
 interface IPrimexDNS is IPrimexDNSStorage {
     event AddNewBucket(BucketData newBucketData);
@@ -158,4 +158,14 @@ interface IPrimexDNS is IPrimexDNSStorage {
      * @return An array of strings containing the names of all Dexes.
      */
     function getAllDexes() external view returns (string[] memory);
+}
+
+interface IPrimexDNSV2 is IPrimexDNS, IPrimexDNSStorageV2 {
+    event ChangeFeeRestrictions(OrderType indexed orderType, FeeRestrictions feeRestrictions);
+
+    /**
+     * @notice Set the protocol fee restriction for one type of order.
+     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     */
+    function setFeeRestrictions(OrderType _orderType, FeeRestrictions calldata _feeRestrictions) external;
 }

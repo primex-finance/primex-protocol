@@ -36,10 +36,7 @@ library Errors {
     error SHOULD_BE_DIFFERENT_ASSETS_IN_SPOT();
     error TOKEN_NOT_SUPPORTED();
     error INSUFFICIENT_DEPOSIT();
-    error DEPOSIT_IN_THIRD_ASSET_SHARES_ON_DEX_LENGTH_SHOULD_BE_0();
     error SHOULD_NOT_HAVE_DUPLICATES();
-    error DEPOSITED_TO_BORROWED_SHARES_ON_DEX_LENGTH_SHOULD_BE_0();
-    error DEPOSIT_TO_BORROWED_SHARES_ON_DEX_LENGTH_SHOULD_BE_0();
     // error LIMIT_PRICE_IS_ZERO();
     error BUCKET_IS_NOT_ACTIVE();
     error DIFFERENT_DATA_LENGTH();
@@ -175,6 +172,7 @@ library Errors {
 
     //DNS
     error INCORRECT_FEE_RATE();
+    error INCORRECT_RESTRICTIONS();
     error BUCKET_ALREADY_FROZEN();
     error BUCKET_IS_ALREADY_ADDED();
     error DEX_IS_ALREADY_ACTIVATED();
@@ -226,6 +224,7 @@ library Errors {
     error INCORRECT_PATH();
     error DEPOSITED_TO_BORROWED_ROUTES_LENGTH_SHOULD_BE_0();
     error INCORRECT_CM_TYPE();
+    error FEE_RATE_IN_NATIVE_IS_ZERO();
 
     // Token transfers
     error TOKEN_TRANSFER_IN_FAILED();
@@ -281,6 +280,7 @@ library Errors {
     error ZERO_BUCKET_ADDRESS();
     //KeeperRewardDistributor
     error INCORRECT_PART_IN_REWARD();
+    error INCORRECT_MULTIPLIER();
 
     //Treasury
     error TRANSFER_RESTRICTIONS_NOT_MET();

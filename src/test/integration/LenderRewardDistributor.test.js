@@ -82,7 +82,7 @@ describe("LenderRewardDistributor_integration", function () {
   it("Step -1. Users who have not updated their balances after setupBucket do not participate in the distribution of rewards", async function () {
     await testTokenA.mint(deployer.address, userAmount);
     await testTokenA.approve(bucket.address, MaxUint256);
-    await bucket.deposit(deployer.address, userAmount);
+    await bucket["deposit(address,uint256,bool)"](deployer.address, userAmount, true);
   });
 
   it("Step 0. Should setup lender reward distributor", async function () {
@@ -111,7 +111,7 @@ describe("LenderRewardDistributor_integration", function () {
     expectBucketData.endTimestamp = expectBucketData.endTimestamp.add(unusedTime);
     expectBucketData.lastUpdatedRewardTimestamp += unusedTime;
     await network.provider.send("evm_setNextBlockTimestamp", [nextTimestamp1]);
-    await bucket.connect(lender).deposit(lender.address, lenderAmount);
+    await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
 
     expectBucketData.rewardIndex = calculateRewardIndex(nextTimestamp1, expectBucketData);
     expectBucketData.rewardPerToken = calculateRewardPerToken(expectBucketData.rewardPerDay, lenderAmount);
@@ -128,7 +128,7 @@ describe("LenderRewardDistributor_integration", function () {
     // user deposit
     const nextTimestamp2 = expectBucketData.lastUpdatedTimestamp + 4 * SECONDS_PER_DAY;
     await network.provider.send("evm_setNextBlockTimestamp", [nextTimestamp2]);
-    await bucket.connect(user).deposit(user.address, userAmount);
+    await bucket.connect(user)["deposit(address,uint256,bool)"](user.address, userAmount, true);
 
     expectBucketData.rewardIndex = calculateRewardIndex(nextTimestamp2, expectBucketData);
     expectBucketData.scaledTotalSupply = lenderAmount.add(userAmount);
@@ -284,7 +284,7 @@ describe("LenderRewardDistributor_integration", function () {
   it("Step 4. New user don't have rewards after finish bucket(fixed bug)", async function () {
     await testTokenA.mint(deployer.address, userAmount);
     await testTokenA.approve(bucket.address, MaxUint256);
-    await bucket.deposit(deployer.address, userAmount);
+    await bucket["deposit(address,uint256,bool)"](deployer.address, userAmount, true);
 
     expect(
       await activityRewardDistributor.getClaimableReward([{ bucketAddress: bucket.address, role: Role.LENDER }], deployer.address),

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
-import {IKeeperRewardDistributorStorage} from "./IKeeperRewardDistributorStorage.sol";
+import {IKeeperRewardDistributorStorage, IKeeperRewardDistributorStorageV2} from "./IKeeperRewardDistributorStorage.sol";
 import {IPausable} from "../interfaces/IPausable.sol";
 
 interface IKeeperRewardDistributor is IKeeperRewardDistributorStorage, IPausable {
@@ -181,4 +181,16 @@ interface IKeeperRewardDistributor is IKeeperRewardDistributorStorage, IPausable
      * @param _additionalGas The new additionalGas value.
      */
     function setAdditionalGas(uint256 _additionalGas) external;
+}
+
+interface IKeeperRewardDistributorV2 is IKeeperRewardDistributor, IKeeperRewardDistributorStorageV2 {
+    event MinPositionSizeMultiplierChanged(int256 newMinPositionSizeMultiplier);
+
+    /**
+     * @notice Sets the minPositionSizeMultiplier for reward calculations.
+     * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
+     * @param _minPositionSizeMultiplier The new minPositionSizeMultiplier value (in WAD).
+     */
+
+    function setMinPositionSizeMultiplier(int256 _minPositionSizeMultiplier) external;
 }

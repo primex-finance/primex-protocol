@@ -93,3 +93,7 @@ interface IKeeperRewardDistributorStorage {
 
     function totalBalance() external view returns (uint256, uint256);
 }
+
+interface IKeeperRewardDistributorStorageV2 is IKeeperRewardDistributorStorage {
+    function minPositionSizeMultiplier() external view returns (int256);
+}

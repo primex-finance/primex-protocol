@@ -178,7 +178,7 @@ describe("PositionManager batch functions", function () {
 
     const lenderAmount = parseUnits("50", decimalsA);
     await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
-    await bucket.connect(lender).deposit(lender.address, lenderAmount);
+    await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
     await testTokenA.connect(trader).approve(positionManager.address, depositAmount);
     const deadline = new Date().getTime() + 600;
 
@@ -337,7 +337,7 @@ describe("PositionManager batch functions", function () {
       await testTokenA.connect(trader).approve(positionManager.address, MaxUint256);
       await testTokenA.mint(trader.address, parseUnits("100", decimalsA));
       await testTokenA.mint(lender.address, parseUnits("100", decimalsA));
-      await bucket.connect(lender).deposit(lender.address, parseUnits("50", decimalsA));
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, parseUnits("50", decimalsA), true);
       borrowedAmount = parseUnits("30", decimalsA);
       OpenPositionParams.marginParams.borrowedAmount = borrowedAmount;
       const swapSize = OpenPositionParams.marginParams.borrowedAmount.add(OpenPositionParams.depositAmount);

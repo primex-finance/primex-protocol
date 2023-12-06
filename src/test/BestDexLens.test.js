@@ -163,7 +163,7 @@ describe("BestDexLens", function () {
 
     const lenderAmount = parseUnits("100", decimalsA);
     await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
-    await bucket.connect(lender).deposit(lender.address, lenderAmount);
+    await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
 
     const WAD = parseEther("1");
     depositAmountA = parseUnits("15", decimalsA);

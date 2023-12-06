@@ -138,7 +138,7 @@ describe("Operation with the Balancer dex_integration", function () {
     ).toString();
     feeAmountInEth = wadMul(BigNumber.from(feeAmountCalculateWithETHRate).mul(multiplierA).toString(), ttaPriceInETH.toString()).toString();
 
-    await bucket.connect(lender).deposit(lender.address, lenderAmount);
+    await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
 
     swapSize = depositAmount.add(borrowedAmount);
 

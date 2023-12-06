@@ -1,0 +1,53 @@
+{
+  "isETHNative": true,
+  "assets": {
+    "weth": "0xeBDCbab722f9B4614b7ec1C261c9E52acF109CF8",
+    "wbtc": "0x7E4C556b4b0dCa7Cf3709E281c49f9aB07B79Ec3",
+    "usdc": "0x2c04cB619d4c1d0863Fd138453F1c88c9c264d8a",
+    "link": "0xcEDbe52BAc287add0dC66f6f8D8733B6F297deCf",
+    "uni": "0x4064DCc3A9DE3E8b8DE6C080740F1Dea7B1aff63",
+    "usdt": "0xEE17bAee6B4EFd6a8cD2db1999bEF7d550267b9D"
+  },
+  "aave": "0xB8111839Eec95ead49faf4f63062647FC91990ff",
+  "dexes": {
+    "uniswapv3": {
+      "router": "0x540E87754362D88b5f898eBf6288a59BA94A590A",
+      "type": "2",
+      "quoter": "0x15028f44ff853DDe2C33c6941F0D10b6542136cd",
+      "quoter2": "0x7A70DeB7C7a321D4a76B7d6E00061BCd08A4d575",
+      "mixedRouteQuoterV1": "0xf0802Da5cCA67f29e7eB1A285007E20c48cEdef0",
+      "nonfungiblePositionManager": "0x48aF5770Ae39bF0D868FC2729f7E935867B23d17",
+      "factory": "0x3D280A2eA6903ae17938a20C358c2ACdf1566eEA"
+    },
+    "curve": {
+      "router": "0x5529B918C9401a812758e49b7118d2c9144eF671",
+      "type": "3",
+      "registry": "0x9635Db2868e3482f78B8a9a3a6BE9068e76d5d28",
+      "cryptoRegistry": "0x7ABa36F24501900ae327ce9038609b40a234e027",
+      "pools": {
+        "usdc-wbtc-weth": {
+          "pool": "0xDdc05754993B5F603DB63EC98AEFD5041594E77F"
+        }
+      }
+    }
+  },
+  "pricefeeds": {
+    "selfDeployed": {
+      "weth-usd": "0x0510cDa7ec5e4FC1ccab591C7999f9903F55aE7f",
+      "wbtc-usd": "0xB28f796e400Ca5CbaEc83699dA5A5336df16442E",
+      "usdc-usd": "0x700612b0e3C94C288480aECc6b511E202B977894",
+      "link-usd": "0x1472459FBC07F33EEd95dC149CDf3eDD99EE791E",
+      "uni-usd": "0x4B870b5fcd6Bb37003A3741ec583Ec46dcd963CA",
+      "usdt-usd": "0x1734D6D64A776685566E2d27aAD148c95812ea6e",
+      "native-usd": "0x0510cDa7ec5e4FC1ccab591C7999f9903F55aE7f"
+    }
+  },
+  "priceDropfeeds": {
+    "selfDeployed": {
+      "weth-usdc": "0x9F73c8FecE39c985bEdA35857278af4401e29d2C",
+      "wbtc-usdc": "0xFB0181761AA4E69a0330A124bd604961a749aBe3",
+      "link-usdc": "0x2DF5a5C79eA85a817E9B97525B43bD4884a6411F"
+    }
+  },
+  "uniswapMulticall": "0xbdE74543fBc6666Be72cbba398765C7d8BE578ad"
+}

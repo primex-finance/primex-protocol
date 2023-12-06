@@ -176,13 +176,19 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
     await priceOracle.updatePriceFeed(testTokenA.address, await priceOracle.eth(), priceFeedTTAETH.address);
     await priceOracle.updatePriceFeed(testTokenX.address, await priceOracle.eth(), priceFeedTTXETH.address);
     await priceOracle.updatePriceFeed(testTokenB.address, await priceOracle.eth(), priceFeedTTXETH.address);
-    await priceOracle.updatePriceFeed(PMXToken.address, await priceOracle.eth(), priceFeedTTXETH.address);
     await priceOracle.updatePriceFeed(testTokenB.address, testTokenX.address, priceFeedTTXTTB.address);
     await priceOracle.updatePriceFeed(testTokenA.address, testTokenX.address, priceFeedTTXTTA.address);
     await priceOracle.updatePriceFeed(testTokenB.address, tokenUSD.address, priceFeedTTBUSD.address);
+    const decimalsPMX = await PMXToken.decimals();
+
+    // need to calculate minFee and maxFee from native to PMX
+    const priceFeedETHPMX = await PrimexAggregatorV3TestServiceFactory.deploy("ETH_PMX", deployer.address);
+    // 1 tta=0.2 pmx; 1 tta=0.3 eth -> 1 eth = 0.2/0.3 pmx
+    await priceFeedETHPMX.setAnswer(parseUnits("0.666666666666666666", 18));
+    await priceFeedETHPMX.setDecimals(decimalsPMX);
+    await priceOracle.updatePriceFeed(await priceOracle.eth(), PMXToken.address, priceFeedETHPMX.address);
 
     const priceFeedTTXPMX = await PrimexAggregatorV3TestServiceFactory.deploy("TTX_PMX", deployer.address);
-    const decimalsPMX = await PMXToken.decimals();
     await priceFeedTTXPMX.setDecimals(decimalsPMX);
     ttxPriceInPMX = parseUnits("0.2", decimalsPMX); // 1 ttx=0.2 pmx
     await priceFeedTTXPMX.setAnswer(ttxPriceInPMX);
@@ -211,7 +217,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
     const lenderAmount = parseUnits("50", decimalsA);
 
     await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
-    await bucket.connect(lender).deposit(lender.address, lenderAmount);
+    await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
 
     // set prices
     const borrowedAmountWadDecimals = borrowedAmount.mul(multiplierA);
@@ -2258,7 +2264,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
 
         await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
 
-        await bucket.connect(lender).deposit(lender.address, lenderAmount);
+        await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
 
         const borrowedAmount = parseUnits("25", decimalsA);
         const amountOutMin = 0;

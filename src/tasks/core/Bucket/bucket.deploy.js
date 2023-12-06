@@ -78,9 +78,10 @@ module.exports = async function (args, hre) {
   // Add bucket in dns. Give bucket role. Add bucket and its tokens to whitelist
   if (args.flowConfig.steps["2"]) {
     const NO_FEE_ROLE = keccak256(toUtf8Bytes("NO_FEE_ROLE"));
+    const VAULT_ACCESS_ROLE = keccak256(toUtf8Bytes("VAULT_ACCESS_ROLE"));
     if (args.flowConfig.execute) {
       const whiteBlackList = await getContractAt("WhiteBlackList", args.whiteBlackList);
-      const tx = await whiteBlackList.addAddressesToWhitelist([out.newBucket, out.newPToken, out.newDebtToken]);
+      let tx = await whiteBlackList.addAddressesToWhitelist([out.newBucket, out.newPToken, out.newDebtToken]);
       await tx.wait();
 
       const primexDNS = await getContractAt("PrimexDNS", args.primexDNS);
@@ -88,7 +89,7 @@ module.exports = async function (args, hre) {
       const { deployer } = await getNamedSigners();
       const allowance = await contractPMX.allowance(deployer.address, primexDNS.address);
       if (allowance.lt(args.pmxRewardAmount)) {
-        const tx = await contractPMX.approve(primexDNS.address, args.pmxRewardAmount);
+        tx = await contractPMX.approve(primexDNS.address, args.pmxRewardAmount);
         await tx.wait();
       }
 
@@ -99,13 +100,20 @@ module.exports = async function (args, hre) {
       }
 
       const registry = await getContractAt("PrimexRegistry", args.registry);
-      const txGrantRole = await registry.grantRole(NO_FEE_ROLE, out.newBucket);
+      let txGrantRole = await registry.grantRole(NO_FEE_ROLE, out.newBucket);
       await txGrantRole.wait();
 
+      txGrantRole = await registry.grantRole(VAULT_ACCESS_ROLE, out.newBucket);
+      await txGrantRole.wait();
+      const pToken = await getContractAt("PToken", out.newPToken);
+      const debtToken = await getContractAt("DebtToken", out.newDebtToken);
+
+      tx = await pToken.setLenderRewardDistributor(args.activityRewardDistributor);
+      await tx.wait();
+      tx = await debtToken.setTraderRewardDistributor(args.activityRewardDistributor);
+      await tx.wait();
       if (network.name !== "hardhat") {
         const newBucket = await getContractAt("Bucket", out.newBucket);
-        const pToken = await getContractAt("PToken", out.newPToken);
-        const debtToken = await getContractAt("DebtToken", out.newDebtToken);
 
         const bucketArtifact = {
           address: out.newBucket,
@@ -147,6 +155,11 @@ module.exports = async function (args, hre) {
       }
       out.BigTimelockAdmin.push(await encodeFunctionData("addBucket", [bucket, args.pmxRewardAmount], "PrimexDNS", args.primexDNS));
       out.BigTimelockAdmin.push(await encodeFunctionData("grantRole", [NO_FEE_ROLE, bucket], "PrimexRegistry", args.registry));
+      out.BigTimelockAdmin.push(await encodeFunctionData("grantRole", [VAULT_ACCESS_ROLE, bucket], "PrimexRegistry", args.registry));
+      out.BigTimelockAdmin.push(await encodeFunctionData("setLenderRewardDistributor", [args.activityRewardDistributor], "PToken", PToken));
+      out.BigTimelockAdmin.push(
+        await encodeFunctionData("setTraderRewardDistributor", [args.activityRewardDistributor], "DebtToken", DebtToken),
+      );
     }
   }
 
@@ -205,6 +218,10 @@ async function validateArgs(
 
   if (!args.registry) {
     args.registry = (await getContract("Registry")).address;
+  }
+
+  if (!args.activityRewardDistributor) {
+    args.activityRewardDistributor = (await getContract("ActivityRewardDistributor")).address;
   }
 
   // if liquidityMiningAmount 0 liquidityMining is off

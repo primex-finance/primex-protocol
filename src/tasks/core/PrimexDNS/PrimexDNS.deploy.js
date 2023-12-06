@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 module.exports = async function (
-  { pmx, registry, treasury, delistingDelay, adminWithdrawalDelay, rates, errorsLibrary },
+  { pmx, registry, treasury, delistingDelay, adminWithdrawalDelay, rates, restrictions, errorsLibrary },
   { getNamedAccounts, deployments: { deploy }, ethers: { getContract } },
 ) {
   const { deployer } = await getNamedAccounts();
@@ -10,7 +10,7 @@ module.exports = async function (
 
   rates = JSON.parse(rates);
 
-  return await deploy("PrimexDNS", {
+  const primexDNS = await deploy("PrimexDNS", {
     from: deployer,
     log: true,
     proxy: {
@@ -28,4 +28,14 @@ module.exports = async function (
       Errors: errorsLibrary,
     },
   });
+
+  if (primexDNS.newlyDeployed && restrictions !== undefined) {
+    const primexDNScontract = await getContract("PrimexDNS");
+    restrictions = JSON.parse(restrictions);
+    for (const restriction of restrictions) {
+      const tx = await primexDNScontract.setFeeRestrictions(restriction.orderType, restriction.orderRestrictions);
+      await tx.wait();
+    }
+  }
+  return primexDNS;
 };

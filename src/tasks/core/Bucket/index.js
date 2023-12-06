@@ -29,6 +29,7 @@ task("deploy:Bucket", "Deploy Bucket contract", require("./bucket.deploy"))
   .addOptionalParam("bigTimelockAdmin", "The address of the BigTimelockAdmin contract")
   .addOptionalParam("treasury", "The address of the Treasury contract")
   .addOptionalParam("registry", "The address of the Registry contract")
+  .addOptionalParam("activityRewardDistributor", "The address of the ActivityRewardDistributor contract")
   .addParam("flowConfig", "See description of flowConfig in top of src/tasks/core/Bucket/index.js", JSON.stringify(flowConfig))
 
   // Bucket params

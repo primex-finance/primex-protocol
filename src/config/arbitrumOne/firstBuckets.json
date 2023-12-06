@@ -1,0 +1,57 @@
+{
+  "DELAY_IN_DAYS_AFTER_DEPLOY": 6,
+  "buckets": [
+    {
+      "bucketName": "Primex Bucket USDC",
+      "tokenName": "usdc",
+      "allowedAssets": ["wbtc", "weth", "usdt", "wmatic"],
+      "feeBuffer": "1.000014935",
+      "withdrawalFeeRate": "0.001",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0.06",
+      "barCalcParams": {
+        "urOptimal": "0.8",
+        "k0": "0.3113",
+        "k1": "2.675",
+        "b0": "0.001",
+        "b1": "-1.89"
+      },
+      "maxTotalDeposit": 1000000,
+      "LiquidityMining": {
+        "accumulatingAmount": 30000,
+        "maxDurationInDays": 30,
+        "stabilizationDurationInDays": 30,
+        "maxAmountPerUser": 15000,
+        "pmxRewardAmount": 46500,
+        "isReinvestToAaveEnabled": true
+      }
+    },
+    {
+      "bucketName": "Primex Bucket WETH",
+      "tokenName": "weth",
+      "allowedAssets": ["wbtc", "usdc", "usdt", "wmatic"],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0.1",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.4692",
+        "k1": "4.7857",
+        "b0": "0.02",
+        "b1": "-2.7857"
+      },
+      "maxTotalDeposit": 500,
+      "LiquidityMining": {
+        "accumulatingAmount": 17,
+        "maxDurationInDays": 30,
+        "stabilizationDurationInDays": 30,
+        "maxAmountPerUser": 8.5,
+        "pmxRewardAmount": 30000,
+        "isReinvestToAaveEnabled": true
+      }
+    }
+  ]
+}

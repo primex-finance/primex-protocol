@@ -13,3 +13,7 @@ task("scheduleBatchContractUpgrade", "Schedule batch contract upgrade", require(
   "params",
   "The array of contracts params to be upgraded",
 );
+
+task("upgrade", "", require("./upgrade.js"))
+  .addFlag("executeFromDeployer", "The flag to indicate whether to execute on behalf of the deployer")
+  .addFlag("executeUpgrade", "The flag to indicate whether contract updates should be executed");

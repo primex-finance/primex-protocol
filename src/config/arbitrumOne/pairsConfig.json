@@ -1,0 +1,553 @@
+{
+  "weth-wbtc": {
+    "maxSize": ["140", "14"],
+    "pairPriceDrop": ["0.0210", "0.0260"],
+    "oracleTolerableLimit": "0.0268"
+  },
+  "weth-usdc": {
+    "maxSize": ["365", "890000"],
+    "pairPriceDrop": ["0.0487", "0.0638"],
+    "oracleTolerableLimit": "0.0269"
+  },
+  "weth-usdt": {
+    "maxSize": ["80", "680000"],
+    "pairPriceDrop": ["0.0441", "0.0558"],
+    "oracleTolerableLimit": "0.0255"
+  },
+  "weth-arb": {
+    "maxSize": ["375", "863000"],
+    "pairPriceDrop": ["0.0301", "0.0249"],
+    "oracleTolerableLimit": "0.0367"
+  },
+  "weth-link": {
+    "maxSize": ["32", "5100"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0355"
+  },
+  "weth-pendle": {
+    "maxSize": ["32", "75000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0354"
+  },
+  "weth-gmx": {
+    "maxSize": ["85", "3400"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0370"
+  },
+  "weth-gns": {
+    "maxSize": ["5", "3100"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0275"
+  },
+  "weth-rdnt": {
+    "maxSize": ["32", "228000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "weth-magic": {
+    "maxSize": ["32", "80000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0396"
+  },
+  "weth-usdc.e": {
+    "maxSize": ["480", "690000"],
+    "pairPriceDrop": ["0.0487", "0.0638"],
+    "oracleTolerableLimit": "0.0269"
+  },
+  "weth-dai": {
+    "maxSize": ["178", "460000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0283"
+  },
+  "weth-joe": {
+    "maxSize": ["0.2", "2600"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "weth-stg": {
+    "maxSize": ["2", "10000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0346"
+  },
+
+
+
+  "wbtc-usdc": {
+    "maxSize": ["6", "170000"],
+    "pairPriceDrop": ["0.0427", "0.0512"],
+    "oracleTolerableLimit": "0.0261"
+  },
+  "wbtc-usdt": {
+    "maxSize": ["6", "170000"],
+    "pairPriceDrop": ["0.0348", "0.0411"],
+    "oracleTolerableLimit": "0.0339"
+  },
+  "wbtc-arb": {
+    "maxSize": ["25", "863000"],
+    "pairPriceDrop": ["0.0373", "0.0436"],
+    "oracleTolerableLimit": "0.0325"
+  },
+  "wbtc-link": {
+    "maxSize": ["1", "5100"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0294"
+  },
+  "wbtc-pendle": {
+    "maxSize": ["1", "75000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0304"
+  },
+  "wbtc-gmx": {
+    "maxSize": ["3", "2300"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0331"
+  },
+  "wbtc-gns": {
+    "maxSize": ["0.3", "2600"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0295"
+  },
+  "wbtc-rdnt": {
+    "maxSize": ["1", "228000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "wbtc-magic": {
+    "maxSize": ["0.8", "64000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0352"
+  },
+  "wbtc-usdc.e": {
+    "maxSize": ["10", "500000"],
+    "pairPriceDrop": ["0.0427", "0.0512"],
+    "oracleTolerableLimit": "0.0261"
+  },
+  "wbtc-dai": {
+    "maxSize": ["0.6", "32000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0273"
+  },
+  "wbtc-joe": {
+    "maxSize": ["0.01", "2600"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0382"
+  },
+  "wbtc-stg": {
+    "maxSize": ["0.1", "10000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0382"
+  },
+
+ 
+  "usdc-usdt": {
+    "maxSize": ["240000", "450000"],
+    "pairPriceDrop": ["0.0191", "0.0171"],
+    "oracleTolerableLimit": "0.0059"
+  },
+  "usdc-arb": {
+    "maxSize": ["170000", "153000"],
+    "pairPriceDrop": ["0.0408", "0.0645"],
+    "oracleTolerableLimit": "0.0330"
+  },
+  "usdc-link": {
+    "maxSize": ["40000", "3400"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0293"
+  },
+  "usdc-pendle": {
+    "maxSize": ["50000", "53000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0334"
+  },
+  "usdc-gmx": {
+    "maxSize": ["110000", "2300"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0322"
+  },
+  "usdc-gns": {
+    "maxSize": ["10000", "2600"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0317"
+  },
+  "usdc-rdnt": {
+    "maxSize": ["60000", "114000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "usdc-magic": {
+    "maxSize": ["30000", "46000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0353"
+  },
+  "usdc-usdc.e": {
+    "maxSize": ["460000", "460000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.005"
+  },
+  "usdc-dai": {
+    "maxSize": ["210000", "230000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0064"
+  },
+  "usdc-joe": {
+    "maxSize": ["645", "1900"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0386"
+  },
+  "usdc-stg": {
+    "maxSize": ["5500", "10000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0354"
+  },
+
+
+  "usdt-arb": {
+    "maxSize": ["170000", "153000"],
+    "pairPriceDrop": ["0.0407", "0.0644"],
+    "oracleTolerableLimit": "0.0351"
+  },
+  "usdt-link": {
+    "maxSize": ["60000", "5000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0324"
+  },
+  "usdt-pendle": {
+    "maxSize": ["50000", "53000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0365"
+  },
+  "usdt-gmx": {
+    "maxSize": ["110000", "2300"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0344"
+  },
+  "usdt-gns": {
+    "maxSize": ["10000", "2600"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0297"
+  },
+  "usdt-rdnt": {
+    "maxSize": ["40000", "114000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "usdt-magic": {
+    "maxSize": ["30000", "48000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0376"
+  },
+  "usdt-usdc.e": {
+    "maxSize": ["350000", "350000"],
+    "pairPriceDrop": ["0.0171", "0.0191"],
+    "oracleTolerableLimit": "0.0059"
+  },
+  "usdt-dai": {
+    "maxSize": ["110000", "190000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0069"
+  },
+  "usdt-joe": {
+    "maxSize": ["650", "1900"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "usdt-stg": {
+    "maxSize": ["5000", "8100"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0343"
+  },
+
+
+  "arb-link": {
+    "maxSize": ["57000", "5100"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0300"
+  },
+  "arb-pendle": {
+    "maxSize": ["57000", "75000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0322"
+  },
+  "arb-gmx": {
+    "maxSize": ["105000", "2300"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0355"
+  },
+  "arb-gns": {
+    "maxSize": ["10300", "2600"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0278"
+  },
+  "arb-rdnt": {
+    "maxSize": ["28000", "152000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "arb-magic": {
+    "maxSize": ["28000", "64000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0348"
+  },
+  "arb-usdc.e": {
+    "maxSize": ["316000", "280000"],
+    "pairPriceDrop": ["0.0645", "0.0408"],
+    "oracleTolerableLimit": "0.0299"
+  },
+  "arb-dai": {
+    "maxSize": ["47000", "60000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0306"
+  },
+  "arb-joe": {
+    "maxSize": ["350", "2600"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "arb-stg": {
+    "maxSize": ["5200", "8200"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.032"
+  },
+
+
+  "link-pendle": {
+    "maxSize": ["2500", "32000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0318"
+  },
+  "link-gmx": {
+    "maxSize": ["4200", "850"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0317"
+  },
+  "link-gns": {
+    "maxSize": ["1000", "2600"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0279"
+  },
+  "link-rdnt": {
+    "maxSize": ["2500", "150000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "link-magic": {
+    "maxSize": ["250", "14000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0338"
+  },
+  "link-usdc.e": {
+    "maxSize": ["5900", "60000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0258"
+  },
+  "link-dai": {
+    "maxSize": ["595", "7000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0287"
+  },
+  "link-joe": {
+    "maxSize": ["30", "2600"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0393"
+  },
+  "link-stg": {
+    "maxSize": ["450", "8200"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0366"
+  },
+
+
+  "pendle-gmx": {
+    "maxSize": ["32000", "630"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0344"
+  },
+  "pendle-gns": {
+    "maxSize": ["11000", "2500"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0325"
+  },
+  "pendle-rdnt": {
+    "maxSize": ["32000", "152000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "pendle-magic": {
+    "maxSize": ["21000", "50000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0344"
+  },
+  "pendle-usdc.e": {
+    "maxSize": ["53000", "50000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0335"
+  },
+  "pendle-dai": {
+    "maxSize": ["0", "0"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0355"
+  },
+  "pendle-joe": {
+    "maxSize": ["390", "2600"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0342"
+  },
+  "pendle-stg": {
+    "maxSize": ["5700", "10500"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0366"
+  },
+
+
+  "gmx-gns": {
+    "maxSize": ["220", "2100"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0344"
+  },
+  "gmx-rdnt": {
+    "maxSize": ["850", "114000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "gmx-magic": {
+    "maxSize": ["630", "64000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0340"
+  },
+  "gmx-usdc.e": {
+    "maxSize": ["2300", "160000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0288"
+  },
+  "gmx-dai": {
+    "maxSize": ["21", "1000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0302"
+  },
+  "gmx-joe": {
+    "maxSize": ["7", "2700"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0382"
+  },
+  "gmx-stg": {
+    "maxSize": ["115", "10000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0352"
+  },
+
+
+  "gns-rdnt": {
+    "maxSize": ["2500", "39000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "gns-magic": {
+    "maxSize": ["1900", "13000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0378"
+  },
+  "gns-usdc.e": {
+    "maxSize": ["1900", "10000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0323"
+  },
+  "gns-dai": {
+    "maxSize": ["740", "3000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0332"
+  },
+  "gns-joe": {
+    "maxSize": ["90", "2600"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0332"
+  },
+  "gns-stg": {
+    "maxSize": ["970", "7900"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0354"
+  },
+
+
+  "rdnt-magic": {
+    "maxSize": ["83000", "46000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "rdnt-usdc.e": {
+    "maxSize": ["114000", "40000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "rdnt-dai": {
+    "maxSize": ["26000", "7000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "rdnt-joe": {
+    "maxSize": ["1400", "2600"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "rdnt-stg": {
+    "maxSize": ["15000", "8200"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+
+
+
+  "magic-usdc.e": {
+    "maxSize": ["58000", "30000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0317"
+  },
+  "magic-dai": {
+    "maxSize": ["0", "0"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0327"
+  },
+  "magic-joe": {
+    "maxSize": ["590", "2600"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0391"
+  },
+  "magic-stg": {
+    "maxSize": ["6500", "8100"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0338"
+  },
+
+
+  "usdc.e-dai": {
+    "maxSize": ["230000", "260000"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0064"
+  },
+  "usdc.e-joe": {
+    "maxSize": ["500", "1700"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0386"
+  },
+  "usdc.e-stg": {
+    "maxSize": ["5000", "6800"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0323"
+  },
+
+  "dai-joe": {
+    "maxSize": ["0", "0"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.04"
+  },
+  "dai-stg": {
+    "maxSize": ["0", "0"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0388"
+  },
+
+  "joe-stg": {
+    "maxSize": ["2500", "720"],
+    "pairPriceDrop": ["0", "0"],
+    "oracleTolerableLimit": "0.0376"
+  }
+}

@@ -20,6 +20,7 @@ const { getImpersonateSigner } = require("../utils/hardhatUtils");
 const { wadMul, wadDiv } = require("../utils/math");
 const { eventValidation } = require("../utils/eventValidation");
 const { OrderType, NATIVE_CURRENCY, MAX_TOKEN_DECIMALITY } = require("../utils/constants");
+const { calculateMinMaxFeeInFeeToken } = require("../utils/protocolFeeUtils");
 
 process.env.TEST = true;
 
@@ -82,6 +83,13 @@ describe("SwapManager_integration", function () {
       await priceFeedTTAETH.setAnswer(ttaPriceInETH);
       await priceOracle.updatePriceFeed(testTokenA.address, PMXToken.address, priceFeedTTAPMX.address);
       await priceOracle.updatePriceFeed(testTokenA.address, await priceOracle.eth(), priceFeedTTAETH.address);
+
+      // need to calculate minFee and maxFee from native to PMX
+      const priceFeedETHPMX = await PrimexAggregatorV3TestServiceFactory.deploy("ETH_PMX", deployer.address);
+      // 1 tta=0.2 pmx; 1 tta=0.3 eth -> 1 eth = 0.2/0.3 pmx
+      await priceFeedETHPMX.setAnswer(parseUnits("0.666666666666666666", 18));
+      await priceFeedETHPMX.setDecimals(decimalsPMX);
+      await priceOracle.updatePriceFeed(await priceOracle.eth(), PMXToken.address, priceFeedETHPMX.address);
 
       const multiplierA = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsA));
       const multiplierB = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB));
@@ -285,6 +293,25 @@ describe("SwapManager_integration", function () {
       ).to.changeEtherBalances([trader, Treasury], [BigNumber.from(feeAmountInEth).mul(NegativeOne), feeAmountInEth]);
     });
 
+    it("Should swap and send minmal fee to the treasury", async function () {
+      const minFee = BigNumber.from(feeAmountInEth).mul(2);
+      await PrimexDNS.setFeeRestrictions(OrderType.SWAP_MARKET_ORDER, { minProtocolFee: minFee, maxProtocolFee: minFee.mul(2) });
+      await expect(() =>
+        swapManager.connect(trader).swap(swapParams, 0, false, {
+          value: minFee,
+        }),
+      ).to.changeEtherBalances([trader, Treasury], [BigNumber.from(minFee).mul(NegativeOne), minFee]);
+    });
+
+    it("Should swap and send max fee to the treasury", async function () {
+      const maxFee = BigNumber.from(feeAmountInEth).div(2);
+      await PrimexDNS.setFeeRestrictions(OrderType.SWAP_MARKET_ORDER, { minProtocolFee: 0, maxProtocolFee: maxFee });
+      await expect(() =>
+        swapManager.connect(trader).swap(swapParams, 0, false, {
+          value: maxFee,
+        }),
+      ).to.changeEtherBalances([trader, Treasury], [BigNumber.from(maxFee).mul(NegativeOne), maxFee]);
+    });
     it("Should revert when user has not enough balance in protocol", async function () {
       const params = { ...swapParams, isSwapFromWallet: false };
       await expect(
@@ -421,6 +448,40 @@ describe("SwapManager_integration", function () {
       );
     });
 
+    it("Should send minimal fee in PMX to treasury", async function () {
+      const params = { ...swapParams, isSwapFromWallet: true, isSwapFeeInPmx: true };
+      await testTokenA.connect(trader).approve(traderBalanceVault.address, amountToConvert);
+      await traderBalanceVault.connect(trader).deposit(testTokenA.address, amountToConvert);
+
+      const minFee = BigNumber.from(feeAmountInEth).mul(2);
+      await PrimexDNS.setFeeRestrictions(OrderType.SWAP_MARKET_ORDER, { minProtocolFee: minFee, maxProtocolFee: minFee.mul(2) });
+      const { minFeeInFeeToken } = await calculateMinMaxFeeInFeeToken(OrderType.SWAP_MARKET_ORDER, PMXToken.address);
+
+      await PMXToken.transfer(trader.address, minFeeInFeeToken);
+      await PMXToken.connect(trader).approve(swapManager.address, minFeeInFeeToken);
+      await expect(() => swapManager.connect(trader).swap(params, 0, false)).to.changeTokenBalances(
+        PMXToken,
+        [trader.address, Treasury],
+        [BigNumber.from(minFeeInFeeToken).mul(NegativeOne), minFeeInFeeToken],
+      );
+    });
+    it("Should send max fee in PMX to treasury", async function () {
+      const params = { ...swapParams, isSwapFromWallet: true, isSwapFeeInPmx: true };
+      await testTokenA.connect(trader).approve(traderBalanceVault.address, amountToConvert);
+      await traderBalanceVault.connect(trader).deposit(testTokenA.address, amountToConvert);
+
+      const maxFee = BigNumber.from(feeAmountInEth).div(2);
+      await PrimexDNS.setFeeRestrictions(OrderType.SWAP_MARKET_ORDER, { minProtocolFee: 0, maxProtocolFee: maxFee });
+      const { maxFeeInFeeToken } = await calculateMinMaxFeeInFeeToken(OrderType.SWAP_MARKET_ORDER, PMXToken.address);
+
+      await PMXToken.transfer(trader.address, maxFeeInFeeToken);
+      await PMXToken.connect(trader).approve(swapManager.address, maxFeeInFeeToken);
+      await expect(() => swapManager.connect(trader).swap(params, 0, false)).to.changeTokenBalances(
+        PMXToken,
+        [trader.address, Treasury],
+        [BigNumber.from(maxFeeInFeeToken).mul(NegativeOne), maxFeeInFeeToken],
+      );
+    });
     it("Should swap and should not increase treasury balance if swapRateInPmx = 0 when fee in PMX", async function () {
       await PrimexDNS.setFeeRate([OrderType.SWAP_MARKET_ORDER, PMXToken.address, 0]);
       expect(await PrimexDNS.feeRates(OrderType.SWAP_MARKET_ORDER, PMXToken.address)).to.equal(0);

@@ -32,7 +32,7 @@ async function openPosition(testTokenA, PrimexDNS, bucket, priceFeed, positionMa
   await testTokenA.connect(trader).approve(positionManager.address, MaxUint256);
   await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
 
-  await bucket.connect(lender).deposit(lender.address, lenderAmount);
+  await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
 
   const borrowedAmount = parseUnits("30", decimalsA);
   const amountOutMin = 0;

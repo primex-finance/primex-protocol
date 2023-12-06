@@ -6,7 +6,7 @@ module.exports = async function ({
   run,
   ethers: {
     getContract,
-    utils: { parseUnits },
+    utils: { parseUnits, parseEther },
   },
 }) {
   const registry = await getContract("Registry");
@@ -46,7 +46,7 @@ module.exports = async function ({
   const tokenTransfersLibrary = await getContract("TokenTransfersLibrary");
   const errorsLibrary = await getContract("Errors");
 
-  const keeperRewardDistributor = await run("deploy:KeeperRewardDistributor", {
+  await run("deploy:KeeperRewardDistributor", {
     pmxPartInReward: pmxPartInReward,
     nativePartInReward: nativePartInReward,
     positionSizeCoefficientA: positionSizeCoefficientA,
@@ -56,6 +56,7 @@ module.exports = async function ({
     decreasingGasByReasonParams: JSON.stringify(decreasingGasByReasonParams),
     defaultMaxGasPrice: defaultMaxGasPrice,
     oracleGasPriceTolerance: oracleGasPriceTolerance,
+    minPositionSizeMultiplier: parseEther(keeperRewardConfig.minPositionSizeMultiplier).toString(),
     paymentModel: paymentModel,
     pmx: pmx.address,
     registry: registry.address,
@@ -68,10 +69,11 @@ module.exports = async function ({
   });
 
   if (paymentModel === PaymentModel.ARBITRUM) {
+    const keeperRDcontract = await getContract("KeeperRewardDistributor");
     for (const callingMethod in KeeperCallingMethod) {
       const method = KeeperCallingMethod[callingMethod];
-      const { maxRoutesLength, baseLength } = keeperRewardConfig.dataLengthRestrictions[method];
-      const tx = await keeperRewardDistributor.setDataLengthRestrictions(method, maxRoutesLength, baseLength);
+      const { maxRoutesLength, baseLength } = keeperRewardConfig.dataLengthRestrictions[callingMethod];
+      const tx = await keeperRDcontract.setDataLengthRestrictions(method, maxRoutesLength, baseLength);
       await tx.wait();
     }
   }

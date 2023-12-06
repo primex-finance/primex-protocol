@@ -106,7 +106,7 @@ describe("InterestRateStrategy_integration", function () {
 
     it("Should return correct BAR and LAR for Utilization Ratio = 0%", async function () {
       const deposit = parseUnits("100", decimalsA);
-      await bucket.connect(lender).deposit(lender.address, deposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
       const debtTokenAddress = await bucket.debtToken();
       const debtToken = await getContractAt("DebtToken", debtTokenAddress);
 
@@ -119,7 +119,7 @@ describe("InterestRateStrategy_integration", function () {
 
     it("Should return correct BAR and LAR for Utilization Ratio = 5%", async function () {
       const deposit = parseUnits("100", decimalsA);
-      await bucket.connect(lender).deposit(lender.address, deposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
 
       const borrow = parseUnits("5", decimalsA);
       const amountOutMin = 0;
@@ -160,7 +160,7 @@ describe("InterestRateStrategy_integration", function () {
     it("Should return correct BAR and LAR for Utilization Ratio = 20%", async function () {
       const deposit = parseUnits("100", decimalsA);
       const borrow = parseUnits("20", decimalsA);
-      await bucket.connect(lender).deposit(lender.address, deposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
 
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
@@ -200,7 +200,7 @@ describe("InterestRateStrategy_integration", function () {
     it("Should return correct BAR and LAR for Utilization Ratio = 40%", async function () {
       const deposit = parseUnits("100", decimalsA);
       const borrow = parseUnits("40", decimalsA);
-      await bucket.connect(lender).deposit(lender.address, deposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
 
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
@@ -240,7 +240,7 @@ describe("InterestRateStrategy_integration", function () {
     it("Should return correct BAR and LAR for Utilization Ratio = 50%", async function () {
       const deposit = parseUnits("100", decimalsA);
       const borrow = parseUnits("50", decimalsA);
-      await bucket.connect(lender).deposit(lender.address, deposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
 
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
@@ -280,7 +280,7 @@ describe("InterestRateStrategy_integration", function () {
     it("Should return correct BAR and LAR for UR > URoptimal and b1 < 0", async function () {
       const deposit = parseUnits("100", decimalsA);
       const borrow = parseUnits("70", decimalsA);
-      await bucket.connect(lender).deposit(lender.address, deposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
 
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
@@ -344,7 +344,7 @@ describe("InterestRateStrategy_integration", function () {
       const borrow = parseUnits("50", decimalsA);
       await testTokenA.connect(lender).approve(newBucketAddress, MaxUint256);
       await testTokenA.connect(trader).approve(positionManager.address, MaxUint256);
-      await newBucket.connect(lender).deposit(lender.address, deposit);
+      await newBucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
 
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
@@ -378,7 +378,7 @@ describe("InterestRateStrategy_integration", function () {
     it("Should return correct BAR and LAR for Utilization Ratio = 1.00", async function () {
       const deposit = parseUnits("50", decimalsA);
       const borrow = parseUnits("50", decimalsA);
-      await bucket.connect(lender).deposit(lender.address, deposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
 
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
@@ -419,7 +419,7 @@ describe("InterestRateStrategy_integration", function () {
       it(`Should return correct BAR and LAR for fractioned Utilization Ratio = ${i.toFixed(3)}%`, async function () {
         const deposit = parseUnits("100", decimalsA);
         const borrow = parseUnits(`${i.toFixed(decimalsA)}`, decimalsA);
-        await bucket.connect(lender).deposit(lender.address, deposit);
+        await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
 
         const amountOutMin = 0;
         const deadline = new Date().getTime() + 600;
@@ -456,7 +456,7 @@ describe("InterestRateStrategy_integration", function () {
     it("BAR, LAR change depending on the accumulation of debt", async function () {
       const deposit = parseUnits("100", decimalsA);
       const borrow = parseUnits("20", decimalsA);
-      await bucket.connect(lender).deposit(lender.address, deposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
 
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;

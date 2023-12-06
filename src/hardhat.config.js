@@ -233,8 +233,14 @@ module.exports = {
       saveDeployments: true,
       timeout: 60000,
     },
-    arbitrum: {
-      url: "https://goerli-rollup.arbitrum.io/rpc",
+    arbitrumOne: {
+      url: "https://arb1.arbitrum.io/rpc",
+      accounts: accounts,
+      saveDeployments: true,
+      timeout: 60000,
+    },
+    arbitrumSepolia: {
+      url: "https://sepolia-rollup.arbitrum.io/rpc",
       accounts: accounts,
       saveDeployments: true,
       timeout: 60000,
@@ -262,6 +268,13 @@ module.exports = {
       chainId: 777,
       accounts: accounts,
       timeout: 60000,
+    },
+    ethereum: {
+      url: "http://127.0.0.1:8545/",
+      accounts: accounts,
+      saveDeployments: true,
+      timeout: 60000,
+      gasPrice: 65e9,
     },
   },
   external: {
@@ -319,6 +332,16 @@ module.exports = {
   },
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY,
+    customChains: [
+      {
+        network: "arbitrumSepolia",
+        chainId: 421614,
+        urls: {
+          apiURL: "https://api-sepolia.arbiscan.io/api",
+          browserURL: "https://sepolia.arbiscan.io/"
+        }
+      }
+    ]
   },
   typechain: {
     outDir: "typechain",

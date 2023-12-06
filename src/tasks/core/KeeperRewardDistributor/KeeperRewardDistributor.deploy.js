@@ -8,6 +8,7 @@ module.exports = async function (
     positionSizeCoefficientA,
     positionSizeCoefficientB,
     additionalGas,
+    minPositionSizeMultiplier,
     maxGasPerPositionParams,
     decreasingGasByReasonParams,
     defaultMaxGasPrice,
@@ -85,8 +86,13 @@ module.exports = async function (
   });
   if (keeperRewardDistributor.newlyDeployed) {
     whiteBlackList = await getContractAt("WhiteBlackList", whiteBlackList);
-    const tx = await whiteBlackList.addAddressToWhitelist(keeperRewardDistributor.address);
+    let tx = await whiteBlackList.addAddressToWhitelist(keeperRewardDistributor.address);
     await tx.wait();
+    if (minPositionSizeMultiplier !== undefined) {
+      const keeperRewardDistributorContract = await getContractAt("KeeperRewardDistributor", keeperRewardDistributor.address);
+      tx = await keeperRewardDistributorContract.setMinPositionSizeMultiplier(minPositionSizeMultiplier);
+      await tx.wait();
+    }
   }
   return keeperRewardDistributor;
 };

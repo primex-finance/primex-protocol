@@ -91,7 +91,7 @@ contract SwapManager is ISwapManager, ReentrancyGuard, Pausable, IERC165 {
                     feeToken: feeToken,
                     isSwapFromWallet: params.payFeeFromWallet,
                     calculateFee: true,
-                    feeRate: primexDNS.feeRates(IPrimexDNSStorage.OrderType.SWAP_MARKET_ORDER, feeToken),
+                    orderType: IPrimexDNSStorage.OrderType.SWAP_MARKET_ORDER,
                     trader: msg.sender,
                     priceOracle: address(priceOracle),
                     traderBalanceVault: traderBalanceVault,

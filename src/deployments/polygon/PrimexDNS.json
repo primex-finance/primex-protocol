@@ -272,6 +272,37 @@
       "inputs": [
         {
           "indexed": true,
+          "internalType": "enum IPrimexDNSStorage.OrderType",
+          "name": "orderType",
+          "type": "uint8"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "minProtocolFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "maxProtocolFee",
+              "type": "uint256"
+            }
+          ],
+          "indexed": false,
+          "internalType": "struct IPrimexDNSStorageV2.FeeRestrictions",
+          "name": "feeRestrictions",
+          "type": "tuple"
+        }
+      ],
+      "name": "ChangeFeeRestrictions",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
           "internalType": "uint256",
           "name": "cmType",
           "type": "uint256"
@@ -582,6 +613,30 @@
     {
       "inputs": [
         {
+          "internalType": "enum IPrimexDNSStorage.OrderType",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "name": "feeRestrictions",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "minProtocolFee",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "maxProtocolFee",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "string",
           "name": "_bucket",
           "type": "string"
@@ -807,6 +862,36 @@
         }
       ],
       "name": "setFeeRate",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "enum IPrimexDNSStorage.OrderType",
+          "name": "_orderType",
+          "type": "uint8"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "minProtocolFee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "maxProtocolFee",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IPrimexDNSStorageV2.FeeRestrictions",
+          "name": "_feeRestrictions",
+          "type": "tuple"
+        }
+      ],
+      "name": "setFeeRestrictions",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"

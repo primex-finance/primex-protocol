@@ -17,7 +17,8 @@
     "prettier:js": "./node_modules/.bin/prettier --write deploy/**/*.js deploy/**/*.deploy.js test/**/*.js test/**/*.test.js test/*.test.js tasks/*.js tasks/**/*.js tasks/**/*.deploy.js tasks/**/**/*.js tasks/**/**/**/*.js config/*.js",
     "prepare": "cd .. && husky install src/.husky",
     "postinstall": "patch-package",
-    "lint": "yarn prettier:solidity && yarn prettier:js && yarn eslint:all-fix && yarn solhint:all"
+    "lint": "yarn prettier:solidity && yarn prettier:js && yarn eslint:all-fix && yarn solhint:all",
+    "coverage":"export COVERAGE=true; export NODE_OPTIONS='--max-old-space-size=4096'; yarn hardhat coverage"
   },
   "devDependencies": {
     "@aave/core-v3": "^1.17.2",

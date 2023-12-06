@@ -159,7 +159,7 @@ async function taskSetup({ depositAsset = "usdc", positionAsset = "wbtc", deposi
   const bucketLiquidity = await borrowedToken.balanceOf(bucket.address);
   if (bucketLiquidity.lt(borrowedAmount)) {
     await borrowedToken.approve(bucket.address, borrowedAmount.sub(bucketLiquidity));
-    await bucket.deposit(deployer.address, borrowedAmount.sub(bucketLiquidity));
+    await bucket.deposit(deployer.address, borrowedAmount.sub(bucketLiquidity), true);
   }
   /// /////////////////////////////
   const setup = {

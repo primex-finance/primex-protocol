@@ -140,7 +140,7 @@ describe("PrimexUpkeep", function () {
       await testTokenA.connect(trader).approve(limitOrderManager.address, MaxUint256.div(2));
 
       await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
-      await bucket.connect(lender).deposit(lender.address, lenderAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
 
       // createLimitsOrder
       const depositAmount = parseUnits("10", decimalsA);
@@ -962,7 +962,7 @@ describe("PrimexUpkeep", function () {
       await testTokenA.connect(trader).approve(positionManager.address, MaxUint256.div(2));
       await testTokenA.connect(trader).approve(limitOrderManager.address, MaxUint256.div(2));
       await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
-      await bucket.connect(lender).deposit(lender.address, lenderAmount);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
 
       const dexAdapter = await getContract("DexAdapter");
 
@@ -1739,7 +1739,7 @@ describe("PrimexUpkeep", function () {
         await testTokenA.connect(trader).approve(positionManager.address, MaxUint256.div(2));
         await testTokenA.connect(trader).approve(limitOrderManager.address, MaxUint256.div(2));
         await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
-        await bucket.connect(lender).deposit(lender.address, lenderAmount);
+        await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
 
         const dexAdapter = await getContract("DexAdapter");
 

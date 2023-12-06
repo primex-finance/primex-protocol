@@ -11,7 +11,7 @@ import {WadRayMath} from "./utils/WadRayMath.sol";
 import {NATIVE_CURRENCY, USD, USD_MULTIPLIER} from "../Constants.sol";
 import {IDexAdapter} from "../interfaces/IDexAdapter.sol";
 import {IPriceOracle} from "../PriceOracle/IPriceOracle.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
+import {IPrimexDNS, IPrimexDNSV2, IPrimexDNSStorage} from "../PrimexDNS/IPrimexDNS.sol";
 import {IBucket} from "../Bucket/IBucket.sol";
 import {IPositionManager} from "../PositionManager/IPositionManager.sol";
 import {ITraderBalanceVault} from "../TraderBalanceVault/ITraderBalanceVault.sol";
@@ -75,14 +75,15 @@ library PrimexPricingLibrary {
     }
 
     /**
-     * @param _depositData the deposit data through which the protocol fee can be calculated
+     * @param depositData the deposit data through which the protocol fee can be calculated
      * if the position is opened through an order using deposit asset
      * @param feeToken An asset in which the fee will be paid. At this point it could be the pmx, the epmx or a native currency
-     * @param _isSwapFromWallet bool, the protocol fee is taken from the user wallet or from the Vault
-     * @param _trader trader address
-     * @param _priceOracle PriceOracle contract address
-     * @param _traderBalanceVault TraderBalanceVault contract address
-     * @param _primexDNS PrimexDNS contract address
+     * @param isSwapFromWallet bool, the protocol fee is taken from the user wallet or from the Vault
+     * @param trader trader address
+     * @param priceOracle PriceOracle contract address
+     * @param orderType Type of possible order in Primex protocol
+     * @param traderBalanceVault TraderBalanceVault contract address
+     * @param primexDNS PrimexDNS contract address
      */
     struct ProtocolFeeParams {
         DepositData depositData;
@@ -90,7 +91,7 @@ library PrimexPricingLibrary {
         bool isSwapFromWallet;
         address trader;
         address priceOracle;
-        uint256 feeRate;
+        IPrimexDNSStorage.OrderType orderType;
         bool calculateFee;
         ITraderBalanceVault traderBalanceVault;
         IPrimexDNS primexDNS;
@@ -197,18 +198,13 @@ library PrimexPricingLibrary {
             route = _params.routes[i];
             amountOnDex = i == _params.routes.length - 1 ? remainder : (_params.amount * route.shares) / sumOfShares;
             remainder -= amountOnDex;
-            address tokenIn = _params.tokenA;
 
             for (uint256 j; j < route.paths.length; j++) {
                 getAmountsParams.encodedPath = route.paths[j].encodedPath;
                 getAmountsParams.amount = amountOnDex;
                 getAmountsParams.dexRouter = IPrimexDNS(_params.primexDNS).getDexAddress(route.paths[j].dexName);
                 path = decodePath(getAmountsParams.encodedPath, getAmountsParams.dexRouter, _params.dexAdapter);
-                _require(path.length >= 2 && path[0] == tokenIn, Errors.INCORRECT_PATH.selector);
-                if (j == route.paths.length - 1) {
-                    _require(path[path.length - 1] == _params.tokenB, Errors.INCORRECT_PATH.selector);
-                }
-                tokenIn = path[path.length - 1];
+                _require(path.length >= 2, Errors.INCORRECT_PATH.selector);
                 amountOnDex = IDexAdapter(_params.dexAdapter).getAmountsOut(getAmountsParams)[1];
             }
             sum += amountOnDex;
@@ -246,7 +242,6 @@ library PrimexPricingLibrary {
             route = _params.routes[i];
             amountOnDex = i == _params.routes.length - 1 ? remainder : (_params.amount * route.shares) / sumOfShares;
             remainder -= amountOnDex;
-            address tokenOut = _params.tokenB;
             for (uint256 j; j < route.paths.length; j++) {
                 getAmountsParams.encodedPath = route.paths[route.paths.length - 1 - j].encodedPath;
                 getAmountsParams.amount = amountOnDex;
@@ -254,11 +249,7 @@ library PrimexPricingLibrary {
                     route.paths[route.paths.length - 1 - j].dexName
                 );
                 path = decodePath(getAmountsParams.encodedPath, getAmountsParams.dexRouter, _params.dexAdapter);
-                _require(path.length >= 2 && path[path.length - 1] == tokenOut, Errors.INCORRECT_PATH.selector);
-                if (j == route.paths.length - 1) {
-                    _require(path[0] == _params.tokenA, Errors.INCORRECT_PATH.selector);
-                }
-                tokenOut = path[0];
+                _require(path.length >= 2, Errors.INCORRECT_PATH.selector);
                 amountOnDex = IDexAdapter(_params.dexAdapter).getAmountsIn(getAmountsParams)[0];
             }
             sum += amountOnDex;
@@ -384,32 +375,29 @@ library PrimexPricingLibrary {
         vars.treasury = params.primexDNS.treasury();
         vars.fromLocked = true;
 
+        protocolFee = params.depositData.protocolFee;
         if (params.calculateFee) {
-            if (params.feeRate == 0) return 0;
-            vars.fromLocked = false;
-            params.depositData.protocolFee = getOracleAmountsOut(
-                params.depositData.depositAsset,
-                params.feeToken,
-                params.depositData.depositAmount.wmul(params.depositData.leverage).wmul(params.feeRate),
-                params.priceOracle
+            protocolFee = calculateProtocolFee(
+                params.depositData,
+                params.primexDNS,
+                params.priceOracle,
+                params.orderType,
+                params.feeToken
             );
+            if (protocolFee == 0) return 0;
+            vars.fromLocked = false;
             if (params.isSwapFromWallet) {
                 if (params.feeToken == NATIVE_CURRENCY) {
-                    _require(msg.value >= params.depositData.protocolFee, Errors.INSUFFICIENT_DEPOSIT.selector);
-                    TokenTransfersLibrary.doTransferOutETH(vars.treasury, params.depositData.protocolFee);
-                    if (msg.value > params.depositData.protocolFee) {
-                        uint256 rest = msg.value - params.depositData.protocolFee;
+                    _require(msg.value >= protocolFee, Errors.INSUFFICIENT_DEPOSIT.selector);
+                    TokenTransfersLibrary.doTransferOutETH(vars.treasury, protocolFee);
+                    if (msg.value > protocolFee) {
+                        uint256 rest = msg.value - protocolFee;
                         params.traderBalanceVault.topUpAvailableBalance{value: rest}(msg.sender, NATIVE_CURRENCY, rest);
                     }
                 } else {
-                    TokenTransfersLibrary.doTransferFromTo(
-                        params.feeToken,
-                        params.trader,
-                        vars.treasury,
-                        params.depositData.protocolFee
-                    );
+                    TokenTransfersLibrary.doTransferFromTo(params.feeToken, params.trader, vars.treasury, protocolFee);
                 }
-                return params.depositData.protocolFee;
+                return protocolFee;
             }
         }
 
@@ -417,11 +405,59 @@ library PrimexPricingLibrary {
             params.trader,
             vars.treasury,
             params.feeToken,
-            params.depositData.protocolFee,
+            protocolFee,
             vars.fromLocked
         );
+    }
 
-        return params.depositData.protocolFee;
+    /**
+     * @notice Calculate and return protocol fee
+     * @param _depositData The deposit data through which the protocol fee can be calculated.
+     * @param _primexDNS The address of the PrimexDNS contract.
+     * @param _priceOracle The address of the PriceOracle contract.
+     * @param _orderType Type of possible order in Primex protocol
+     * @param _feeToken An asset in which the fee will be paid. At this point it could be the pmx, the epmx or a native currency
+     * @return The amount of the protocol fee in '_feeToken' which needs to be paid according to the specified deposit parameters.
+     */
+    function calculateProtocolFee(
+        DepositData memory _depositData,
+        IPrimexDNS _primexDNS,
+        address _priceOracle,
+        IPrimexDNSStorage.OrderType _orderType,
+        address _feeToken
+    ) public view returns (uint256) {
+        uint256 feeRate = _primexDNS.feeRates(_orderType, _feeToken);
+        if (feeRate == 0) return 0;
+        uint256 nativeFeeRate = _feeToken == NATIVE_CURRENCY
+            ? feeRate
+            : _primexDNS.feeRates(_orderType, NATIVE_CURRENCY);
+
+        _depositData.protocolFee = getOracleAmountsOut(
+            _depositData.depositAsset,
+            NATIVE_CURRENCY,
+            _depositData.depositAmount.wmul(_depositData.leverage).wmul(nativeFeeRate),
+            _priceOracle
+        );
+
+        (uint256 minFee, uint256 maxFee) = IPrimexDNSV2(address(_primexDNS)).feeRestrictions(_orderType);
+        if (minFee > _depositData.protocolFee) {
+            _depositData.protocolFee = minFee;
+        } else if (maxFee < _depositData.protocolFee) {
+            _depositData.protocolFee = maxFee;
+        }
+
+        if (_feeToken != NATIVE_CURRENCY) {
+            _require(nativeFeeRate != 0, Errors.FEE_RATE_IN_NATIVE_IS_ZERO.selector);
+            uint256 discountMultiplier = feeRate.wdiv(nativeFeeRate);
+            _depositData.protocolFee = getOracleAmountsOut(
+                NATIVE_CURRENCY,
+                _feeToken,
+                _depositData.protocolFee.wmul(discountMultiplier),
+                _priceOracle
+            );
+        }
+
+        return _depositData.protocolFee;
     }
 
     /**

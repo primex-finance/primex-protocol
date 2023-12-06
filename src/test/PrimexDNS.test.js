@@ -271,6 +271,32 @@ describe("PrimexDNS", function () {
     });
   });
 
+  describe("setFeeRestrictions", function () {
+    let feeRestrictions;
+    before(async function () {
+      feeRestrictions = [BigNumber.from("12"), BigNumber.from("435")];
+    });
+    it("change setFeeRestrictions if called by BIG_TIMELOCK_ADMIN and throw event", async function () {
+      await expect(PrimexDNS.connect(BigTimelockAdmin).setFeeRestrictions(OrderType.LIMIT_ORDER, feeRestrictions))
+        .to.emit(PrimexDNS, "ChangeFeeRestrictions")
+        .withArgs(OrderType.LIMIT_ORDER, feeRestrictions);
+      expect(await PrimexDNS.feeRestrictions(OrderType.LIMIT_ORDER)).to.deep.equal(feeRestrictions);
+    });
+
+    it("Should revert if not BIG_TIMELOCK_ADMIN call setFeeRestrictions", async function () {
+      await expect(PrimexDNS.connect(caller).setFeeRestrictions(OrderType.LIMIT_ORDER, feeRestrictions)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+    it("should revert setFeeRestrictions if minProtocolFee is more than maxProtocolFee", async function () {
+      const feeRestrictions = [20, 11];
+      await expect(
+        PrimexDNS.connect(BigTimelockAdmin).setFeeRestrictions(OrderType.LIMIT_ORDER, feeRestrictions),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "INCORRECT_RESTRICTIONS");
+    });
+  });
+
   it("getDnsBucketAddress revert if bucket not added", async function () {
     await expect(PrimexDNS.getBucketAddress("notAddedBucket")).to.be.revertedWithCustomError(ErrorsLibrary, "BUCKET_NOT_ADDED");
   });

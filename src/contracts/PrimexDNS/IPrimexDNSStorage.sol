@@ -55,3 +55,14 @@ interface IPrimexDNSStorage {
 
     function feeRates(OrderType _orderType, address _token) external view returns (uint256);
 }
+
+interface IPrimexDNSStorageV2 is IPrimexDNSStorage {
+    struct FeeRestrictions {
+        uint256 minProtocolFee;
+        uint256 maxProtocolFee;
+    }
+
+    function feeRestrictions(
+        OrderType _orderType
+    ) external view returns (uint256 minProtocolFee, uint256 maxProtocolFee);
+}

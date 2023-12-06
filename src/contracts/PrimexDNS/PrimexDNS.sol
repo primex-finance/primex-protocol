@@ -12,14 +12,14 @@ import "./PrimexDNSStorage.sol";
 import {BIG_TIMELOCK_ADMIN, MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN, EMERGENCY_ADMIN} from "../Constants.sol";
 import {IBucket} from "../Bucket/IBucket.sol";
 import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
-import {IPrimexDNS} from "./IPrimexDNS.sol";
+import {IPrimexDNSV2, IPrimexDNS} from "./IPrimexDNS.sol";
 import {IDexAdapter} from "../interfaces/IDexAdapter.sol";
 import {ILiquidityMiningRewardDistributor} from "../LiquidityMiningRewardDistributor/ILiquidityMiningRewardDistributor.sol";
 import {ITreasury} from "../Treasury/ITreasury.sol";
 import {IConditionalClosingManager} from "../interfaces/IConditionalClosingManager.sol";
 import {IConditionalOpeningManager} from "../interfaces/IConditionalOpeningManager.sol";
 
-contract PrimexDNS is IPrimexDNS, PrimexDNSStorage {
+contract PrimexDNS is IPrimexDNSV2, PrimexDNSStorageV2 {
     constructor() {
         _disableInitializers();
     }
@@ -91,6 +91,21 @@ contract PrimexDNS is IPrimexDNS, PrimexDNSStorage {
      */
     function setFeeRate(FeeRateParams calldata _feeRateParams) external override onlyRole(BIG_TIMELOCK_ADMIN) {
         _setFeeRate(_feeRateParams);
+    }
+
+    /**
+     * @inheritdoc IPrimexDNSV2
+     */
+    function setFeeRestrictions(
+        OrderType _orderType,
+        FeeRestrictions calldata _feeRestrictions
+    ) external override onlyRole(BIG_TIMELOCK_ADMIN) {
+        _require(
+            _feeRestrictions.minProtocolFee <= _feeRestrictions.maxProtocolFee,
+            Errors.INCORRECT_RESTRICTIONS.selector
+        );
+        feeRestrictions[_orderType] = _feeRestrictions;
+        emit ChangeFeeRestrictions(_orderType, _feeRestrictions);
     }
 
     /**
@@ -231,7 +246,10 @@ contract PrimexDNS is IPrimexDNS, PrimexDNSStorage {
      * @param interfaceId The interface id to check
      */
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IPrimexDNS).interfaceId || super.supportsInterface(interfaceId);
+        return
+            interfaceId == type(IPrimexDNSV2).interfaceId ||
+            interfaceId == type(IPrimexDNS).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 
     function _setFeeRate(FeeRateParams calldata _feeRateParams) internal {

@@ -15,5 +15,7 @@ module.exports = async function ({ _ }, { run, deployments }) {
       data[artifactName] = e;
     }
   }
-  fs.writeFileSync("./verify-errors.json", JSON.stringify(data, null, 2));
+  if (Object.keys(data).length !== 0) {
+    fs.writeFileSync("./verify-errors.json", JSON.stringify(data, null, 2));
+  }
 };

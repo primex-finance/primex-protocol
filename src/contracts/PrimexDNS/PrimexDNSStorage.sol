@@ -4,7 +4,7 @@ pragma solidity 0.8.18;
 
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 
-import {IPrimexDNSStorage} from "./IPrimexDNSStorage.sol";
+import {IPrimexDNSStorage, IPrimexDNSStorageV2} from "./IPrimexDNSStorage.sol";
 
 abstract contract PrimexDNSStorage is IPrimexDNSStorage, ERC165Upgradeable {
     address public override registry;
@@ -47,4 +47,8 @@ abstract contract PrimexDNSStorage is IPrimexDNSStorage, ERC165Upgradeable {
     mapping(OrderType => mapping(address => uint256)) public override feeRates;
 
     string[] internal dexesNames;
+}
+
+abstract contract PrimexDNSStorageV2 is IPrimexDNSStorageV2, PrimexDNSStorage {
+    mapping(OrderType => FeeRestrictions) public override feeRestrictions;
 }

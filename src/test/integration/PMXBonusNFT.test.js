@@ -88,7 +88,7 @@ describe("PrimexNFT_integration", function () {
     const deposit = parseUnits("100", decimalsA);
     await testTokenA.mint(lender.address, deposit);
     await testTokenA.connect(lender).approve(Bucket.address, MaxUint256);
-    await Bucket.connect(lender).deposit(lender.address, deposit);
+    await Bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
 
     dex = process.env.DEX || "uniswap";
     checkIsDexSupported(dex);
@@ -335,7 +335,7 @@ describe("PrimexNFT_integration", function () {
 
       const [currentIncome, accumulatedAmount] = await _increaseAccumulatedAmount(balance, lastUpdatedIndexBefore);
       // mint via bucket
-      await Bucket.connect(lender).deposit(lender.address, lenderAmount);
+      await Bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
 
       const { accumulatedAmount: accumulatedAfter, lastUpdatedIndex: lastUpdatedIndexAfter } = await InterestIncreaser.getBonus(
         lender.address,
@@ -365,7 +365,7 @@ describe("PrimexNFT_integration", function () {
 
       await testTokenA.mint(user.address, parseUnits("1", decimalsA));
       await testTokenA.connect(user).approve(Bucket.address, MaxUint256);
-      await Bucket.connect(user).deposit(user.address, parseUnits("1", decimalsA));
+      await Bucket.connect(user)["deposit(address,uint256,bool)"](user.address, parseUnits("1", decimalsA), true);
       await PTokenA.connect(user).transfer(Reserve.address, parseUnits("1", decimalsA));
       const balance = await PTokenA.scaledBalanceOf(lender.address);
       const reserveBalance = await PTokenA.scaledBalanceOf(Reserve.address);
@@ -511,7 +511,7 @@ describe("PrimexNFT_integration", function () {
 
       await testTokenA.mint(user.address, parseUnits("1", decimalsA));
       await testTokenA.connect(user).approve(Bucket.address, MaxUint256);
-      await Bucket.connect(user).deposit(user.address, parseUnits("1", decimalsA));
+      await Bucket.connect(user)["deposit(address,uint256,bool)"](user.address, parseUnits("1", decimalsA), true);
       await PTokenA.connect(user).transfer(Reserve.address, parseUnits("1", decimalsA));
 
       const balance = await DebtTokenA.scaledBalanceOf(trader.address);
