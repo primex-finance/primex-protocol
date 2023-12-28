@@ -4,6 +4,7 @@ module.exports = async function (
   { getNamedAccounts, deployments: { deploy }, ethers: { getContract } },
 ) {
   const { epmxDeployer } = await getNamedAccounts();
+  if (epmxDeployer === undefined) throw new Error("set PRIVATE_KEY_EPMX env or use mnemonic");
 
   if (!registry) {
     registry = (await getContract("Registry")).address;

@@ -26,10 +26,11 @@ module.exports = async function (
 
   const { assets } = getConfig();
   for (const pair in pairsConfig) {
+    console.log(pair);
     const pairContracts = await Promise.all(
       pair.split("-").map(async asset => {
         try {
-          return await getContractAt("ERC20", assets[asset]);
+          return await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", assets[asset]);
         } catch {
           console.log(`\n!!!WARNING: Address not found for token: ${asset} \n`);
           return null;

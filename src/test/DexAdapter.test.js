@@ -24,6 +24,7 @@ process.env.TEST = true;
 describe("DexAdapter", function () {
   let dexAdapter, DNS, PM, registry, deployer, caller, trader, MediumTimelockAdmin, ErrorsLibrary;
   let mockRegistry, mockErc165;
+  let NonStandartERC20Token, nonStandartTokenDecimal;
 
   before(async function () {
     await fixture(["Test"]);
@@ -35,6 +36,14 @@ describe("DexAdapter", function () {
     registry = await getContract("Registry");
 
     ErrorsLibrary = await getContract("Errors");
+
+    await run("deploy:NonStandartERC20Mock", {
+      name: "NonStandartERC20",
+      decimals: "6",
+      initialSupply: parseUnits("10000000", 6).toString(),
+    });
+    NonStandartERC20Token = await getContract("NonStandartERC20");
+    nonStandartTokenDecimal = await NonStandartERC20Token.decimals();
   });
 
   beforeEach(async function () {
@@ -47,12 +56,17 @@ describe("DexAdapter", function () {
   });
 
   describe("Constructor", function () {
-    let dexAdapterFactory, registry;
+    let dexAdapterFactory, registry, tokenApproveLibrary;
 
     before(async function () {
       const { deployer } = await getNamedSigners();
       registry = await getContract("Registry", deployer.address);
-      dexAdapterFactory = await getContractFactory("DexAdapter");
+      tokenApproveLibrary = await getContract("TokenApproveLibrary");
+      dexAdapterFactory = await getContractFactory("DexAdapter", {
+        libraries: {
+          TokenApproveLibrary: tokenApproveLibrary.address,
+        },
+      });
     });
     it("Should deploy dexAdapter", async function () {
       expect(await dexAdapterFactory.deploy(registry.address));
@@ -150,7 +164,20 @@ describe("DexAdapter", function () {
       dexRouter = await DNS.getDexAddress(dex);
 
       await testTokenA.mint(dexAdapter.address, parseUnits("100", decimalsA));
+      await testTokenB.mint(deployer.address, parseUnits("100", 18));
+
       await addLiquidity({ dex: dex, from: "lender", tokenA: testTokenA, tokenB: testTokenB });
+
+      await NonStandartERC20Token.transfer(dexAdapter.address, parseUnits("100", nonStandartTokenDecimal));
+      await run("router:addLiquidity", {
+        router: (await DNS.dexes(dex)).routerAddress,
+        from: "deployer",
+        to: "deployer",
+        tokenA: NonStandartERC20Token.address,
+        tokenB: testTokenB.address,
+        amountADesired: "10",
+        amountBDesired: "10",
+      });
     });
 
     beforeEach(async function () {
@@ -165,6 +192,11 @@ describe("DexAdapter", function () {
     });
 
     it("Should swapExactTokensForTokens", async function () {
+      expect(await dexAdapter.connect(caller).swapExactTokensForTokens(swapExactTokensForTokensParams));
+    });
+    it("Should swapExactTokensForTokens with non standart erc20 token", async function () {
+      swapExactTokensForTokensParams.encodedPath = await getEncodedPath([NonStandartERC20Token.address, testTokenB.address], dex);
+      swapExactTokensForTokensParams.amountIn = parseUnits("1", nonStandartTokenDecimal);
       expect(await dexAdapter.connect(caller).swapExactTokensForTokens(swapExactTokensForTokensParams));
     });
     it("Should revert when deadline passed for _swapWithCurve", async function () {
@@ -223,13 +255,18 @@ describe("DexAdapter", function () {
 
   describe("GetAmountsOut", function () {
     let testTokenA, testTokenB, dexRouter, getAmountsOutParams;
-    let dexAdapterFactory, registry;
+    let dexAdapterFactory, registry, tokenApproveLibrary;
     let decimalsA, dex;
 
     before(async function () {
       const { deployer } = await getNamedSigners();
       registry = await getContract("Registry", deployer.address);
-      dexAdapterFactory = await getContractFactory("DexAdapter");
+      tokenApproveLibrary = await getContract("TokenApproveLibrary");
+      dexAdapterFactory = await getContractFactory("DexAdapter", {
+        libraries: {
+          TokenApproveLibrary: tokenApproveLibrary.address,
+        },
+      });
 
       const VAULT_ACCESS_ROLE = keccak256(toUtf8Bytes("VAULT_ACCESS_ROLE"));
       const txGrantRole = await registry.grantRole(VAULT_ACCESS_ROLE, caller.address);
@@ -304,10 +341,16 @@ describe("DexAdapter", function () {
     let snapshotId;
     let decimalsA, decimalsAcurve, decimalsX, decimalsC;
     let pathParams;
+    let tokenApproveLibrary;
 
     // eslint-disable-next-line mocha/no-hooks-for-single-case
     before(async function () {
-      dexAdapterFactory = await getContractFactory("DexAdapter");
+      tokenApproveLibrary = await getContract("TokenApproveLibrary");
+      dexAdapterFactory = await getContractFactory("DexAdapter", {
+        libraries: {
+          TokenApproveLibrary: tokenApproveLibrary.address,
+        },
+      });
 
       testTokenA = await getContract("TestTokenA");
       decimalsA = await testTokenA.decimals();

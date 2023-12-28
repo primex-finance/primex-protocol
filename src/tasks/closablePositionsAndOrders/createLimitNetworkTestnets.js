@@ -48,9 +48,9 @@ module.exports = async function (
     throw new Error("Incorrect asset");
   }
 
-  const positionToken = await getContractAt("ERC20", assets[positionAsset]);
-  const depositToken = await getContractAt("ERC20", assets[depositAsset]);
-  const borrowedToken = await getContractAt("ERC20", assets.usdc);
+  const positionToken = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", assets[positionAsset]);
+  const depositToken = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", assets[depositAsset]);
+  const borrowedToken = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", assets.usdc);
 
   const positionManager = await getContract("PositionManager");
   const limitOrderManager = await getContract("LimitOrderManager");

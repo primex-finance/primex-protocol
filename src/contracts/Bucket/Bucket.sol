@@ -5,6 +5,7 @@ pragma solidity 0.8.18;
 import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
 
 import {TokenTransfersLibrary} from "../libraries/TokenTransfersLibrary.sol";
+import {TokenApproveLibrary} from "../libraries/TokenApproveLibrary.sol";
 
 import "./BucketStorage.sol";
 import {VAULT_ACCESS_ROLE, PM_ROLE, BATCH_MANAGER_ROLE, MAX_ASSET_DECIMALS, SECONDS_PER_YEAR} from "../Constants.sol";
@@ -303,7 +304,7 @@ contract Bucket is IBucketV2, BucketStorage {
                 IAccessControl(registry).hasRole(VAULT_ACCESS_ROLE, address(_swapManager)),
                 Errors.FORBIDDEN.selector
             );
-            borrowedAsset.approve(address(_swapManager), allUserBalance);
+            TokenApproveLibrary.doApprove(address(borrowedAsset), address(_swapManager), allUserBalance);
             allUserBalance = _swapManager.swap(
                 ISwapManager.SwapParams({
                     tokenA: address(borrowedAsset),
@@ -612,7 +613,7 @@ contract Bucket is IBucketV2, BucketStorage {
                 uint256 bucketBalance = borrowedAsset.balanceOf(address(this));
                 aaveDeposit += bucketBalance;
                 address aavePool = dns.aavePool();
-                borrowedAsset.approve(aavePool, bucketBalance);
+                TokenApproveLibrary.doApprove(address(borrowedAsset), aavePool, bucketBalance);
                 IPool(aavePool).supply(address(borrowedAsset), bucketBalance, address(this), 0);
                 emit DepositToAave(aavePool, bucketBalance);
             }

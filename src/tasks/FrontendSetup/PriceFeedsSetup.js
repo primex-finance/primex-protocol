@@ -39,8 +39,6 @@ module.exports = async function (
     if (!isSet) {
       tx = await usdcFeed.setAnswer(parseUnits("0.998", USD_DECIMALS));
       await tx.wait();
-      tx = await usdcFeed.setDecimals(USD_DECIMALS);
-      await tx.wait();
     }
   }
   const priceFeedsToUpdate = [];
@@ -58,8 +56,6 @@ module.exports = async function (
         priceFeed: feedContract.address,
       };
       priceFeedsToUpdate.push(feedData);
-      tx = await feedContract.setDecimals(USD_DECIMALS);
-      await tx.wait();
     }
   }
   const decimals = 5;

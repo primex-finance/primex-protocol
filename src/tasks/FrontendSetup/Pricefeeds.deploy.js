@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 const { setConfig, getConfig } = require("../../config/configUtils.js");
+const { USD_DECIMALS } = require("../../test/utils/constants.js");
 
 module.exports = async function ({ _ }, { ethers: { getContract } }) {
   const { assets, pricefeeds } = getConfig();
@@ -18,6 +19,8 @@ module.exports = async function ({ _ }, { ethers: { getContract } }) {
     if (feed === undefined) {
       await run("deploy:PrimexAggregatorV3TestService", { name: name });
       const feed = await getContract(`PrimexAggregatorV3TestService ${name} price feed`);
+      const decimals = await feed.setDecimals(USD_DECIMALS);
+      await decimals.wait();
       allPriceFeeds.selfDeployed[name] = feed.address;
     }
   }

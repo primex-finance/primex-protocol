@@ -12,6 +12,7 @@ import {IQuoter} from "@uniswap/v3-periphery/contracts/interfaces/IQuoter.sol";
 import {IQuoter as IQuoterAlgebraV3} from "@cryptoalgebra/solidity-interfaces/contracts/periphery/IQuoter.sol";
 import {WadRayMath} from "./libraries/utils/WadRayMath.sol";
 import {V3Path} from "./libraries/utils/V3Path.sol";
+import {TokenApproveLibrary} from "./libraries/TokenApproveLibrary.sol";
 
 import "./libraries/Errors.sol";
 
@@ -376,7 +377,7 @@ contract DexAdapter is IDexAdapter, IERC165 {
 
     function _swapWithUniswapV2(SwapParams memory _params) private returns (uint256[3] memory) {
         address[] memory path = abi.decode(_params.encodedPath, (address[]));
-        IERC20(path[0]).approve(_params.dexRouter, _params.amountIn);
+        TokenApproveLibrary.doApprove(path[0], _params.dexRouter, _params.amountIn);
         uint256[] memory amounts;
 
         amounts = IUniswapV2Router02(_params.dexRouter).swapExactTokensForTokens(
@@ -392,7 +393,7 @@ contract DexAdapter is IDexAdapter, IERC165 {
 
     function _swapWithUniswapV3(SwapParams memory _params) private returns (uint256[3] memory) {
         address tokenIn = _params.encodedPath.decodeFirstToken();
-        IERC20(tokenIn).approve(_params.dexRouter, _params.amountIn);
+        TokenApproveLibrary.doApprove(tokenIn, _params.dexRouter, _params.amountIn);
 
         ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
             path: _params.encodedPath,
@@ -418,7 +419,7 @@ contract DexAdapter is IDexAdapter, IERC165 {
 
     function _swapWithAlgebraV3(SwapParams memory _params) private returns (uint256[3] memory) {
         address tokenIn = _params.encodedPath.decodeFirstToken();
-        IERC20(tokenIn).approve(_params.dexRouter, _params.amountIn);
+        TokenApproveLibrary.doApprove(tokenIn, _params.dexRouter, _params.amountIn);
 
         ISwapRouterAlgebraV3.ExactInputParams memory params = ISwapRouterAlgebraV3.ExactInputParams({
             path: _params.encodedPath,
@@ -438,7 +439,7 @@ contract DexAdapter is IDexAdapter, IERC165 {
         uint256 amountOut = _params.amountIn;
 
         for (uint256 i; i < path.length - 1; i++) {
-            IERC20(path[i]).approve(_params.dexRouter, amountOut);
+            TokenApproveLibrary.doApprove(path[i], _params.dexRouter, amountOut);
             amountOut = ICurveRouter(_params.dexRouter).exchange(
                 pools[i],
                 path[i],
@@ -458,7 +459,7 @@ contract DexAdapter is IDexAdapter, IERC165 {
             (address[], bytes32[], int256[])
         );
         _require(path.length >= 2, Errors.INCORRECT_PATH.selector);
-        IERC20(path[0]).approve(_params.dexRouter, _params.amountIn);
+        TokenApproveLibrary.doApprove(path[0], _params.dexRouter, _params.amountIn);
 
         IBalancer.FundManagement memory fundManagement = IBalancer.FundManagement({
             sender: address(this),

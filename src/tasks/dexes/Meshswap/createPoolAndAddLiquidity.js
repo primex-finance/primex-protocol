@@ -15,8 +15,8 @@ module.exports = async function (
     to = signers[to].address;
   }
 
-  const tokenAcontract = await getContractAt("ERC20", tokenA);
-  const tokenBcontract = await getContractAt("ERC20", tokenB);
+  const tokenAcontract = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", tokenA);
+  const tokenBcontract = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", tokenB);
 
   const amountA = parseUnits(amountADesired, await tokenAcontract.decimals());
   const amountB = parseUnits(amountBDesired, await tokenBcontract.decimals());
@@ -32,7 +32,7 @@ module.exports = async function (
   await tx.wait();
 
   const poolAddress = await FactoryImplContract.getPair(tokenA, tokenB);
-  const poolContract = await getContractAt("ERC20", poolAddress);
+  const poolContract = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", poolAddress);
   const amount = await poolContract.balanceOf(signers.deployer.address);
   const transferLPTx = await poolContract.transfer(to, amount);
   await transferLPTx.wait();

@@ -12,6 +12,7 @@ task("deploy:DexAdapter", "Deploy DexAdapter contract", require("./dexAdapter.de
     "The list of addresses of quoters. Quoters allow getting the expected amount out or amount in for a given swap without executing the swap",
   )
   .addOptionalParam("errorsLibrary", "The address of errorsLibrary contract")
+  .addOptionalParam("tokenApproveLibrary", "The address of the TokenApproveLibrary")
   .addOptionalParam("contractName", "The name of the contract artifact e.g DexAdapter")
   .addFlag("addDexesToDns", "");
 

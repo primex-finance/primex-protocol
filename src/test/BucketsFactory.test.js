@@ -60,6 +60,7 @@ describe("BucketsFactory", function () {
     mockWhiteBlackList,
     mockBucket;
   let tokenTransfersLibrary;
+  let tokenApproveLibrary;
   let ErrorsLibrary;
   let bucketImplementation;
 
@@ -67,6 +68,7 @@ describe("BucketsFactory", function () {
     await fixture(["Test"]);
     ({ deployer } = await getNamedSigners());
     tokenTransfersLibrary = await getContract("TokenTransfersLibrary");
+    tokenApproveLibrary = await getContract("TokenApproveLibrary");
     ErrorsLibrary = await getContract("Errors");
   });
 
@@ -263,11 +265,13 @@ describe("BucketsFactory", function () {
     const bucketV2Factory = await getContractFactory("BucketV2", {
       libraries: {
         TokenTransfersLibrary: tokenTransfersLibrary.address,
+        TokenApproveLibrary: tokenApproveLibrary.address,
       },
     });
     const oldImplFactory = await getContractFactory("Bucket", {
       libraries: {
         TokenTransfersLibrary: tokenTransfersLibrary.address,
+        TokenApproveLibrary: tokenApproveLibrary.address,
       },
     });
 

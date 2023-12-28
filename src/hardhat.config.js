@@ -40,7 +40,7 @@ const NETWORK = process.env.NETWORK || "";
 
 const keythereum = require("keythereum");
 
-let accounts, urlMainnet, urlGoerli;
+let accounts, urlMainnet;
 
 if (process.env.ADDRESS && process.env.KEYSTORE_DIR && process.env.PASSWORD) {
   const keyObject = keythereum.importFromFile(process.env.ADDRESS, process.env.KEYSTORE_DIR);
@@ -60,13 +60,6 @@ if (NETWORK) {
   urlMainnet = `https://mainnet.infura.io/v3/${INFURA_API_KEY}`;
 }
 
-if (NETWORK) {
-  urlGoerli = NETWORK;
-} else if (ALCHEMY_API) {
-  urlGoerli = `https://eth-goerli.alchemyapi.io/v2/${ALCHEMY_API}`;
-} else {
-  urlGoerli = `https://goerli.infura.io/v3/${INFURA_API_KEY}`;
-}
 const hostNetworkConfig = {
   url: HOST_ADDR,
   accounts: accounts,
@@ -95,6 +88,9 @@ module.exports = {
       },
       {
         version: "0.7.6",
+      },
+      {
+        version: "0.4.17",
       },
     ],
     overrides: {
@@ -245,10 +241,10 @@ module.exports = {
       saveDeployments: true,
       timeout: 60000,
     },
-    goerli: {
-      url: urlGoerli,
-      chainId: 5,
+    ethereumSepolia: {
+      url: "https://rpc.notadegen.com/eth/sepolia",
       accounts: accounts,
+      saveDeployments: true,
       timeout: 60000,
     },
     polygonZKtestnet: {
@@ -270,11 +266,11 @@ module.exports = {
       timeout: 60000,
     },
     ethereum: {
-      url: "http://127.0.0.1:8545/",
+      url: "https://eth.llamarpc.com/",
       accounts: accounts,
       saveDeployments: true,
       timeout: 60000,
-      gasPrice: 65e9,
+      gasPrice: 30e9,
     },
   },
   external: {

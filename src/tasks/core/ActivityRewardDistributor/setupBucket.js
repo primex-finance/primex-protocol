@@ -14,7 +14,7 @@ module.exports = async function (
     lenderRewardDistributor = (await getContract("ActivityRewardDistributor")).address;
   }
   lenderRewardDistributor = await getContractAt("ActivityRewardDistributor", lenderRewardDistributor);
-  const pmx = await getContractAt("ERC20", await lenderRewardDistributor.pmx());
+  const pmx = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", await lenderRewardDistributor.pmx());
   const txApprove = await pmx.approve(lenderRewardDistributor.address, increaseAmount);
   await txApprove.wait();
   const tx = await lenderRewardDistributor.setupBucket(bucket, Role[role], increaseAmount, rewardPerDay);

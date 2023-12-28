@@ -4,7 +4,7 @@
   "SmallTimelockDelayInDays": 0.5,
   "deployRefferalProgram": true,
   "EPMXOraclePrice": "0.1",
-  "BucketsToDeprecate":[
+  "BucketsToDeprecate": [
     "0x6CbB80b8462346e15A833F2D13B37d85Cc618A78",
     "0xDBC8443c7f942c1FBaA99De1409Eb3205b32BE15",
     "0xDF70B500Eba916Eda2451e132f7007f35E611c83",
@@ -44,7 +44,7 @@
     },
     "delistingDelayInDays": 180,
     "adminWithdrawalDelayInDays": 180,
-    "feeRestrictions":{
+    "feeRestrictions": {
       "MARKET_ORDER": {
         "minProtocolFee": "0.0016",
         "maxProtocolFee": "MaxUint256"
@@ -64,8 +64,8 @@
     }
   },
   "SpotTradingRD": {
-    "increaseAmount":"1000000",
-    "rewardPerPeriod":"1000"
+    "increaseAmount": "1000000",
+    "rewardPerPeriod": "1000"
   },
   "LiquidityMiningRD": {
     "reinvestmentRate": "0.3333",

@@ -62,9 +62,9 @@ async function taskSetup({ depositAsset = "usdc", positionAsset = "wbtc", deposi
   if (!assets[depositAsset] || !assets[positionAsset]) {
     throw new Error("Incorrect asset");
   }
-  const depositToken = await getContractAt("ERC20", assets[depositAsset]);
-  const positionToken = await getContractAt("ERC20", assets[positionAsset]);
-  const borrowedToken = await getContractAt("ERC20", assets.usdc);
+  const depositToken = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", assets[depositAsset]);
+  const positionToken = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", assets[positionAsset]);
+  const borrowedToken = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", assets.usdc);
 
   const depositDecimals = await depositToken.decimals();
   const positionDecimals = await positionToken.decimals();
@@ -218,8 +218,8 @@ async function getDexWithAncillaryData() {
 
 async function swapAtoB(assetA = "usdc", assetB = "wbtc", amount = "200", dex = "uniswap") {
   const primexDNS = await getContract("PrimexDNS");
-  const testTokenA = await getContractAt("ERC20", assets[assetA]);
-  const testTokenB = await getContractAt("ERC20", assets[assetB]);
+  const testTokenA = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", assets[assetA]);
+  const testTokenB = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", assets[assetB]);
   const decimalsB = await testTokenB.decimals();
 
   const router = (await primexDNS.dexes(dex)).routerAddress;

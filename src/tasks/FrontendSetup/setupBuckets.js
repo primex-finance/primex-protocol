@@ -61,7 +61,7 @@ module.exports = async function (
       bucket.flowConfig = defaultFlowConfig;
     }
 
-    const underlyingAsset = await getContractAt("ERC20", assets[bucket.tokenName]);
+    const underlyingAsset = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", assets[bucket.tokenName]);
 
     const assetAddresses = bucket.allowedAssets.map(asset => assets[asset]);
 

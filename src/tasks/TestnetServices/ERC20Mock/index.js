@@ -13,3 +13,9 @@ task("deploy:ERC20Mock", "Deploy ERC20Mock contract", require("./erc20Mock.deplo
     "The amounts of tokens user can mint when isTimeLimitedMinting=true every 24 hours",
     ethers.utils.parseEther("50").toString(),
   );
+
+task("deploy:NonStandartERC20Mock", "Deploy non standart ERC20Mock contract", require("./NonStandartErc20Mock.deploy.js"))
+  .addParam("name", "The ERC20 token name", "Tether")
+  .addParam("symbol", "The ERC20 token symbol", "USDT")
+  .addParam("decimals", "The ERC20 token decimals", "18")
+  .addParam("initialSupply", "The amount of tokens will be minted for an owner account", ethers.utils.parseEther("100").toString());

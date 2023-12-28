@@ -44,6 +44,7 @@ module.exports = async ({ run, ethers: { getContract } }) => {
   const registry = await getContract("Registry");
   const primexDNS = await getContract("PrimexDNS");
   const errorsLibrary = await getContract("Errors");
+  const tokenApproveLibrary = await getContract("TokenApproveLibrary");
   await run("deploy:DexAdapter", {
     registry: registry.address,
     primexDNS: primexDNS.address,
@@ -52,11 +53,12 @@ module.exports = async ({ run, ethers: { getContract } }) => {
     dexTypes: JSON.stringify(dexTypes),
     quoters: JSON.stringify(quoters),
     errorsLibrary: errorsLibrary.address,
+    tokenApproveLibrary: tokenApproveLibrary.address,
     addDexesToDns: true,
   });
 };
 
-const dependencies = ["PrimexDNS", "PositionManager", "WhiteBlackList", "Errors"];
+const dependencies = ["PrimexDNS", "PositionManager", "WhiteBlackList", "Errors", "TokenApproveLibrary"];
 if (process.env.TEST) dependencies.push("Dexes");
 
 module.exports.tags = ["DexAdapter", "Test", "PrimexCore"];

@@ -44,8 +44,8 @@ module.exports = async function (
     tickUpper = (Math.floor(887272 / tikSpace) * tikSpace).toString();
   }
 
-  const tokenAContract = await getContractAt("ERC20", tokenA);
-  const tokenBContract = await getContractAt("ERC20", tokenB);
+  const tokenAContract = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", tokenA);
+  const tokenBContract = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", tokenB);
 
   amountADesired = parseUnits(amountADesired, await tokenAContract.decimals());
   amountBDesired = parseUnits(amountBDesired, await tokenBContract.decimals());

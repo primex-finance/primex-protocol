@@ -3,7 +3,17 @@ const { setConfig, getConfig } = require("../../../config/configUtils.js");
 
 const QuoterArtifact = require("../../../node_modules/@uniswap/v3-periphery/artifacts/contracts/lens/Quoter.sol/Quoter.json");
 
-module.exports = async function ({ _ }, { getNamedAccounts, deployments: { deploy, getArtifact }, ethers: { getContract } }) {
+module.exports = async function (
+  { _ },
+  {
+    getNamedAccounts,
+    deployments: { deploy, getArtifact },
+    ethers: {
+      getContract,
+      constants: { AddressZero },
+    },
+  },
+) {
   const { deployer } = await getNamedAccounts();
 
   const NonfungiblePositionManagerArtifact = await getArtifact("NonfungiblePositionManager");
@@ -49,12 +59,22 @@ module.exports = async function ({ _ }, { getNamedAccounts, deployments: { deplo
     log: true,
   });
 
-  const UniswapV2Factory = await getContract("uniswapV2Factory");
-  const SushiswapV2Factory = await getContract("sushiswapV2Factory");
+  let UniswapV2FactoryAddress, SushiswapV2FactoryAddress;
 
+  try {
+    UniswapV2FactoryAddress = (await getContract("uniswapV2Factory")).address;
+  } catch {
+    UniswapV2FactoryAddress = AddressZero;
+  }
+
+  try {
+    SushiswapV2FactoryAddress = (await getContract("sushiswapV2Factory")).address;
+  } catch {
+    SushiswapV2FactoryAddress = AddressZero;
+  }
   const MixedRouteQuoterV1 = await deploy("MixedRouteQuoterV1", {
     from: deployer,
-    args: [UniswapV3Factory.address, UniswapV2Factory.address, SushiswapV2Factory.address, weth],
+    args: [UniswapV3Factory.address, UniswapV2FactoryAddress, SushiswapV2FactoryAddress, weth],
     log: true,
   });
 

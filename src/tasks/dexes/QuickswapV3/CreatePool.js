@@ -21,8 +21,8 @@ module.exports = async function (
     nonfungiblePositionManager = (await getContract("QuickswapNonfungiblePositionManager")).address;
   }
 
-  const tokenAContract = await getContractAt("ERC20", tokenA);
-  const tokenBContract = await getContractAt("ERC20", tokenB);
+  const tokenAContract = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", tokenA);
+  const tokenBContract = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", tokenB);
 
   reservTokenA = parseUnits(reservTokenA, await tokenAContract.decimals());
   reservTokenB = parseUnits(reservTokenB, await tokenBContract.decimals());

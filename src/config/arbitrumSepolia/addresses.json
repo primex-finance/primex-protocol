@@ -32,14 +32,14 @@
     }
   },
   "pricefeeds": {
+    "weth-usd": "0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165",
+    "wbtc-usd": "0x56a43EB56Da12C0dc1D972ACb089c06a5dEF8e69",
+    "usdc-usd": "0x0153002d20B96532C639313c2d54c3dA09109309",
+    "link-usd": "0x0FB99723Aee6f420beAD13e6bBB79b7E6F034298",
+    "usdt-usd": "0x80EDee6f667eCc9f63a0a6f55578F870651f06A4",
+    "native-usd": "0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165",
     "selfDeployed": {
-      "weth-usd": "0x0510cDa7ec5e4FC1ccab591C7999f9903F55aE7f",
-      "wbtc-usd": "0xB28f796e400Ca5CbaEc83699dA5A5336df16442E",
-      "usdc-usd": "0x700612b0e3C94C288480aECc6b511E202B977894",
-      "link-usd": "0x1472459FBC07F33EEd95dC149CDf3eDD99EE791E",
-      "uni-usd": "0x4B870b5fcd6Bb37003A3741ec583Ec46dcd963CA",
-      "usdt-usd": "0x1734D6D64A776685566E2d27aAD148c95812ea6e",
-      "native-usd": "0x0510cDa7ec5e4FC1ccab591C7999f9903F55aE7f"
+      "uni-usd": "0x4B870b5fcd6Bb37003A3741ec583Ec46dcd963CA"
     }
   },
   "priceDropfeeds": {

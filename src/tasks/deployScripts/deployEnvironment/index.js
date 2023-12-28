@@ -49,12 +49,6 @@ task(
 );
 
 task(
-  "deployEnv:goerli",
-  "Deploy environment (test tokens, add liquidity to dexes, price feeds) on goerli",
-  require("./deployEnvGoerli.js"),
-);
-
-task(
   "deployEnv:mumbai",
   "Deploy environment (test tokens, add liquidity to dexes, price feeds) on mumbai",
   require("./deployEnvMumbai.js"),
@@ -88,4 +82,10 @@ task(
   "deployEnv:arbitrum-sepolia",
   "Deploy environment (test tokens, add liquidity to dexes, price feeds) on Arbitrum Sepolia",
   require("./deployEnvArbitrumSepolia.js"),
+);
+
+task(
+  "deployEnv:ethereum-sepolia",
+  "Deploy environment (test tokens, add liquidity to dexes, price feeds) on Ethereum Sepolia",
+  require("./deployEnvEthereumSepolia.js"),
 );

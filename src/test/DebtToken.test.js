@@ -50,7 +50,9 @@ describe("DebtToken", function () {
   describe("initialization", function () {
     it("Should initialize with correct values.", async function () {
       const underlyingAsset = await bucket.borrowedAsset();
-      const decimalsOfUnderlyingAsset = await (await getContractAt("ERC20", underlyingAsset)).decimals();
+      const decimalsOfUnderlyingAsset = await (
+        await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", underlyingAsset)
+      ).decimals();
       expect(await debtTestTokenA.name()).to.equal("Primex DebtToken TestTokenA");
       expect(await debtTestTokenA.symbol()).to.equal("debt-TTA");
       expect(decimalsDebtTestTokenA).to.equal(decimalsOfUnderlyingAsset);

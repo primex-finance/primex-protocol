@@ -4,7 +4,7 @@
   "SmallTimelockDelayInDays": 0.5,
   "deployRefferalProgram": true,
   "EPMXOraclePrice": "0.1",
-  "BucketsToDeprecate":[
+  "BucketsToDeprecate": [
     "0x936E017D9D5a248B1E0409D9db6aaab47aA19666",
     "0xfAF51FE0CE15DD05dbbD1B051cbA2C5dCDba470e",
     "0x1ADfeA383BB0aCe078a3281E6607EB2c6A69e481"
@@ -38,7 +38,7 @@
     },
     "delistingDelayInDays": 180,
     "adminWithdrawalDelayInDays": 180,
-    "feeRestrictions":{
+    "feeRestrictions": {
       "MARKET_ORDER": {
         "minProtocolFee": "1",
         "maxProtocolFee": "MaxUint256"
@@ -56,14 +56,14 @@
         "maxProtocolFee": "MaxUint256"
       }
     }
-  },  
-  "SpotTradingRD":{
-    "increaseAmount":"1000000",
-    "rewardPerPeriod":"2739.726027"
   },
-  "LiquidityMiningRD":{
-    "reinvestmentRate":"0.3333",
-    "reinvestmentDurationInDays":30
+  "SpotTradingRD": {
+    "increaseAmount": "1000000",
+    "rewardPerPeriod": "2739.726027"
+  },
+  "LiquidityMiningRD": {
+    "reinvestmentRate": "0.3333",
+    "reinvestmentDurationInDays": 30
   },
   "KeeperRewardConfig": {
     "pmxPartInReward": "0.05",
@@ -74,7 +74,7 @@
     "defaultMaxGasPriceGwei": "200",
     "oracleGasPriceTolerance": "0.25",
     "minPositionSizeMultiplier": "1.1",
-    "paymentModel":"DEFAULT",
+    "paymentModel": "DEFAULT",
     "maxGasPerPositionParams": {
       "OpenByOrder": {
         "baseMaxGas1": 0,
@@ -169,7 +169,7 @@
           "timeframeDurationHours": 720,
           "maxAmountDuringTimeframe": "MaxUint256"
         }
-      },      
+      },
       {
         "spender": { "contract": "BigTimelockAdmin" },
         "asset": { "contract": "usdc" },
@@ -181,7 +181,7 @@
           "timeframeDurationHours": 720,
           "maxAmountDuringTimeframe": 250000
         }
-      },      
+      },
       {
         "spender": { "contract": "BigTimelockAdmin" },
         "asset": { "contract": "usdt" },
@@ -193,7 +193,7 @@
           "timeframeDurationHours": 720,
           "maxAmountDuringTimeframe": 250000
         }
-      },      
+      },
       {
         "spender": { "contract": "BigTimelockAdmin" },
         "asset": { "contract": "wbtc" },

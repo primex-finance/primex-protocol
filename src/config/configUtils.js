@@ -95,6 +95,6 @@ async function getDecimals(address) {
   if (address === USD) return USD_DECIMALS;
   if (address === NATIVE_CURRENCY) return NATIVE_CURRENCY_DECIMALS;
   // eslint-disable-next-line no-undef
-  return await (await ethers.getContractAt("ERC20", address)).decimals();
+  return await (await ethers.getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", address)).decimals();
 }
 module.exports = { setConfig, getConfigByName, getConfig, checkFolder, getAddress, getDecimals };

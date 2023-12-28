@@ -41,7 +41,7 @@ const { deployMockInterestRateStrategy, deployMockWhiteBlackList } = require("./
 process.env.TEST = true;
 
 async function getTokenMetadata(tokenAddress, trader) {
-  const token = await getContractAt("ERC20", tokenAddress);
+  const token = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", tokenAddress);
   const tokenMetadata = {
     tokenAddress: tokenAddress,
     symbol: await token.symbol(),

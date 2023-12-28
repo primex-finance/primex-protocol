@@ -230,6 +230,7 @@ library Errors {
     error TOKEN_TRANSFER_IN_FAILED();
     error TOKEN_TRANSFER_IN_OVERFLOW();
     error TOKEN_TRANSFER_OUT_FAILED();
+    error TOKEN_APPROVE_FAILED();
     error NATIVE_TOKEN_TRANSFER_FAILED();
 
     // Conditional Managers

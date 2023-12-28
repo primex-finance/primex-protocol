@@ -1,0 +1,53 @@
+{
+  "isETHNative": true,
+  "assets": {
+    "weth": "0xd045365B4A6330C5a0c6Eae4470920F0574BD69C",
+    "wbtc": "0xd20932FBbb58F366B24156B640CaFb3346530AcB",
+    "usdc": "0x8e0392D9BC88E328cf52AA23cFAfC700EAC6291c",
+    "link": "0x0f5d5521e0dFA45778973a077433F1331c0F9390",
+    "uni": "0x8BB1e5a47d36DD113CA5026Bf5d0e28d1b457F0e",
+    "usdt": "0xE2459687Bd63965d064f087Bf1B9364c072a8d37"
+  },
+  "aave": "0x83a82Cf65637c16F99D029B24788A5d965629220",
+  "dexes": {
+    "uniswapv3": {
+      "router": "0x768D6a826db075262b97A9a56bBC11983F41AAF3",
+      "type": "2",
+      "quoter": "0xa1C61d248160999aF74cf4F5abb4fA48381F1ea6",
+      "quoter2": "0x2b789d6e2b2e4D6a292986F3a7f6B4C42F3dC534",
+      "mixedRouteQuoterV1": "0x99d20095Fb3cc4C9591428a6197Ec7c000D4f94A",
+      "nonfungiblePositionManager": "0x13F912d68490c5FcA70aeccBAaBfB956854A5752",
+      "factory": "0xF66baA944151535782f407FF597FE70F82553A4e"
+    },
+    "curve": {
+      "router": "0x423E5d5a9F08AE470439e3De7e3988b7Ae94D30b",
+      "type": "3",
+      "registry": "0x61eF2F5b449aA85AaA933D7279BC5169ea3D7Eeb",
+      "cryptoRegistry": "0x5a50657ca3e526d37310D4A5Eb80C16435C27D04",
+      "pools": {
+        "usdc-wbtc-weth": {
+          "pool": "0x5925d6BdDB66CEb5872e6Eae11752e8eFb3F7aca"
+        }
+      }
+    }
+  },
+  "uniswapMulticall": "0x84aAaF1BeB0007a3B2312403a1579b830335dcEE",
+  "pricefeeds": {
+    "weth-usd": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
+    "wbtc-usd": "0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43",
+    "usdc-usd": "0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E",
+    "link-usd": "0xc59E3633BAAC79493d908e63626716e204A45EdF",
+    "native-usd": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
+    "selfDeployed": {
+      "uni-usd": "0x45cbB483A1F6ACC2aA56785399d7B3C3F0B44b1C",
+      "usdt-usd": "0xfee833e651194Da92fE1A3c5d6F8fEE9136eB947"
+    }
+  },
+  "priceDropfeeds": {
+    "selfDeployed": {
+      "weth-usdc": "0x4C0b903e50adD908985130930A91AEbD9aad2F03",
+      "wbtc-usdc": "0x3aAD3b974D5CFB296b1CB6c23Aa5f0b1a4d57ea9",
+      "link-usdc": "0x8Ed84dd4320f28E0108E1185D166ce195373EA92"
+    }
+  }
+}

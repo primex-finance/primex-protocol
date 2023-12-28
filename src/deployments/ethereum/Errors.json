@@ -1,0 +1,1159 @@
+{
+  "address": "0xB959663e3FAb840C9bfebC6d2d32822D25317292",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "ACTION_ONLY_WITH_AVAILABLE_BALANCE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ADDRESS_ALREADY_BLACKLISTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ADDRESS_ALREADY_WHITELISTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ADDRESS_IS_NOT_CONTRACT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ADDRESS_IS_WHITELISTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ADDRESS_IS_ZERO",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ADDRESS_NOT_BLACKLISTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ADDRESS_NOT_PRIMEX_BUCKET",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ADDRESS_NOT_SUPPORTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ADDRESS_NOT_UNLISTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ADDRESS_NOT_WHITELISTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AMOUNT_EXCEEDS_AVAILABLE_BALANCE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AMOUNT_IS_0",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AMOUNT_IS_MORE_THAN_DEPOSIT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AMOUNT_IS_MORE_THAN_POSITION_AMOUNT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AMOUNT_SCALED_SHOULD_BE_GREATER_THAN_ZERO",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "APPROVE_NOT_SUPPORTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ARRAYS_LENGTHS_IS_NOT_EQUAL",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ASSETS_SHOULD_BE_DIFFERENT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ASSET_ADDRESS_NOT_SUPPORTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ASSET_ALREADY_SUPPORTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ASSET_DECIMALS_EXCEEDS_MAX_VALUE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ASSET_IS_NOT_SUPPORTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ATTEMPT_TO_WITHDRAW_MORE_THAN_DEPOSITED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BAR_OVERFLOW",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BATCH_CANNOT_BE_CLOSED_FOR_THIS_REASON",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BONUS_DOES_NOT_EXIST",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BONUS_FOR_BUCKET_ALREADY_ACTIVATED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BONUS_PERCENT_IS_ZERO",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BORROWED_AMOUNT_IS_ZERO",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BORROW_INDEX_OVERFLOW",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BUCKET_ALREADY_ACTIVATED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BUCKET_ALREADY_FROZEN",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BUCKET_IS_ALREADY_ADDED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BUCKET_IS_ALREADY_DEPRECATED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BUCKET_IS_IMMUTABLE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BUCKET_IS_INACTIVE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BUCKET_IS_NOT_ACTIVE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BUCKET_IS_NOT_LAUNCHED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BUCKET_IS_NOT_STABLE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BUCKET_NOT_ADDED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BUCKET_OUTSIDE_PRIMEX_PROTOCOL",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BUCKET_SHOULD_BE_UNDEFINED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BURN_AMOUNT_EXCEEDS_PROTOCOL_DEBT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BURN_AMOUNT_IS_ZERO",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_ALREADY_REGISTERED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_IS_NOT_A_BUCKET_FACTORY",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_IS_NOT_A_MINTER",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_IS_NOT_BUCKET",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_IS_NOT_DEBT_TOKEN",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_IS_NOT_EXECUTOR",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_IS_NOT_NFT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_IS_NOT_OWNER",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_IS_NOT_P_TOKEN",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_IS_NOT_P_TOKEN_RECEIVER",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_IS_NOT_SPENDER",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CALLER_IS_NOT_TRADER",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CANNOT_CHANGE_SPOT_ORDER_TO_MARGIN",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CAN_NOT_ADD_WITH_ZERO_ADDRESS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CLOSE_CONDITION_IS_NOT_CORRECT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CONDITION_INDEX_IS_OUT_OF_BOUNDS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DATA_FOR_ROUND_DOES_NOT_EXIST",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DEADLINE_IS_NOT_PASSED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DEADLINE_IS_PASSED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DECREASE_AMOUNT_IS_ZERO",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DELTA_OF_TOKEN_IN_HAS_NEGATIVE_VALUE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DELTA_OF_TOKEN_OUT_HAS_POSITIVE_VALUE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DENOMINATOR_IS_0",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DEPOSITED_AMOUNT_IS_0",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DEPOSITED_TO_BORROWED_ROUTES_LENGTH_SHOULD_BE_0",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DEPOSIT_DOES_NOT_EXIST",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DEPOSIT_EXCEEDS_MAX_TOTAL_DEPOSIT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DEPOSIT_IN_THIRD_ASSET_ROUTES_LENGTH_SHOULD_BE_0",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DEPOSIT_IS_MORE_AMOUNT_PER_USER",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DEX_IS_ALREADY_ACTIVATED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DEX_IS_ALREADY_ADDED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DEX_IS_ALREADY_FROZEN",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DEX_NOT_ACTIVE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DEX_NOT_ADDED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DEX_ROUTER_NOT_SUPPORTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DIFFERENT_DATA_LENGTH",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DIFFERENT_PRICE_DEX_AND_ORACLE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DISABLED_TRANSFER_NATIVE_CURRENCY",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DURATION_MUST_BE_MORE_THAN_0",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "EXCEEDED_MAX_AMOUNT_DURING_TIMEFRAME",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "EXCEEDED_MAX_SPENDING_LIMITS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FEE_DECREASER_CALL_FAILED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FEE_RATE_IN_NATIVE_IS_ZERO",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FORBIDDEN",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "HIGH_PRICE_TIMESTAMP_IS_INCORRECT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "IDENTICAL_ASSETS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "IDENTICAL_ASSET_ADDRESSES",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "IDENTICAL_TOKEN_ADDRESSES",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ID_DOES_NOT_EXIST",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INCORRECT_CM_TYPE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INCORRECT_DEADLINE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INCORRECT_FEE_RATE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INCORRECT_ID",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INCORRECT_LEVERAGE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INCORRECT_LIQUIDITY_MINING_PARAMS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INCORRECT_MULTIPLIER",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INCORRECT_PART_IN_REWARD",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INCORRECT_PATH",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INCORRECT_RESTRICTIONS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INCORRECT_TRANSFER_RESTRICTIONS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INSUFFICIENT_DEPOSIT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INSUFFICIENT_DEPOSIT_SIZE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INSUFFICIENT_FREE_ASSETS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INSUFFICIENT_NATIVE_TOKEN_BALANCE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INSUFFICIENT_POSITION_SIZE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INSUFFICIENT_TOKEN_BALANCE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INTEREST_INCREASER_CALL_FAILED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_AMOUNT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_BURN_AMOUNT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_DIVIDER",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_FEE_BUFFER",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_INDEX",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_MAINTENANCE_BUFFER",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_MINT_AMOUNT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_PERCENT_NUMBER",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_SECURITY_BUFFER",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "IS_NOT_RISKY_OR_CANNOT_BE_CLOSED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "IS_SPOT_ORDER",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "IS_SPOT_POSITION",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "LAR_OVERFLOW",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "LENDER_REWARD_DISTRIBUTOR_CALL_FAILED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "LEVERAGE_EXCEEDS_MAX_LEVERAGE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "LEVERAGE_MUST_BE_MORE_THAN_1",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "LEVERAGE_SHOULD_BE_1",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "LIQUIDITY_INDEX_OVERFLOW",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "LOCK_TIME_IS_NOT_EXPIRED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "LOW_PRICE_ROUND_IS_LESS_HIGH_PRICE_ROUND",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_BONUS_COUNT_EXCEEDED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_TOTAL_DEPOSIT_IS_ZERO",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "MINING_AMOUNT_WITHDRAW_IS_LOCKED_ON_STABILIZATION_PERIOD",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "MISMATCH",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NATIVE_CURRENCY_CANNOT_BE_ASSET",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NATIVE_TOKEN_TRANSFER_FAILED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NOTHING_TO_CLOSE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NOT_ENOUGH_LIQUIDITY_IN_THE_BUCKET",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NOT_SUFFICIENT_RESERVE_BALANCE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NO_ACTIVE_DEXES",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NO_PRICEFEED_FOUND",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NO_PRICE_DROP_FEED_FOUND",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NO_PRICE_FEED_INTERSECTION",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NUMBER_IS_0",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ONLY_MINTERS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "OPERATION_NOT_SUPPORTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ORDER_CAN_NOT_BE_FILLED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ORDER_DOES_NOT_EXIST",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ORDER_HAS_EXPIRED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ORDER_IS_NOT_SPOT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PAIR_PRICE_DROP_IS_NOT_CORRECT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PARAMS_LENGTH_MISMATCH",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PARENT_NOT_WHITELISTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PERIOD_DURATION_IS_ZERO",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "POSITION_BUCKET_IS_INCORRECT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "POSITION_CANNOT_BE_CLOSED_FOR_THIS_REASON",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "POSITION_DOES_NOT_EXIST",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "POSITION_SIZE_EXCEEDED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PROGRAM_IS_NOT_ACTIVE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "QUOTER_IS_NOT_PROVIDED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "QUOTER_NOT_SUPPORTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "RECIPIENT_IS_BLACKLISTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "RECIPIENT_OR_SENDER_MUST_BE_ON_WHITE_LIST",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "RESERVE_RATE_SHOULD_BE_LESS_THAN_1",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "REVERTED_WITHOUT_A_STRING_TRY_TO_CHECK_THE_ANCILLARY_DATA",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "REWARD_AMOUNT_IS_ZERO",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "REWARD_PER_DAY_IS_NOT_CORRECT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "REWARD_PER_PERIOD_IS_NOT_CORRECT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SENDER_IS_BLACKLISTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SHARES_AMOUNT_IS_GREATER_THAN_AMOUNT_TO_SELL",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SHOULD_BE_CCM",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SHOULD_BE_COM",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SHOULD_BE_DIFFERENT_ASSETS_IN_SPOT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SHOULD_HAVE_OPEN_CONDITIONS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SHOULD_NOT_HAVE_CLOSE_CONDITIONS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SHOULD_NOT_HAVE_DUPLICATES",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SHOULD_OPEN_POSITION",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SLIPPAGE_TOLERANCE_EXCEEDED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SOLD_ASSET_IS_INCORRECT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SPENDER_IS_NOT_EXIST",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SPENDING_LIMITS_ARE_INCORRECT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SPOT_DEPOSITED_ASSET_SHOULD_BE_EQUAL_BORROWED_ASSET",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "STOP_LOSS_IS_GTE_LIMIT_PRICE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "STOP_LOSS_IS_LTE_LIQUIDATION_PRICE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SWAP_DEADLINE_PASSED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TAKE_PROFIT_IS_LTE_LIMIT_PRICE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "THERE_ARE_NO_LOCK_DEPOSITS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "THERE_MUST_BE_AT_LEAST_ONE_POSITION",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TIER_IS_NOT_ACTIVE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TOKEN_ADDRESS_IS_ZERO",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TOKEN_IS_ALREADY_ACTIVATED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TOKEN_IS_BLOCKED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TOKEN_NOT_SUPPORTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TOKEN_TRANSFER_IN_FAILED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TOKEN_TRANSFER_IN_OVERFLOW",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TOKEN_TRANSFER_OUT_FAILED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TOTAL_REWARD_AMOUNT_IS_ZERO",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TRADER_REWARD_DISTRIBUTOR_CALL_FAILED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TRAILING_DELTA_IS_INCORRECT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TRANSFER_AMOUNT_EXCEED_ALLOWANCE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TRANSFER_NOT_SUPPORTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TRANSFER_RESTRICTIONS_NOT_MET",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UNKNOWN_DEX_TYPE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UR_IS_MORE_THAN_1",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "WITHDRAWAL_NOT_ALLOWED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "WITHDRAW_PMX_BY_ADMIN_FORBIDDEN",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "WITHDRAW_RATE_IS_MORE_10_PERCENT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "WRONG_BALANCES",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "WRONG_LENGTH",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "WRONG_NETWORK",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "WRONG_TRUSTED_MULTIPLIER",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "WRONG_URIS_LENGTH",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZERO_AMOUNT",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZERO_AMOUNT_IN",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZERO_ASSET_ADDRESS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZERO_BUCKET_ADDRESS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZERO_EXCHANGE_RATE",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZERO_SHARES",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "bytes4",
+          "name": "error",
+          "type": "bytes4"
+        }
+      ],
+      "name": "Log",
+      "type": "event"
+    }
+  ],
+  "transactionHash": "0xd3f58ebe4fccda08a3f3eb95a025557a7dccaf0f868da61128843f62068b8699",
+  "receipt": {
+    "to": null,
+    "from": "0xC110b6e93a51ACF1f3DEd19c754789E7A2304F07",
+    "contractAddress": "0xB959663e3FAb840C9bfebC6d2d32822D25317292",
+    "transactionIndex": 54,
+    "gasUsed": "66028",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0xa36eaa836fa0cb825c23b9c1859c20e86162a90dd7c7797bccaf86153b27eca0",
+    "transactionHash": "0xd3f58ebe4fccda08a3f3eb95a025557a7dccaf0f868da61128843f62068b8699",
+    "logs": [],
+    "blockNumber": 18747473,
+    "cumulativeGasUsed": "3211225",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [],
+  "numDeployments": 1,
+  "solcInputHash": "ac08d1652288d4d03be56436412dd0c4",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.18+commit.87f61d96\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"ACTION_ONLY_WITH_AVAILABLE_BALANCE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ADDRESS_ALREADY_BLACKLISTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ADDRESS_ALREADY_WHITELISTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ADDRESS_IS_NOT_CONTRACT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ADDRESS_IS_WHITELISTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ADDRESS_IS_ZERO\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ADDRESS_NOT_BLACKLISTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ADDRESS_NOT_PRIMEX_BUCKET\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ADDRESS_NOT_SUPPORTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ADDRESS_NOT_UNLISTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ADDRESS_NOT_WHITELISTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AMOUNT_EXCEEDS_AVAILABLE_BALANCE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AMOUNT_IS_0\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AMOUNT_IS_MORE_THAN_DEPOSIT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AMOUNT_IS_MORE_THAN_POSITION_AMOUNT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AMOUNT_SCALED_SHOULD_BE_GREATER_THAN_ZERO\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"APPROVE_NOT_SUPPORTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ARRAYS_LENGTHS_IS_NOT_EQUAL\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ASSETS_SHOULD_BE_DIFFERENT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ASSET_ADDRESS_NOT_SUPPORTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ASSET_ALREADY_SUPPORTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ASSET_DECIMALS_EXCEEDS_MAX_VALUE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ASSET_IS_NOT_SUPPORTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ATTEMPT_TO_WITHDRAW_MORE_THAN_DEPOSITED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BAR_OVERFLOW\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BATCH_CANNOT_BE_CLOSED_FOR_THIS_REASON\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BONUS_DOES_NOT_EXIST\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BONUS_FOR_BUCKET_ALREADY_ACTIVATED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BONUS_PERCENT_IS_ZERO\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BORROWED_AMOUNT_IS_ZERO\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BORROW_INDEX_OVERFLOW\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BUCKET_ALREADY_ACTIVATED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BUCKET_ALREADY_FROZEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BUCKET_IS_ALREADY_ADDED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BUCKET_IS_ALREADY_DEPRECATED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BUCKET_IS_IMMUTABLE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BUCKET_IS_INACTIVE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BUCKET_IS_NOT_ACTIVE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BUCKET_IS_NOT_LAUNCHED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BUCKET_IS_NOT_STABLE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BUCKET_NOT_ADDED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BUCKET_OUTSIDE_PRIMEX_PROTOCOL\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BUCKET_SHOULD_BE_UNDEFINED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BURN_AMOUNT_EXCEEDS_PROTOCOL_DEBT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BURN_AMOUNT_IS_ZERO\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CALLER_ALREADY_REGISTERED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CALLER_IS_NOT_A_BUCKET_FACTORY\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CALLER_IS_NOT_A_MINTER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CALLER_IS_NOT_BUCKET\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CALLER_IS_NOT_DEBT_TOKEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CALLER_IS_NOT_EXECUTOR\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CALLER_IS_NOT_NFT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CALLER_IS_NOT_OWNER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CALLER_IS_NOT_P_TOKEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CALLER_IS_NOT_P_TOKEN_RECEIVER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CALLER_IS_NOT_SPENDER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CALLER_IS_NOT_TRADER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CANNOT_CHANGE_SPOT_ORDER_TO_MARGIN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CAN_NOT_ADD_WITH_ZERO_ADDRESS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CLOSE_CONDITION_IS_NOT_CORRECT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CONDITION_INDEX_IS_OUT_OF_BOUNDS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DATA_FOR_ROUND_DOES_NOT_EXIST\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DEADLINE_IS_NOT_PASSED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DEADLINE_IS_PASSED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DECREASE_AMOUNT_IS_ZERO\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DELTA_OF_TOKEN_IN_HAS_NEGATIVE_VALUE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DELTA_OF_TOKEN_OUT_HAS_POSITIVE_VALUE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DENOMINATOR_IS_0\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DEPOSITED_AMOUNT_IS_0\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DEPOSITED_TO_BORROWED_ROUTES_LENGTH_SHOULD_BE_0\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DEPOSIT_DOES_NOT_EXIST\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DEPOSIT_EXCEEDS_MAX_TOTAL_DEPOSIT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DEPOSIT_IN_THIRD_ASSET_ROUTES_LENGTH_SHOULD_BE_0\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DEPOSIT_IS_MORE_AMOUNT_PER_USER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DEX_IS_ALREADY_ACTIVATED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DEX_IS_ALREADY_ADDED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DEX_IS_ALREADY_FROZEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DEX_NOT_ACTIVE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DEX_NOT_ADDED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DEX_ROUTER_NOT_SUPPORTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DIFFERENT_DATA_LENGTH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DIFFERENT_PRICE_DEX_AND_ORACLE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DISABLED_TRANSFER_NATIVE_CURRENCY\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DURATION_MUST_BE_MORE_THAN_0\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"EXCEEDED_MAX_AMOUNT_DURING_TIMEFRAME\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"EXCEEDED_MAX_SPENDING_LIMITS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"FEE_DECREASER_CALL_FAILED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"FEE_RATE_IN_NATIVE_IS_ZERO\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"FORBIDDEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"HIGH_PRICE_TIMESTAMP_IS_INCORRECT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IDENTICAL_ASSETS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IDENTICAL_ASSET_ADDRESSES\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IDENTICAL_TOKEN_ADDRESSES\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ID_DOES_NOT_EXIST\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INCORRECT_CM_TYPE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INCORRECT_DEADLINE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INCORRECT_FEE_RATE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INCORRECT_ID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INCORRECT_LEVERAGE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INCORRECT_LIQUIDITY_MINING_PARAMS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INCORRECT_MULTIPLIER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INCORRECT_PART_IN_REWARD\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INCORRECT_PATH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INCORRECT_RESTRICTIONS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INCORRECT_TRANSFER_RESTRICTIONS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INSUFFICIENT_DEPOSIT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INSUFFICIENT_DEPOSIT_SIZE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INSUFFICIENT_FREE_ASSETS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INSUFFICIENT_NATIVE_TOKEN_BALANCE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INSUFFICIENT_POSITION_SIZE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INSUFFICIENT_TOKEN_BALANCE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INTEREST_INCREASER_CALL_FAILED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INVALID_AMOUNT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INVALID_BURN_AMOUNT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INVALID_DIVIDER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INVALID_FEE_BUFFER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INVALID_INDEX\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INVALID_MAINTENANCE_BUFFER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INVALID_MINT_AMOUNT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INVALID_PERCENT_NUMBER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INVALID_SECURITY_BUFFER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IS_NOT_RISKY_OR_CANNOT_BE_CLOSED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IS_SPOT_ORDER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IS_SPOT_POSITION\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"LAR_OVERFLOW\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"LENDER_REWARD_DISTRIBUTOR_CALL_FAILED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"LEVERAGE_EXCEEDS_MAX_LEVERAGE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"LEVERAGE_MUST_BE_MORE_THAN_1\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"LEVERAGE_SHOULD_BE_1\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"LIQUIDITY_INDEX_OVERFLOW\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"LOCK_TIME_IS_NOT_EXPIRED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"LOW_PRICE_ROUND_IS_LESS_HIGH_PRICE_ROUND\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MAX_BONUS_COUNT_EXCEEDED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MAX_TOTAL_DEPOSIT_IS_ZERO\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MINING_AMOUNT_WITHDRAW_IS_LOCKED_ON_STABILIZATION_PERIOD\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MISMATCH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NATIVE_CURRENCY_CANNOT_BE_ASSET\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NATIVE_TOKEN_TRANSFER_FAILED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NOTHING_TO_CLOSE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NOT_ENOUGH_LIQUIDITY_IN_THE_BUCKET\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NOT_SUFFICIENT_RESERVE_BALANCE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NO_ACTIVE_DEXES\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NO_PRICEFEED_FOUND\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NO_PRICE_DROP_FEED_FOUND\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NO_PRICE_FEED_INTERSECTION\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NUMBER_IS_0\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ONLY_MINTERS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OPERATION_NOT_SUPPORTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ORDER_CAN_NOT_BE_FILLED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ORDER_DOES_NOT_EXIST\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ORDER_HAS_EXPIRED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ORDER_IS_NOT_SPOT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PAIR_PRICE_DROP_IS_NOT_CORRECT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PARAMS_LENGTH_MISMATCH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PARENT_NOT_WHITELISTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PERIOD_DURATION_IS_ZERO\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"POSITION_BUCKET_IS_INCORRECT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"POSITION_CANNOT_BE_CLOSED_FOR_THIS_REASON\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"POSITION_DOES_NOT_EXIST\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"POSITION_SIZE_EXCEEDED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PROGRAM_IS_NOT_ACTIVE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"QUOTER_IS_NOT_PROVIDED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"QUOTER_NOT_SUPPORTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RECIPIENT_IS_BLACKLISTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RECIPIENT_OR_SENDER_MUST_BE_ON_WHITE_LIST\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESERVE_RATE_SHOULD_BE_LESS_THAN_1\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"REVERTED_WITHOUT_A_STRING_TRY_TO_CHECK_THE_ANCILLARY_DATA\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"REWARD_AMOUNT_IS_ZERO\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"REWARD_PER_DAY_IS_NOT_CORRECT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"REWARD_PER_PERIOD_IS_NOT_CORRECT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SENDER_IS_BLACKLISTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SHARES_AMOUNT_IS_GREATER_THAN_AMOUNT_TO_SELL\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SHOULD_BE_CCM\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SHOULD_BE_COM\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SHOULD_BE_DIFFERENT_ASSETS_IN_SPOT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SHOULD_HAVE_OPEN_CONDITIONS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SHOULD_NOT_HAVE_CLOSE_CONDITIONS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SHOULD_NOT_HAVE_DUPLICATES\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SHOULD_OPEN_POSITION\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SLIPPAGE_TOLERANCE_EXCEEDED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SOLD_ASSET_IS_INCORRECT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SPENDER_IS_NOT_EXIST\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SPENDING_LIMITS_ARE_INCORRECT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SPOT_DEPOSITED_ASSET_SHOULD_BE_EQUAL_BORROWED_ASSET\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"STOP_LOSS_IS_GTE_LIMIT_PRICE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"STOP_LOSS_IS_LTE_LIQUIDATION_PRICE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SWAP_DEADLINE_PASSED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TAKE_PROFIT_IS_LTE_LIMIT_PRICE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"THERE_ARE_NO_LOCK_DEPOSITS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"THERE_MUST_BE_AT_LEAST_ONE_POSITION\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TIER_IS_NOT_ACTIVE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKEN_ADDRESS_IS_ZERO\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKEN_IS_ALREADY_ACTIVATED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKEN_IS_BLOCKED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKEN_NOT_SUPPORTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKEN_TRANSFER_IN_FAILED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKEN_TRANSFER_IN_OVERFLOW\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKEN_TRANSFER_OUT_FAILED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOTAL_REWARD_AMOUNT_IS_ZERO\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TRADER_REWARD_DISTRIBUTOR_CALL_FAILED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TRAILING_DELTA_IS_INCORRECT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TRANSFER_AMOUNT_EXCEED_ALLOWANCE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TRANSFER_NOT_SUPPORTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TRANSFER_RESTRICTIONS_NOT_MET\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UNKNOWN_DEX_TYPE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UR_IS_MORE_THAN_1\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"WITHDRAWAL_NOT_ALLOWED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"WITHDRAW_PMX_BY_ADMIN_FORBIDDEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"WITHDRAW_RATE_IS_MORE_10_PERCENT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"WRONG_BALANCES\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"WRONG_LENGTH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"WRONG_NETWORK\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"WRONG_TRUSTED_MULTIPLIER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"WRONG_URIS_LENGTH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZERO_AMOUNT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZERO_AMOUNT_IN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZERO_ASSET_ADDRESS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZERO_BUCKET_ADDRESS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZERO_EXCHANGE_RATE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZERO_SHARES\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes4\",\"name\":\"error\",\"type\":\"bytes4\"}],\"name\":\"Log\",\"type\":\"event\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/libraries/Errors.sol\":\"Errors\"},\"evmVersion\":\"paris\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[],\"viaIR\":true},\"sources\":{\"contracts/libraries/Errors.sol\":{\"content\":\"// (c) 2023 Primex.finance\\n// SPDX-License-Identifier: BUSL-1.1\\npragma solidity 0.8.18;\\n\\n// solhint-disable-next-line func-visibility\\nfunction _require(bool condition, bytes4 selector) pure {\\n    if (!condition) _revert(selector);\\n}\\n\\n// solhint-disable-next-line func-visibility\\nfunction _revert(bytes4 selector) pure {\\n    // solhint-disable-next-line no-inline-assembly\\n    assembly (\\\"memory-safe\\\") {\\n        let free_mem_ptr := mload(64)\\n        mstore(free_mem_ptr, selector)\\n        revert(free_mem_ptr, 4)\\n    }\\n}\\n\\nlibrary Errors {\\n    event Log(bytes4 error);\\n\\n    //common\\n    error ADDRESS_NOT_SUPPORTED();\\n    error FORBIDDEN();\\n    error AMOUNT_IS_0();\\n    error CALLER_IS_NOT_TRADER();\\n    error CONDITION_INDEX_IS_OUT_OF_BOUNDS();\\n    error INVALID_PERCENT_NUMBER();\\n    error INVALID_SECURITY_BUFFER();\\n    error INVALID_MAINTENANCE_BUFFER();\\n    error TOKEN_ADDRESS_IS_ZERO();\\n    error IDENTICAL_TOKEN_ADDRESSES();\\n    error ASSET_DECIMALS_EXCEEDS_MAX_VALUE();\\n    error CAN_NOT_ADD_WITH_ZERO_ADDRESS();\\n    error SHOULD_BE_DIFFERENT_ASSETS_IN_SPOT();\\n    error TOKEN_NOT_SUPPORTED();\\n    error INSUFFICIENT_DEPOSIT();\\n    error SHOULD_NOT_HAVE_DUPLICATES();\\n    // error LIMIT_PRICE_IS_ZERO();\\n    error BUCKET_IS_NOT_ACTIVE();\\n    error DIFFERENT_DATA_LENGTH();\\n    error RECIPIENT_OR_SENDER_MUST_BE_ON_WHITE_LIST();\\n    error SLIPPAGE_TOLERANCE_EXCEEDED();\\n    error OPERATION_NOT_SUPPORTED();\\n    error SENDER_IS_BLACKLISTED();\\n    error NATIVE_CURRENCY_CANNOT_BE_ASSET();\\n    error DISABLED_TRANSFER_NATIVE_CURRENCY();\\n    error INVALID_AMOUNT();\\n\\n    // bonus executor\\n    error CALLER_IS_NOT_NFT();\\n    error BONUS_FOR_BUCKET_ALREADY_ACTIVATED();\\n    error WRONG_LENGTH();\\n    error BONUS_DOES_NOT_EXIST();\\n    error CALLER_IS_NOT_DEBT_TOKEN();\\n    error CALLER_IS_NOT_P_TOKEN();\\n    error MAX_BONUS_COUNT_EXCEEDED();\\n    error TIER_IS_NOT_ACTIVE();\\n    error BONUS_PERCENT_IS_ZERO();\\n\\n    // bucket\\n    error INCORRECT_LIQUIDITY_MINING_PARAMS();\\n    error PAIR_PRICE_DROP_IS_NOT_CORRECT();\\n    error ASSET_IS_NOT_SUPPORTED();\\n    error BUCKET_OUTSIDE_PRIMEX_PROTOCOL();\\n    error DEADLINE_IS_PASSED();\\n    error DEADLINE_IS_NOT_PASSED();\\n    error BUCKET_IS_NOT_LAUNCHED();\\n    error BURN_AMOUNT_EXCEEDS_PROTOCOL_DEBT();\\n    error LIQUIDITY_INDEX_OVERFLOW();\\n    error BORROW_INDEX_OVERFLOW();\\n    error BAR_OVERFLOW();\\n    error LAR_OVERFLOW();\\n    error UR_IS_MORE_THAN_1();\\n    error ASSET_ALREADY_SUPPORTED();\\n    error DEPOSIT_IS_MORE_AMOUNT_PER_USER();\\n    error DEPOSIT_EXCEEDS_MAX_TOTAL_DEPOSIT();\\n    error MINING_AMOUNT_WITHDRAW_IS_LOCKED_ON_STABILIZATION_PERIOD();\\n    error WITHDRAW_RATE_IS_MORE_10_PERCENT();\\n    error INVALID_FEE_BUFFER();\\n    error RESERVE_RATE_SHOULD_BE_LESS_THAN_1();\\n    error MAX_TOTAL_DEPOSIT_IS_ZERO();\\n    error AMOUNT_SCALED_SHOULD_BE_GREATER_THAN_ZERO();\\n    error NOT_ENOUGH_LIQUIDITY_IN_THE_BUCKET();\\n\\n    // p/debt token, PMXToken\\n    error BUCKET_IS_IMMUTABLE();\\n    error INVALID_MINT_AMOUNT();\\n    error INVALID_BURN_AMOUNT();\\n    error TRANSFER_NOT_SUPPORTED();\\n    error APPROVE_NOT_SUPPORTED();\\n    error CALLER_IS_NOT_BUCKET();\\n    error CALLER_IS_NOT_A_BUCKET_FACTORY();\\n    error CALLER_IS_NOT_P_TOKEN_RECEIVER();\\n    error DURATION_MUST_BE_MORE_THAN_0();\\n    error INCORRECT_ID();\\n    error THERE_ARE_NO_LOCK_DEPOSITS();\\n    error LOCK_TIME_IS_NOT_EXPIRED();\\n    error TRANSFER_AMOUNT_EXCEED_ALLOWANCE();\\n    error CALLER_IS_NOT_A_MINTER();\\n    error ACTION_ONLY_WITH_AVAILABLE_BALANCE();\\n    error FEE_DECREASER_CALL_FAILED();\\n    error TRADER_REWARD_DISTRIBUTOR_CALL_FAILED();\\n    error INTEREST_INCREASER_CALL_FAILED();\\n    error LENDER_REWARD_DISTRIBUTOR_CALL_FAILED();\\n    error DEPOSIT_DOES_NOT_EXIST();\\n    error RECIPIENT_IS_BLACKLISTED();\\n\\n    //LOM\\n    error ORDER_CAN_NOT_BE_FILLED();\\n    error ORDER_DOES_NOT_EXIST();\\n    error ORDER_IS_NOT_SPOT();\\n    error LEVERAGE_MUST_BE_MORE_THAN_1();\\n    error CANNOT_CHANGE_SPOT_ORDER_TO_MARGIN();\\n    error SHOULD_HAVE_OPEN_CONDITIONS();\\n    error INCORRECT_LEVERAGE();\\n    error INCORRECT_DEADLINE();\\n    error LEVERAGE_SHOULD_BE_1();\\n    error LEVERAGE_EXCEEDS_MAX_LEVERAGE();\\n    error SHOULD_OPEN_POSITION();\\n    error IS_SPOT_ORDER();\\n    error SHOULD_NOT_HAVE_CLOSE_CONDITIONS();\\n    error ORDER_HAS_EXPIRED();\\n\\n    // LiquidityMiningRewardDistributor\\n    error BUCKET_IS_NOT_STABLE();\\n    error ATTEMPT_TO_WITHDRAW_MORE_THAN_DEPOSITED();\\n    error WITHDRAW_PMX_BY_ADMIN_FORBIDDEN();\\n\\n    // nft\\n    error TOKEN_IS_BLOCKED();\\n    error ONLY_MINTERS();\\n    error PROGRAM_IS_NOT_ACTIVE();\\n    error CALLER_IS_NOT_OWNER();\\n    error TOKEN_IS_ALREADY_ACTIVATED();\\n    error WRONG_NETWORK();\\n    error ID_DOES_NOT_EXIST();\\n    error WRONG_URIS_LENGTH();\\n\\n    // PM\\n    error ASSET_ADDRESS_NOT_SUPPORTED();\\n    error IDENTICAL_ASSET_ADDRESSES();\\n    error POSITION_DOES_NOT_EXIST();\\n    error AMOUNT_IS_MORE_THAN_POSITION_AMOUNT();\\n    error BORROWED_AMOUNT_IS_ZERO();\\n    error IS_SPOT_POSITION();\\n    error AMOUNT_IS_MORE_THAN_DEPOSIT();\\n    error DECREASE_AMOUNT_IS_ZERO();\\n    error INSUFFICIENT_DEPOSIT_SIZE();\\n    error IS_NOT_RISKY_OR_CANNOT_BE_CLOSED();\\n    error BUCKET_SHOULD_BE_UNDEFINED();\\n    error DEPOSIT_IN_THIRD_ASSET_ROUTES_LENGTH_SHOULD_BE_0();\\n    error POSITION_CANNOT_BE_CLOSED_FOR_THIS_REASON();\\n    error ADDRESS_IS_ZERO();\\n    error WRONG_TRUSTED_MULTIPLIER();\\n    error POSITION_SIZE_EXCEEDED();\\n    error POSITION_BUCKET_IS_INCORRECT();\\n    error THERE_MUST_BE_AT_LEAST_ONE_POSITION();\\n    error NOTHING_TO_CLOSE();\\n\\n    // BatchManager\\n    error PARAMS_LENGTH_MISMATCH();\\n    error BATCH_CANNOT_BE_CLOSED_FOR_THIS_REASON();\\n    error CLOSE_CONDITION_IS_NOT_CORRECT();\\n    error SOLD_ASSET_IS_INCORRECT();\\n\\n    // Price Oracle\\n    error ZERO_EXCHANGE_RATE();\\n    error NO_PRICEFEED_FOUND();\\n    error NO_PRICE_DROP_FEED_FOUND();\\n\\n    //DNS\\n    error INCORRECT_FEE_RATE();\\n    error INCORRECT_RESTRICTIONS();\\n    error BUCKET_ALREADY_FROZEN();\\n    error BUCKET_IS_ALREADY_ADDED();\\n    error DEX_IS_ALREADY_ACTIVATED();\\n    error DEX_IS_ALREADY_FROZEN();\\n    error DEX_IS_ALREADY_ADDED();\\n    error BUCKET_NOT_ADDED();\\n    error DEX_NOT_ACTIVE();\\n    error BUCKET_ALREADY_ACTIVATED();\\n    error DEX_NOT_ADDED();\\n    error BUCKET_IS_INACTIVE();\\n    error WITHDRAWAL_NOT_ALLOWED();\\n    error BUCKET_IS_ALREADY_DEPRECATED();\\n\\n    // Primex upkeep\\n    error NUMBER_IS_0();\\n\\n    //referral program, WhiteBlackList\\n    error CALLER_ALREADY_REGISTERED();\\n    error MISMATCH();\\n    error PARENT_NOT_WHITELISTED();\\n    error ADDRESS_ALREADY_WHITELISTED();\\n    error ADDRESS_ALREADY_BLACKLISTED();\\n    error ADDRESS_NOT_BLACKLISTED();\\n    error ADDRESS_NOT_WHITELISTED();\\n    error ADDRESS_NOT_UNLISTED();\\n    error ADDRESS_IS_WHITELISTED();\\n    error ADDRESS_IS_NOT_CONTRACT();\\n\\n    //Reserve\\n    error BURN_AMOUNT_IS_ZERO();\\n    error CALLER_IS_NOT_EXECUTOR();\\n    error ADDRESS_NOT_PRIMEX_BUCKET();\\n    error NOT_SUFFICIENT_RESERVE_BALANCE();\\n    error INCORRECT_TRANSFER_RESTRICTIONS();\\n\\n    //Vault\\n    error AMOUNT_EXCEEDS_AVAILABLE_BALANCE();\\n    error INSUFFICIENT_FREE_ASSETS();\\n    error CALLER_IS_NOT_SPENDER();\\n\\n    //Pricing Library\\n    error IDENTICAL_ASSETS();\\n    error SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO();\\n    error DIFFERENT_PRICE_DEX_AND_ORACLE();\\n    error TAKE_PROFIT_IS_LTE_LIMIT_PRICE();\\n    error STOP_LOSS_IS_GTE_LIMIT_PRICE();\\n    error STOP_LOSS_IS_LTE_LIQUIDATION_PRICE();\\n    error INSUFFICIENT_POSITION_SIZE();\\n    error INCORRECT_PATH();\\n    error DEPOSITED_TO_BORROWED_ROUTES_LENGTH_SHOULD_BE_0();\\n    error INCORRECT_CM_TYPE();\\n    error FEE_RATE_IN_NATIVE_IS_ZERO();\\n\\n    // Token transfers\\n    error TOKEN_TRANSFER_IN_FAILED();\\n    error TOKEN_TRANSFER_IN_OVERFLOW();\\n    error TOKEN_TRANSFER_OUT_FAILED();\\n    error NATIVE_TOKEN_TRANSFER_FAILED();\\n\\n    // Conditional Managers\\n    error LOW_PRICE_ROUND_IS_LESS_HIGH_PRICE_ROUND();\\n    error TRAILING_DELTA_IS_INCORRECT();\\n    error DATA_FOR_ROUND_DOES_NOT_EXIST();\\n    error HIGH_PRICE_TIMESTAMP_IS_INCORRECT();\\n    error NO_PRICE_FEED_INTERSECTION();\\n    error SHOULD_BE_CCM();\\n    error SHOULD_BE_COM();\\n\\n    //Lens\\n    error DEPOSITED_AMOUNT_IS_0();\\n    error SPOT_DEPOSITED_ASSET_SHOULD_BE_EQUAL_BORROWED_ASSET();\\n    error ZERO_ASSET_ADDRESS();\\n    error ASSETS_SHOULD_BE_DIFFERENT();\\n    error ZERO_SHARES();\\n    error SHARES_AMOUNT_IS_GREATER_THAN_AMOUNT_TO_SELL();\\n    error NO_ACTIVE_DEXES();\\n\\n    //Bots\\n    error WRONG_BALANCES();\\n    error INVALID_INDEX();\\n    error INVALID_DIVIDER();\\n    error ARRAYS_LENGTHS_IS_NOT_EQUAL();\\n    error DENOMINATOR_IS_0();\\n\\n    //DexAdapter\\n    error ZERO_AMOUNT_IN();\\n    error ZERO_AMOUNT();\\n    error UNKNOWN_DEX_TYPE();\\n    error REVERTED_WITHOUT_A_STRING_TRY_TO_CHECK_THE_ANCILLARY_DATA();\\n    error DELTA_OF_TOKEN_OUT_HAS_POSITIVE_VALUE();\\n    error DELTA_OF_TOKEN_IN_HAS_NEGATIVE_VALUE();\\n    error QUOTER_IS_NOT_PROVIDED();\\n    error DEX_ROUTER_NOT_SUPPORTED();\\n    error QUOTER_NOT_SUPPORTED();\\n    error SWAP_DEADLINE_PASSED();\\n\\n    //SpotTradingRewardDistributor\\n    error PERIOD_DURATION_IS_ZERO();\\n    error REWARD_AMOUNT_IS_ZERO();\\n    error REWARD_PER_PERIOD_IS_NOT_CORRECT();\\n\\n    //ActivityRewardDistributor\\n    error TOTAL_REWARD_AMOUNT_IS_ZERO();\\n    error REWARD_PER_DAY_IS_NOT_CORRECT();\\n    error ZERO_BUCKET_ADDRESS();\\n    //KeeperRewardDistributor\\n    error INCORRECT_PART_IN_REWARD();\\n    error INCORRECT_MULTIPLIER();\\n\\n    //Treasury\\n    error TRANSFER_RESTRICTIONS_NOT_MET();\\n    error INSUFFICIENT_NATIVE_TOKEN_BALANCE();\\n    error INSUFFICIENT_TOKEN_BALANCE();\\n    error EXCEEDED_MAX_AMOUNT_DURING_TIMEFRAME();\\n    error EXCEEDED_MAX_SPENDING_LIMITS();\\n    error SPENDING_LIMITS_ARE_INCORRECT();\\n    error SPENDER_IS_NOT_EXIST();\\n}\\n\",\"keccak256\":\"0xdefed1730079812b35863325fa1451cd220f15f8d26af3cd218e579567a8d65f\",\"license\":\"BUSL-1.1\"}},\"version\":1}",
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea26469706673582212206e7bd2bbc50360bbb0c2ee9c05c740d803399bf61f5c0a5fb8782486f386183464736f6c63430008120033",
+  "deployedBytecode": "0x600080fdfea26469706673582212206e7bd2bbc50360bbb0c2ee9c05c740d803399bf61f5c0a5fb8782486f386183464736f6c63430008120033",
+  "devdoc": {
+    "kind": "dev",
+    "methods": {},
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {},
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [],
+    "types": null
+  }
+}

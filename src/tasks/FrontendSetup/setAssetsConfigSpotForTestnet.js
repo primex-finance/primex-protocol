@@ -14,7 +14,13 @@ module.exports = async function (
   },
 ) {
   const { deployer } = await getNamedSigners();
-  const { assets, pricefeeds, dexes:{uniswap:{router}} } = getConfig();
+  const {
+    assets,
+    pricefeeds,
+    dexes: {
+      uniswap: { router },
+    },
+  } = getConfig();
   const { userAccounts, botAccounts } = require("../utils/accountAddresses");
 
   // Deploy new assets and mints to test accounts
@@ -30,7 +36,6 @@ module.exports = async function (
 
   const testAccountsJson = JSON.stringify(testAccounts);
   const testBalancesJson = JSON.stringify(testBalances);
-
 
   // Add new asset for spot if require.
   // If add new asset update: assetsForSpot, prices, amounts below.
@@ -84,7 +89,7 @@ module.exports = async function (
   }
 
   setConfig("pricefeeds", allPriceFeeds);
-  
+
   // add liquidity on Dex
   const amounts = {
     "aave-bal": ["4300", "100000"],
@@ -93,7 +98,7 @@ module.exports = async function (
     "aave-usdc": ["1000", "84000"],
     "bal-weth": ["50000", "80"],
     "bal-wbtc": ["100000", "10"],
-    "bal-usdc": ["5000", "17250"]
+    "bal-usdc": ["5000", "17250"],
   };
 
   const tokenAmounts = {};
@@ -128,5 +133,7 @@ module.exports = async function (
     await addLiquidity(router, allAssets[tokenNames[0]], allAssets[tokenNames[1]], amountsPair);
   }
   console.log("Liquidity added!");
-  console.log("Initial setup for setting up new assets for spot/swap on testnet are complete. \n Please add data for 'pairsConfig' in pairsConfig.json.");
+  console.log(
+    "Initial setup for setting up new assets for spot/swap on testnet are complete. \n Please add data for 'pairsConfig' in pairsConfig.json.",
+  );
 };

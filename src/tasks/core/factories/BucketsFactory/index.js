@@ -11,4 +11,5 @@ task("deploy:BucketsFactory", "Deploy BucketsFactory contract", require("./Bucke
 
 task("deploy:BucketImplementation", "Deploy Bucket contract", require("./BucketImplementation.deploy"))
   .addOptionalParam("errorsLibrary", "The address of errorsLibrary contract")
-  .addParam("tokenTransfersLibrary", "The address of the TokenTransfersLibrary");
+  .addParam("tokenTransfersLibrary", "The address of the TokenTransfersLibrary")
+  .addParam("tokenApproveLibrary", "The address of the TokenApproveLibrary");

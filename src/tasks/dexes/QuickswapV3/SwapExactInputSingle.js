@@ -10,14 +10,14 @@ module.exports = async function (
   from = signers[from];
   if (from === undefined) throw new Error(`signer ${from} undefined`);
 
-  const tokenBContract = await getContractAt("ERC20", tokenB);
+  const tokenBContract = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", tokenB);
   let amountOut = await tokenBContract.balanceOf(to);
 
   if (!swapRouter) {
     swapRouter = (await getContract("QuickswapRouterV3")).address;
   }
 
-  const tokenAContract = await getContractAt("ERC20", tokenA);
+  const tokenAContract = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", tokenA);
   const txApprove = await tokenAContract.approve(swapRouter, amountIn);
   await txApprove.wait();
   const SwapRouterContract = await getContractAt(SwapRouterArtifact.abi, swapRouter);

@@ -126,7 +126,7 @@ async function deployMockWhiteBlackListReferral(deployer) {
 }
 
 async function deployMockERC20(deployer, decimals = 18) {
-  const mockErc20 = await deployMockContract(deployer, await abi("ERC20"));
+  const mockErc20 = await deployMockContract(deployer, await abi("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20"));
   await mockErc20.mock.approve.returns(true);
   await mockErc20.mock.balanceOf.returns(10);
   await mockErc20.mock.transfer.returns(true);

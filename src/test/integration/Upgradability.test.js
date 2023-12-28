@@ -20,7 +20,7 @@ const { getImpersonateSigner } = require("../utils/hardhatUtils");
 process.env.TEST = true;
 
 describe("Upgradability_integration", function () {
-  let primexPricingLibrary, bigTimeLock, positionLibrary, tokenTransfersLibrary, limitOrderLibrary, PrimexProxyAdmin;
+  let primexPricingLibrary, bigTimeLock, positionLibrary, tokenTransfersLibrary, tokenApproveLibrary, limitOrderLibrary, PrimexProxyAdmin;
   let params, delay, value, predecessor, salt;
   let deployer;
   before(async function () {
@@ -36,6 +36,7 @@ describe("Upgradability_integration", function () {
     primexPricingLibrary = await getContract("PrimexPricingLibrary");
     positionLibrary = await getContract("PositionLibrary");
     tokenTransfersLibrary = await getContract("TokenTransfersLibrary");
+    tokenApproveLibrary = await getContract("TokenApproveLibrary");
     limitOrderLibrary = await getContract("LimitOrderLibrary");
     PrimexProxyAdmin = await getContract("PrimexProxyAdmin");
     deployer = (await getNamedAccounts()).deployer;
@@ -246,8 +247,14 @@ describe("Upgradability_integration", function () {
           oldImplContractArtifactName: name,
           newImplContractArtifactName: newName,
           isBeacon: "true",
-          oldImplContractLibraries: { TokenTransfersLibrary: tokenTransfersLibrary.address },
-          newImplContractLibraries: { TokenTransfersLibrary: tokenTransfersLibrary.address },
+          oldImplContractLibraries: {
+            TokenTransfersLibrary: tokenTransfersLibrary.address,
+            TokenApproveLibrary: tokenApproveLibrary.address,
+          },
+          newImplContractLibraries: {
+            TokenTransfersLibrary: tokenTransfersLibrary.address,
+            TokenApproveLibrary: tokenApproveLibrary.address,
+          },
         },
       ];
 

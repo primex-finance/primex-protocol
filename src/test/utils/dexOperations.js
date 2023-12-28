@@ -61,6 +61,7 @@ async function addLiquidity({
   tokenBWeight = "5",
   pool,
   assets,
+  needMint = true,
 }) {
   await initialize();
   const { deployer } = await getNamedSigners();
@@ -71,15 +72,17 @@ async function addLiquidity({
   const dexType = await DexAdapter.dexType(router);
 
   let curveSwapRouter, registry, meshswapFactory, meshswapPoolAddress, factoryImplContract;
-  if (dexType !== 0) {
-    if (assets) {
-      for (const asset of assets) {
-        const token = await getContractAt("ERC20Mock", asset.token);
-        await token.mint(deployer.address, parseUnits(asset.amount, await token.decimals()));
+  if (needMint) {
+    if (dexType !== 0) {
+      if (assets) {
+        for (const asset of assets) {
+          const token = await getContractAt("ERC20Mock", asset.token);
+          await token.mint(deployer.address, parseUnits(asset.amount, await token.decimals()));
+        }
+      } else {
+        await tokenA.mint(deployer.address, parseUnits(amountADesired, await tokenA.decimals()));
+        await tokenB.mint(deployer.address, parseUnits(amountBDesired, await tokenB.decimals()));
       }
-    } else {
-      await tokenA.mint(deployer.address, parseUnits(amountADesired, await tokenA.decimals()));
-      await tokenB.mint(deployer.address, parseUnits(amountBDesired, await tokenB.decimals()));
     }
   }
 

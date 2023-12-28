@@ -1,0 +1,285 @@
+{
+  "BigTimelockDelayInDays": 10,
+  "MediumTimelockDelayInDays": 2,
+  "SmallTimelockDelayInDays": 0.5,
+  "deployRefferalProgram": true,
+  "EPMXOraclePrice": "0.1",
+  "BucketsToDeprecate":[
+    "0xEFe66D9933A5644cDEA29F212d90062290e7902d"
+  ],
+  "PositionManagerConfig": {
+    "defaultOracleTolerableLimit": "0.02",
+    "oracleTolerableLimitMultiplier": "5",
+    "maintenanceBuffer": "0.03",
+    "securityBuffer": "0",
+    "minPositionAsset": { "contract": "usd" },
+    "minPositionSize": "8"
+  },
+  "PrimexDNSconfig": {
+    "rates": {
+      "MARKET_ORDER": {
+        "protocolRate": "0",
+        "protocolRateInPmx": "0"
+      },
+      "LIMIT_ORDER": {
+        "protocolRate": "1e-9",
+        "protocolRateInPmx": "0.8e-9"
+      },
+      "SWAP_MARKET_ORDER": {
+        "protocolRate": "0",
+        "protocolRateInPmx": "0"
+      },
+      "SWAP_LIMIT_ORDER": {
+        "protocolRate": "1e-9",
+        "protocolRateInPmx": "0.8e-9"
+      }
+    },
+    "delistingDelayInDays": 180,
+    "adminWithdrawalDelayInDays": 180,
+    "feeRestrictions":{
+      "MARKET_ORDER": {
+        "minProtocolFee": "0",
+        "maxProtocolFee": "MaxUint256"
+      },
+      "LIMIT_ORDER": {
+        "minProtocolFee": "0.001",
+        "maxProtocolFee": "MaxUint256"
+      },
+      "SWAP_MARKET_ORDER": {
+        "minProtocolFee": "0",
+        "maxProtocolFee": "0"
+      },
+      "SWAP_LIMIT_ORDER": {
+        "minProtocolFee": "0.001",
+        "maxProtocolFee": "MaxUint256"
+      }
+    }
+  },  
+  "SpotTradingRD":{
+    "increaseAmount":"1000000",
+    "rewardPerPeriod":"100"
+  },
+  "LiquidityMiningRD":{
+    "reinvestmentRate":"0.3333",
+    "reinvestmentDurationInDays":30
+  },
+  "KeeperRewardConfig": {
+    "pmxPartInReward": "0.05",
+    "nativePartInReward": "0.95",
+    "positionSizeCoefficientA": "0.001",
+    "positionSizeCoefficientB": "0",
+    "additionalGas": "150000",
+    "defaultMaxGasPriceGwei": "200",
+    "oracleGasPriceTolerance": "0.25",
+    "minPositionSizeMultiplier": "1.1",
+    "paymentModel":"DEFAULT",
+    "maxGasPerPositionParams": {
+      "OpenByOrder": {
+        "baseMaxGas1": 0,
+        "baseMaxGas2": 0,
+        "multiplier1": 1700000,
+        "multiplier2": 0,
+        "inflectionPoint": 0
+      },
+      "StopLoss": {
+        "baseMaxGas1": 850000,
+        "baseMaxGas2": 0,
+        "multiplier1": 216000,
+        "multiplier2": 0,
+        "inflectionPoint": 0
+      },
+      "TakeProfit": {
+        "baseMaxGas1": 850000,
+        "baseMaxGas2": 0,
+        "multiplier1": 216000,
+        "multiplier2": 0,
+        "inflectionPoint": 0
+      },
+      "Liquidation": {
+        "baseMaxGas1": 923000,
+        "baseMaxGas2": 3995000,
+        "multiplier1": 186000,
+        "multiplier2": 53000,
+        "inflectionPoint": 24
+      },
+      "BucketDelisted": {
+        "baseMaxGas1": 850000,
+        "baseMaxGas2": 0,
+        "multiplier1": 216000,
+        "multiplier2": 0,
+        "inflectionPoint": 0
+      }
+    },
+    "decreasingGasByReasonParams": {
+      "NonExistentIdForLiquidation": 8172,
+      "NonExistentIdForSLOrTP": 7184,
+      "IncorrectConditionForLiquidation": 16424,
+      "IncorrectConditionForSL": 19441,
+      "ClosePostionInTheSameBlock": 199760
+    }
+  },
+  "TreasuryConfig": {
+    "setMaxSpendingLimit": [
+      {
+        "spender": { "contract": "KeeperRewardDistributor" },
+        "asset": { "contract": "EPMXToken" },
+        "spendingLimits": {
+          "maxTotalAmount": "MaxUint256",
+          "maxAmountPerTransfer": 2000,
+          "maxPercentPerTransfer": "0.0000025",
+          "minTimeBetweenTransfersSeconds": 1,
+          "timeframeDurationHours": 24,
+          "maxAmountDuringTimeframe": 10000
+        }
+      },
+      {
+        "spender": { "contract": "KeeperRewardDistributor" },
+        "asset": { "contract": "native" },
+        "spendingLimits": {
+          "maxTotalAmount": "MaxUint256",
+          "maxAmountPerTransfer": 2,
+          "maxPercentPerTransfer": "0.1",
+          "minTimeBetweenTransfersSeconds": 1,
+          "timeframeDurationHours": 24,
+          "maxAmountDuringTimeframe": 4
+        }
+      },
+      {
+        "spender": { "contract": "BigTimelockAdmin" },
+        "asset": { "contract": "native" },
+        "spendingLimits": {
+          "maxTotalAmount": "MaxUint256",
+          "maxAmountPerTransfer": 155,
+          "maxPercentPerTransfer": "0.999999999999999999",
+          "minTimeBetweenTransfersSeconds": 0,
+          "timeframeDurationHours": 720,
+          "maxAmountDuringTimeframe": 155
+        }
+      },
+      {
+        "spender": { "contract": "BigTimelockAdmin" },
+        "asset": { "contract": "EPMXToken" },
+        "spendingLimits": {
+          "maxTotalAmount": "MaxUint256",
+          "maxAmountPerTransfer": "MaxUint256",
+          "maxPercentPerTransfer": "0.999999999999999999",
+          "minTimeBetweenTransfersSeconds": 0,
+          "timeframeDurationHours": 720,
+          "maxAmountDuringTimeframe": "MaxUint256"
+        }
+      },
+      {
+        "spender": { "contract": "BigTimelockAdmin" },
+        "asset": { "contract": "usdc" },
+        "spendingLimits": {
+          "maxTotalAmount": "MaxUint256",
+          "maxAmountPerTransfer": 250000,
+          "maxPercentPerTransfer": "0.999999999999999999",
+          "minTimeBetweenTransfersSeconds": 0,
+          "timeframeDurationHours": 720,
+          "maxAmountDuringTimeframe": 250000
+        }
+      },
+      {
+        "spender": { "contract": "BigTimelockAdmin" },
+        "asset": { "contract": "usdt" },
+        "spendingLimits": {
+          "maxTotalAmount": "MaxUint256",
+          "maxAmountPerTransfer": 250000,
+          "maxPercentPerTransfer": "0.999999999999999999",
+          "minTimeBetweenTransfersSeconds": 0,
+          "timeframeDurationHours": 720,
+          "maxAmountDuringTimeframe": 250000
+        }
+      },
+      {
+        "spender": { "contract": "BigTimelockAdmin" },
+        "asset": { "contract": "wbtc" },
+        "spendingLimits": {
+          "maxTotalAmount": "MaxUint256",
+          "maxAmountPerTransfer": 9,
+          "maxPercentPerTransfer": "0.999999999999999999",
+          "minTimeBetweenTransfersSeconds": 0,
+          "timeframeDurationHours": 720,
+          "maxAmountDuringTimeframe": 9
+        }
+      },
+      {
+        "spender": { "contract": "BigTimelockAdmin" },
+        "asset": { "contract": "weth" },
+        "spendingLimits": {
+          "maxTotalAmount": "MaxUint256",
+          "maxAmountPerTransfer": 155,
+          "maxPercentPerTransfer": "0.999999999999999999",
+          "minTimeBetweenTransfersSeconds": 0,
+          "timeframeDurationHours": 720,
+          "maxAmountDuringTimeframe": 155
+        }
+      },
+      {
+        "spender": { "contract": "MediumTimelockAdmin" },
+        "asset": { "contract": "native" },
+        "spendingLimits": {
+          "maxTotalAmount": "MaxUint256",
+          "maxAmountPerTransfer": 155,
+          "maxPercentPerTransfer": "0.999999999999999999",
+          "minTimeBetweenTransfersSeconds": 0,
+          "timeframeDurationHours": 720,
+          "maxAmountDuringTimeframe": 155
+        }
+      },
+      {
+        "spender": { "contract": "MediumTimelockAdmin" },
+        "asset": { "contract": "weth" },
+        "spendingLimits": {
+          "maxTotalAmount": "MaxUint256",
+          "maxAmountPerTransfer": 155,
+          "maxPercentPerTransfer": "0.999999999999999999",
+          "minTimeBetweenTransfersSeconds": 0,
+          "timeframeDurationHours": 720,
+          "maxAmountDuringTimeframe": 155
+        }
+      },
+      {
+        "spender": { "contract": "MediumTimelockAdmin" },
+        "asset": { "contract": "EPMXToken" },
+        "spendingLimits": {
+          "maxTotalAmount": 11000000,
+          "maxAmountPerTransfer": 5000000,
+          "maxPercentPerTransfer": "0.05",
+          "minTimeBetweenTransfersSeconds": 0,
+          "timeframeDurationHours": 48,
+          "maxAmountDuringTimeframe": 5000000
+        }
+      },
+      {
+        "spender": { "contract": "BigTimelockAdmin" },
+        "asset": { "contract": "dai" },
+        "spendingLimits": {
+          "maxTotalAmount": "MaxUint256",
+          "maxAmountPerTransfer": 250000,
+          "maxPercentPerTransfer": "0.999999999999999999",
+          "minTimeBetweenTransfersSeconds": 0,
+          "timeframeDurationHours": 720,
+          "maxAmountDuringTimeframe": 250000
+        }
+      },
+      {
+        "spender": { "contract": "BigTimelockAdmin" },
+        "asset": { "contract": "matic" },
+        "spendingLimits": {
+          "maxTotalAmount": "MaxUint256",
+          "maxAmountPerTransfer": 300000,
+          "maxPercentPerTransfer": "0.999999999999999999",
+          "minTimeBetweenTransfersSeconds": 0,
+          "timeframeDurationHours": 720,
+          "maxAmountDuringTimeframe": 300000
+        }
+      }
+    ]
+  },
+  "ReserveConfig": {
+    "setTransferRestrictions": [
+    ]
+  }
+}

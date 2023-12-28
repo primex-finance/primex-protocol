@@ -19,15 +19,15 @@
       "router": "0x4959c5418cA9f6ea9aEe91F34Dc6903cA0ED82c9",
       "type": "5",
       "quoter": "0x18013fBd92675b85032b66E43a1cCaD1C79516eA",
-      "quoterV2":"0x9971962b22b885209477Ef5Ec868645fB92114d1" ,
+      "quoterV2": "0x9971962b22b885209477Ef5Ec868645fB92114d1",
       "nonfungiblePositionManager": "0xE89b2047dAa9267fF03954F62ea88Eaa6Af4eDf0",
-      "factory":"0xDD29aE874Ab507db685e148bcFA029Fd434DAD0E",
-      "poolDeployer":"0x4b4a3A9a9C262d2D56CeEc977E408E4F70777284"
+      "factory": "0xDD29aE874Ab507db685e148bcFA029Fd434DAD0E",
+      "poolDeployer": "0x4b4a3A9a9C262d2D56CeEc977E408E4F70777284"
     },
     "curve": {
       "router": "0x449eeF2DFF75883320E0E2F1445062B86562AAdd",
       "type": "3",
-      "registry":"0x45b54E14E70a41125871A6C5473D96b998c71423",
+      "registry": "0x45b54E14E70a41125871A6C5473D96b998c71423",
       "cryptoRegistry": "0xB9E292c1FB50a1581C344DEFeB7f14539A6cCeeF",
       "pools": {
         "usdc-wbtc-weth": {

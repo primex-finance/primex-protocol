@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 module.exports = async function (
-  { registry, routers, contractName, name, dexTypes, primexDNS, quoters, errorsLibrary, addDexesToDns },
+  { registry, routers, contractName, name, dexTypes, primexDNS, quoters, errorsLibrary, tokenApproveLibrary, addDexesToDns },
   { run, getNamedAccounts, ethers: { getContract, getContractAt }, deployments: { deploy } },
 ) {
   const { deployer } = await getNamedAccounts();
@@ -12,6 +12,9 @@ module.exports = async function (
   if (!errorsLibrary) {
     errorsLibrary = (await getContract("Errors")).address;
   }
+  if (!tokenApproveLibrary) {
+    tokenApproveLibrary = (await getContract("TokenApproveLibrary")).address;
+  }
 
   const dexAdapter = await deploy(contractName ?? "DexAdapter", {
     from: deployer,
@@ -19,6 +22,7 @@ module.exports = async function (
     log: true,
     libraries: {
       Errors: errorsLibrary,
+      TokenApproveLibrary: tokenApproveLibrary,
     },
   });
 

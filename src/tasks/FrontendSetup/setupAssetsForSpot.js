@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-const { getConfigByName, getConfig} = require("../../config/configUtils");
+const { getConfigByName, getConfig } = require("../../config/configUtils");
 const path = require("path");
 const fs = require("fs");
 
@@ -22,14 +22,14 @@ module.exports = async function (
 
   const bigTimelockAdmin = await getContract("BigTimelockAdmin");
   const delay = (await bigTimelockAdmin.getMinDelay()).toString();
-  
+
   const assetsArray = tokens.split(/\s*,\s*/);
   const priceFeedsAssetsForSpot = {};
   const pairsConfigAssetsForSpot = {};
   const output = {};
 
   for (const asset of assetsArray) {
-    if(!assets[asset]){
+    if (!assets[asset]) {
       throw new Error(`Address not found for token: ${asset}`);
     }
     const priceFeed = pricefeeds[`${asset}-usd`] || pricefeeds.selfDeployed?.[`${asset}-usd`];
@@ -38,7 +38,7 @@ module.exports = async function (
     } else {
       throw new Error(`Price feed not found for token: ${asset}`);
     }
-  };
+  }
 
   for (const pairConfig in pairsConfig) {
     const assetsInPair = pairConfig.split("-");
@@ -64,12 +64,12 @@ module.exports = async function (
     // PairsConfig: maxPositionSize and oracleTolerableLimit
     for (const pairConfig in pairsConfigAssetsForSpot) {
       const assetsInPair = pairConfig.split("-");
-      if(assetsInPair.includes(asset)) {
+      if (assetsInPair.includes(asset)) {
         const pairContracts = await Promise.all(
           assetsInPair.map(async assetName => {
             const assetAddress = assets[assetName];
             if (assetAddress) {
-              return await getContractAt("ERC20", assetAddress);
+              return await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", assetAddress);
             } else {
               console.error(`Contract address for ${assetName} not found`);
               return null;
@@ -92,7 +92,7 @@ module.exports = async function (
           "setMaxPositionSize",
           [pairContracts[0].address, pairContracts[1].address, amount0, amount1],
           "PositionManager",
-        );      
+        );
         targets.push(encodeResult.contractAddress);
         payloads.push(encodeResult.payload);
 
@@ -103,7 +103,7 @@ module.exports = async function (
             "setOracleTolerableLimit",
             [pairContracts[0].address, pairContracts[1].address, oracleTolerableLimit],
             "PositionManager",
-          );      
+          );
           targets.push(encodeResult.contractAddress);
           payloads.push(encodeResult.payload);
         }
@@ -112,7 +112,7 @@ module.exports = async function (
     }
 
     const values = new Array(targets.length).fill(0);
-    
+
     if (!output[asset]) {
       output[asset] = {};
     }
@@ -121,7 +121,7 @@ module.exports = async function (
     }
     output[asset].ForBigTimeLockAdmin = [targets, values, payloads, HashZero, HashZero, delay];
   }
-  
+
   const pathToConfig = path.join(__dirname, "..", "..", "config");
   fs.writeFileSync(path.join(pathToConfig, network.name, "assetsForSpotSetupData.json"), JSON.stringify(output, null, 2));
   console.log("See data for timelocks are in 'assetsForSpotSetupData.json'");

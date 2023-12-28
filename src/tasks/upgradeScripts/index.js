@@ -17,3 +17,7 @@ task("scheduleBatchContractUpgrade", "Schedule batch contract upgrade", require(
 task("upgrade", "", require("./upgrade.js"))
   .addFlag("executeFromDeployer", "The flag to indicate whether to execute on behalf of the deployer")
   .addFlag("executeUpgrade", "The flag to indicate whether contract updates should be executed");
+
+task("upgradeBucketAndDexAdapter", "", require("./upgradeBucketAndDexAdapter.js"))
+  .addFlag("executeFromDeployer", "The flag to indicate whether to execute on behalf of the deployer")
+  .addFlag("executeUpgrade", "The flag to indicate whether contract updates should be executed");

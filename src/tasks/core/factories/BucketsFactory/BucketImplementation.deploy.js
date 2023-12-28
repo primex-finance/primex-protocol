@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 module.exports = async function (
-  { errorsLibrary, tokenTransfersLibrary },
+  { errorsLibrary, tokenTransfersLibrary, tokenApproveLibrary },
   { ethers: { getContract }, deployments: { deploy }, getNamedAccounts },
 ) {
   const { deployer } = await getNamedAccounts();
@@ -15,6 +15,7 @@ module.exports = async function (
     libraries: {
       Errors: errorsLibrary,
       TokenTransfersLibrary: tokenTransfersLibrary,
+      TokenApproveLibrary: tokenApproveLibrary,
     },
   });
 };
