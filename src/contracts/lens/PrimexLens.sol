@@ -332,7 +332,8 @@ contract PrimexLens is IPrimexLens, ERC165 {
                 takeProfitPrice: params.takeProfitPrice,
                 debt: debt,
                 depositAmount: position.depositAmountInSoldAsset,
-                createdAt: position.createdAt
+                createdAt: position.createdAt,
+                extraParams: position.extraParams
             });
     }
 
@@ -342,16 +343,18 @@ contract PrimexLens is IPrimexLens, ERC165 {
     function isStopLossReached(
         address _positionManager,
         uint256 _id,
-        bytes calldata _positionSoldAssetOracleData
-    ) public override returns (bool) {
+        bytes calldata _positionSoldAssetOracleData,
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
+    ) public payable override returns (bool) {
         _require(
             IERC165(_positionManager).supportsInterface(type(IPositionManagerV2).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
-        PositionLibrary.Position memory position = IPositionManagerV2(_positionManager).getPosition(_id);
-        LimitOrderLibrary.Condition[] memory closeConditions = IPositionManagerV2(_positionManager).getCloseConditions(
-            _id
-        );
+        IPositionManagerV2 pm = IPositionManagerV2(_positionManager);
+        PositionLibrary.Position memory position = pm.getPosition(_id);
+        LimitOrderLibrary.Condition[] memory closeConditions = pm.getCloseConditions(_id);
+        pm.priceOracle().updatePullOracle{value: msg.value}(_pullOracleData, _pullOracleTypes);
 
         if (closeConditions.length == 0) return false;
 
@@ -359,9 +362,9 @@ contract PrimexLens is IPrimexLens, ERC165 {
 
         for (uint256 i; i < closeConditions.length; i++) {
             if (
-                IERC165(
-                    IPositionManagerV2(_positionManager).primexDNS().cmTypeToAddress(closeConditions[i].managerType)
-                ).supportsInterface(type(ITakeProfitStopLossCCM).interfaceId)
+                IERC165(pm.primexDNS().cmTypeToAddress(closeConditions[i].managerType)).supportsInterface(
+                    type(ITakeProfitStopLossCCM).interfaceId
+                )
             ) {
                 params = abi.decode(closeConditions[i].params, (ITakeProfitStopLossCCM.CanBeClosedParams));
                 break;
@@ -601,8 +604,11 @@ contract PrimexLens is IPrimexLens, ERC165 {
     function getPositionMaxDecrease(
         IPositionManagerV2 _pm,
         uint256 _id,
-        bytes calldata _positionSoldAssetOracleData
-    ) public override returns (uint256) {
+        bytes calldata _positionSoldAssetOracleData,
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
+    ) public payable override returns (uint256) {
+        _pm.priceOracle().updatePullOracle{value: msg.value}(_pullOracleData, _pullOracleTypes);
         PositionLibrary.Position memory position = _pm.getPosition(_id);
         uint256 pairPriceDrop = _pm.priceOracle().getPairPriceDrop(position.positionAsset, address(position.soldAsset));
         uint256 securityBuffer = _pm.securityBuffer();

@@ -96,7 +96,7 @@ interface IKeeperRewardDistributorStorage {
 }
 
 interface IKeeperRewardDistributorStorageV2 is IKeeperRewardDistributorStorage {
-    function minPositionSizeMultiplier() external view returns (uint256);
+    function minPositionSizeAddend() external view returns (uint256);
 
     function optimisticGasCoefficient() external view returns (uint256);
 }

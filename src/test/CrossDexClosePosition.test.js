@@ -45,15 +45,12 @@ describe("CrossDexClosePosition", function () {
   let priceOracle;
   let snapshotIdBase;
   let routeOnDex1, routeOnDex2;
-  let ErrorsLibrary;
-
   before(async function () {
     await fixture(["Test"]);
     ({ trader, lender, liquidator } = await getNamedSigners());
     PrimexDNS = await getContract("PrimexDNS");
     positionManager = await getContract("PositionManager");
     traderBalanceVault = await getContract("TraderBalanceVault");
-    ErrorsLibrary = await getContract("Errors");
     testTokenA = await getContract("TestTokenA");
     decimalsA = await testTokenA.decimals();
     await testTokenA.mint(trader.address, parseUnits("1000", decimalsA));
@@ -226,25 +223,6 @@ describe("CrossDexClosePosition", function () {
             [],
           ),
       ).to.be.reverted;
-    });
-
-    it("Should revert close position if the dex is frozen in PrimexDNS, but this dex was NOT the dex of opening a position", async function () {
-      await PrimexDNS.freezeDEX(dex2);
-      await expect(
-        positionManager
-          .connect(trader)
-          .closePosition(
-            0,
-            trader.address,
-            routeOnDex2,
-            0,
-            getEncodedChainlinkRouteViaUsd(testTokenA),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
-            [],
-            [],
-          ),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "DEX_NOT_ACTIVE");
     });
 
     it("Should close position and transfer testTokenB from 'PositionManager' to 'Pair'", async function () {

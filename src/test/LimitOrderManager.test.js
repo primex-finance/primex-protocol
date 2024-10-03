@@ -108,6 +108,7 @@ describe("LimitOrderManager", function () {
   let limitPriceCOM, takeProfitStopLossCCM;
   let multiplierA, multiplierB;
   let ErrorsLibrary;
+  let leverageTolerance;
   before(async function () {
     await fixture(["Test"]);
 
@@ -218,6 +219,8 @@ describe("LimitOrderManager", function () {
 
     multiplierA = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsA));
     multiplierB = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB));
+    leverageTolerance = parseEther("0.01");
+    await PrimexDNS.setLeverageTolerance(leverageTolerance);
 
     snapshotIdBase = await network.provider.request({
       method: "evm_snapshot",
@@ -341,10 +344,11 @@ describe("LimitOrderManager", function () {
   });
 
   describe("Limit Order", function () {
-    let snapshotId, leverage, depositAmount, snapshotIdBase2;
+    let snapshotId, leverage, borrowedAmount, depositAmount, snapshotIdBase2;
     before(async function () {
       leverage = parseEther("2");
       depositAmount = parseUnits("15", decimalsA);
+      borrowedAmount = wadMul(depositAmount.toString(), leverage.sub(parseEther("1")).toString()).toString();
       await PMXToken.transfer(trader.address, parseEther("1"));
       const lenderAmount = parseUnits("50", decimalsA);
       await testTokenA.connect(trader).approve(traderBalanceVault.address, depositAmount);
@@ -405,6 +409,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWith("Pausable: paused");
       });
@@ -430,6 +436,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "INCORRECT_DEADLINE");
       });
@@ -452,6 +460,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "SENDER_IS_BLACKLISTED");
       });
@@ -464,7 +474,7 @@ describe("LimitOrderManager", function () {
         await run("deploy:Bucket", {
           nameBucket: "BucketWithLiquidityMining",
           assets: `["${testTokenB.address}"]`,
-          pairVolatilities: "[\"100000000000000000\"]",
+          pairVolatilities: "['100000000000000000']",
           feeBuffer: "1000100000000000000", // 1.0001
           withdrawalFeeRate: "5000000000000000", // 0.005 - 0.5%
           reserveRate: "100000000000000000", // 0.1 - 10%,
@@ -495,6 +505,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "BUCKET_IS_NOT_LAUNCHED");
       });
@@ -516,6 +528,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "TOKEN_NOT_SUPPORTED");
       });
@@ -555,6 +569,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "LEVERAGE_EXCEEDS_MAX_LEVERAGE");
       });
@@ -578,6 +594,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "LEVERAGE_MUST_BE_MORE_THAN_1");
       });
@@ -601,6 +619,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.changeTokenBalances(testTokenA, [trader, traderBalanceVault], [depositAmount.mul(NegativeOne), depositAmount]);
 
@@ -630,6 +650,8 @@ describe("LimitOrderManager", function () {
           closeConditions: [],
           isProtocolFeeInPmx: false,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
       });
 
@@ -654,6 +676,8 @@ describe("LimitOrderManager", function () {
           openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(exchangeRate))],
           closeConditions: [],
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
       });
 
@@ -684,6 +708,8 @@ describe("LimitOrderManager", function () {
           closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(tpPrice, slPrice))],
           isProtocolFeeInPmx: false,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
 
         const expectedOrder = {
@@ -729,6 +755,8 @@ describe("LimitOrderManager", function () {
           openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(exchangeRate))],
           closeConditions: [],
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
 
         const expectedOrder = {
@@ -775,6 +803,8 @@ describe("LimitOrderManager", function () {
           closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(parseEther("2"), 0))],
           isProtocolFeeInPmx: false,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
 
         const createLimitOrderEvent = await txCreateLimitOrder.wait();
@@ -841,6 +871,8 @@ describe("LimitOrderManager", function () {
             ],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.emit(limitOrderManager, "CreateLimitOrder");
       });
@@ -864,6 +896,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "SHOULD_HAVE_OPEN_CONDITIONS");
       });
@@ -886,6 +920,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(0, 1))],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "SHOULD_NOT_HAVE_CLOSE_CONDITIONS");
       });
@@ -912,6 +948,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "SHOULD_NOT_HAVE_DUPLICATES");
       });
@@ -935,6 +973,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "SHOULD_BE_COM");
       });
@@ -958,6 +998,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getTakeProfitStopLossParams(0, 1))],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "SHOULD_BE_CCM");
       });
@@ -984,6 +1026,8 @@ describe("LimitOrderManager", function () {
               closeConditions: [],
               isProtocolFeeInPmx: false,
               nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+              pullOracleData: [],
+              pullOracleTypes: [],
             },
             { gasPrice },
           ),
@@ -1007,6 +1051,9 @@ describe("LimitOrderManager", function () {
             closeConditions: [],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
+            borrowedAmount,
           }),
         ).to.emit(limitOrderManager, "CreateLimitOrder");
       });
@@ -1028,6 +1075,8 @@ describe("LimitOrderManager", function () {
           closeConditions: [],
           isProtocolFeeInPmx: false,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const orderId = await limitOrderManager.ordersId();
         await setOraclePrice(testTokenA, tokenWETH, parseUnits("1", USD_DECIMALS).div("2"));
@@ -1053,6 +1102,7 @@ describe("LimitOrderManager", function () {
               nativeSoldAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenA),
               pullOracleData: [],
               pullOracleTypes: [],
+              borrowedAmount: wadMul(depositAmount.toString(), leverage.sub(parseEther("1")).toString()).toString(),
             },
             { gasPrice },
           ),
@@ -1090,6 +1140,8 @@ describe("LimitOrderManager", function () {
           closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice))],
           isProtocolFeeInPmx: false,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
       });
 
@@ -1113,6 +1165,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice))],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           });
           const traderOrdersLengthBefore = await limitOrderManager.getTraderOrdersLength(trader.address);
           await limitOrderManager.cancelExpiredLimitOrders([1, 2]);
@@ -1136,6 +1190,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice))],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           });
 
           // create a third order
@@ -1152,6 +1208,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice))],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           });
 
           const traderOrdersLengthBefore = await limitOrderManager.getTraderOrdersLength(trader.address);
@@ -1223,6 +1281,8 @@ describe("LimitOrderManager", function () {
             closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice))],
             isProtocolFeeInPmx: false,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           });
 
           await PrimexDNS.deprecateBucket("bucket1");
@@ -1302,6 +1362,8 @@ describe("LimitOrderManager", function () {
           ],
           isProtocolFeeInPmx: false,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
 
         const orderId = 1;
@@ -1361,6 +1423,8 @@ describe("LimitOrderManager", function () {
           ],
           isProtocolFeeInPmx: false,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const { availableBalance: availableAfter, lockedBalance: lockedAfter } = await traderBalanceVault.balances(
           lender.address,
@@ -1384,7 +1448,7 @@ describe("LimitOrderManager", function () {
     });
 
     describe("openPositionByOrder", function () {
-      let orderId, leverage, slPrice, tpPrice, lockedBeforeAll, limitPrice, defaultAdditionalParams;
+      let orderId, leverage, borrowedAmount, slPrice, tpPrice, lockedBeforeAll, limitPrice, defaultAdditionalParams;
       let amountAIn, amountBOut;
       let firstAssetOracleData,
         thirdAssetOracleData,
@@ -1435,7 +1499,7 @@ describe("LimitOrderManager", function () {
           BigNumber.from(wadDiv(amountBOutInWadDecimals.toString(), amountAInWadDecimals.toString()).toString()).div(USD_MULTIPLIER),
         );
 
-        const borrowedAmount = wadMul(depositAmount.toString(), leverage.sub(parseEther("1")).toString()).toString();
+        borrowedAmount = wadMul(depositAmount.toString(), leverage.sub(parseEther("1")).toString()).toString();
         const liquidationPrice = await primexPricingLibrary.getLiquidationPrice(
           bucketAddress,
           testTokenB.address,
@@ -1461,6 +1525,8 @@ describe("LimitOrderManager", function () {
           closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(tpPrice, slPrice))],
           isProtocolFeeInPmx: false,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         orderId = await limitOrderManager.ordersId();
 
@@ -1485,6 +1551,7 @@ describe("LimitOrderManager", function () {
           nativeSoldAssetOracleData,
           pullOracleData,
           pullOracleTypes,
+          borrowedAmount,
         };
       });
       after(async function () {
@@ -1585,6 +1652,22 @@ describe("LimitOrderManager", function () {
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_IS_ZERO");
       });
+      it("Should revert when the actual leverage is different from order's leverage", async function () {
+        await PrimexDNS.setLeverageTolerance(0);
+        await expect(
+          limitOrderManager.connect(liquidator).openPositionByOrder({
+            ...openPositionParams,
+          }),
+        ).to.be.revertedWithCustomError(ErrorsLibrary, "LEVERAGE_TOLERANCE_EXCEEDED");
+      });
+      it("Should revert when depositAsset is the sold asset and the borrowedAmount is incorrect", async function () {
+        await expect(
+          limitOrderManager.connect(liquidator).openPositionByOrder({
+            ...openPositionParams,
+            borrowedAmount: BigNumber.from(borrowedAmount).add("1"),
+          }),
+        ).to.be.revertedWithCustomError(ErrorsLibrary, "INCORRECT_BORROWED_AMOUNT");
+      });
 
       it("Should create position by order with stopLoss=0 takeProfit=0", async function () {
         depositAmount = parseUnits("15", decimalsA);
@@ -1610,6 +1693,8 @@ describe("LimitOrderManager", function () {
           closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(tpPrice, slPrice))],
           isProtocolFeeInPmx: false,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
 
         const orderId = await limitOrderManager.ordersId();
@@ -1646,6 +1731,111 @@ describe("LimitOrderManager", function () {
           "POSITION_SIZE_EXCEEDED",
         );
       });
+      it("Should update pyth oracle via  createLimitOrder function", async function () {
+        const tokenAID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b1";
+        const tokenBID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b2";
+        const nativeID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b3";
+        const PMXID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b4";
+        const pyth = await getContract("MockPyth");
+
+        await priceOracle.updatePythPairId(
+          [testTokenA.address, testTokenB.address, await priceOracle.eth(), PMXToken.address],
+          [tokenAID, tokenBID, nativeID, PMXID],
+        );
+        // price in 10**8
+        const expo = -8;
+        const price = BigNumber.from("1").mul(BigNumber.from("10").pow(expo * -1));
+
+        const timeStamp = (await provider.getBlock("latest")).timestamp;
+        const updateDataTokenA = await pyth.createPriceFeedUpdateData(
+          tokenAID,
+          price,
+          0,
+          expo, // expo
+          0,
+          0,
+          timeStamp,
+          0,
+        );
+        const updateDataTokenB = await pyth.createPriceFeedUpdateData(
+          tokenBID,
+          price,
+          0,
+          expo, // expo
+          0,
+          0,
+          timeStamp,
+          0,
+        );
+        const updateDataNative = await pyth.createPriceFeedUpdateData(
+          nativeID,
+          price,
+          0,
+          expo, // expo
+          0,
+          0,
+          timeStamp,
+          0,
+        );
+        const updateDataPmx = await pyth.createPriceFeedUpdateData(
+          PMXID,
+          price,
+          0,
+          expo, // expo
+          0,
+          0,
+          timeStamp,
+          0,
+        );
+        const pullOracleData = [[updateDataTokenA, updateDataTokenB, updateDataNative, updateDataPmx]];
+        const pullOracleTypes = [UpdatePullOracle.Pyth];
+
+        depositAmount = parseUnits("15", decimalsA);
+        leverage = parseEther("2");
+        const deadline = new Date().getTime() + 600;
+        const takeDepositFromWallet = true;
+        await testTokenA.mint(trader.address, depositAmount);
+        await testTokenA.connect(trader).approve(limitOrderManager.address, depositAmount);
+        const slPrice = 0;
+        const tpPrice = 0;
+
+        await limitOrderManager.connect(trader).createLimitOrder(
+          {
+            bucket: "bucket1",
+            depositAsset: testTokenA.address,
+            depositAmount: depositAmount,
+            positionAsset: testTokenB.address,
+            deadline: deadline,
+            takeDepositFromWallet: takeDepositFromWallet,
+            leverage: leverage,
+            shouldOpenPosition: true,
+            openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
+            closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(tpPrice, slPrice))],
+            isProtocolFeeInPmx: false,
+            nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: pullOracleData,
+            pullOracleTypes: pullOracleTypes,
+          },
+          { value: 4 },
+        );
+
+        const priceTokenA = await pyth.getPrice(tokenAID);
+        const priceTokenB = await pyth.getPrice(tokenBID);
+        const priceNative = await pyth.getPrice(nativeID);
+        const pricePmx = await pyth.getPrice(PMXID);
+
+        expect(priceTokenA.publishTime)
+          .to.be.equal(priceTokenB.publishTime)
+          .to.be.equal(priceNative.publishTime)
+          .to.be.equal(pricePmx.publishTime)
+          .to.be.equal(timeStamp);
+        expect(priceTokenA.price)
+          .to.be.equal(priceTokenB.price)
+          .to.be.equal(priceNative.price)
+          .to.be.equal(pricePmx.price)
+          .to.be.equal(price);
+      });
+
       it("Should update pyth oracle via openPositionByOrder function", async function () {
         const tokenAID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b1";
         const tokenBID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b2";
@@ -1857,6 +2047,8 @@ describe("LimitOrderManager", function () {
           leverage: leverage,
           isProtocolFeeInPmx: true,
           nativeDepositOracleData: await getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const amount0Out = await getAmountsOut(dex, wadMul(depositAmount.toString(), leverage.toString()).toString(), [
           testTokenA.address,
@@ -1914,6 +2106,8 @@ describe("LimitOrderManager", function () {
           leverage: leverage,
           isProtocolFeeInPmx: true,
           nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
 
         const amount0Out = await getAmountsOut(dex, wadMul(depositAmount.toString(), leverage.toString()).toString(), [
@@ -2017,6 +2211,8 @@ describe("LimitOrderManager", function () {
           closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice))],
           isProtocolFeeInPmx: false,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
 
         orderId = await limitOrderManager.ordersId();
@@ -2030,6 +2226,8 @@ describe("LimitOrderManager", function () {
             depositAmount: depositAmount,
             leverage: leverage,
             nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "SENDER_IS_BLACKLISTED");
       });
@@ -2042,6 +2240,8 @@ describe("LimitOrderManager", function () {
             depositAmount: depositAmount,
             leverage: leverage,
             nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "BUCKET_IS_NOT_ACTIVE");
       });
@@ -2053,6 +2253,8 @@ describe("LimitOrderManager", function () {
             depositAmount: depositAmount,
             leverage: leverage,
             nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "CALLER_IS_NOT_TRADER");
       });
@@ -2064,6 +2266,8 @@ describe("LimitOrderManager", function () {
             depositAmount: depositAmount,
             leverage: BigNumber.from(WAD.toString()).sub(1),
             nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "LEVERAGE_MUST_BE_MORE_THAN_1");
       });
@@ -2077,6 +2281,8 @@ describe("LimitOrderManager", function () {
             depositAmount: depositAmount,
             leverage: maxLeverage.add(1),
             nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "LEVERAGE_EXCEEDS_MAX_LEVERAGE");
       });
@@ -2090,6 +2296,8 @@ describe("LimitOrderManager", function () {
             depositAmount: depositAmount,
             leverage: spotLeverage,
             nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "LEVERAGE_MUST_BE_MORE_THAN_1");
       });
@@ -2121,6 +2329,8 @@ describe("LimitOrderManager", function () {
           closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPriceB, stopLossPriceB))],
           isProtocolFeeInPmx: false,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const orderId = await limitOrderManager.ordersId();
         const newLeverage = parseUnits("2", leverageDecimals);
@@ -2131,6 +2341,8 @@ describe("LimitOrderManager", function () {
             depositAmount: depositAmountB,
             leverage: newLeverage,
             nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "CANNOT_CHANGE_SPOT_ORDER_TO_MARGIN");
       });
@@ -2146,6 +2358,8 @@ describe("LimitOrderManager", function () {
               takeDepositFromWallet: false,
               leverage: leverage,
               nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+              pullOracleData: [],
+              pullOracleTypes: [],
             },
             { gasPrice },
           ),
@@ -2161,9 +2375,98 @@ describe("LimitOrderManager", function () {
           leverage: newLeverage,
           takeDepositFromWallet: true,
           nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const { lockedBalance: balanceAfter } = await traderBalanceVault.balances(trader.address, testTokenA.address);
         expect(balanceAfter).to.equal(depositAmount);
+      });
+
+      it("Should update pyth oracle via openPositionByOrder function", async function () {
+        const tokenAID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b1";
+        const tokenBID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b2";
+        const nativeID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b3";
+        const PMXID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b4";
+        const pyth = await getContract("MockPyth");
+
+        await priceOracle.updatePythPairId(
+          [testTokenA.address, testTokenB.address, await priceOracle.eth(), PMXToken.address],
+          [tokenAID, tokenBID, nativeID, PMXID],
+        );
+        // price in 10**8
+        const expo = -8;
+        const price = BigNumber.from("1").mul(BigNumber.from("10").pow(expo * -1));
+
+        const timeStamp = (await provider.getBlock("latest")).timestamp;
+        const updateDataTokenA = await pyth.createPriceFeedUpdateData(
+          tokenAID,
+          price,
+          0,
+          expo, // expo
+          0,
+          0,
+          timeStamp,
+          0,
+        );
+        const updateDataTokenB = await pyth.createPriceFeedUpdateData(
+          tokenBID,
+          price,
+          0,
+          expo, // expo
+          0,
+          0,
+          timeStamp,
+          0,
+        );
+        const updateDataNative = await pyth.createPriceFeedUpdateData(
+          nativeID,
+          price,
+          0,
+          expo, // expo
+          0,
+          0,
+          timeStamp,
+          0,
+        );
+        const updateDataPmx = await pyth.createPriceFeedUpdateData(
+          PMXID,
+          price,
+          0,
+          expo, // expo
+          0,
+          0,
+          timeStamp,
+          0,
+        );
+        const newLeverage = leverage.add(parseEther("0.5"));
+        await limitOrderManager.connect(trader).updateOrder(
+          {
+            orderId: orderId,
+            depositAmount: depositAmount,
+            leverage: newLeverage,
+            takeDepositFromWallet: true,
+            nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [[updateDataTokenA, updateDataTokenB, updateDataNative, updateDataPmx]],
+            pullOracleTypes: [UpdatePullOracle.Pyth],
+          },
+          { value: 4 },
+        );
+
+        const priceTokenA = await pyth.getPrice(tokenAID);
+        const priceTokenB = await pyth.getPrice(tokenBID);
+        const priceNative = await pyth.getPrice(nativeID);
+        const pricePmx = await pyth.getPrice(PMXID);
+
+        expect(priceTokenA.publishTime)
+          .to.be.equal(priceTokenB.publishTime)
+          .to.be.equal(priceNative.publishTime)
+          .to.be.equal(pricePmx.publishTime)
+          .to.be.equal(timeStamp);
+        expect(priceTokenA.price)
+          .to.be.equal(priceTokenB.price)
+          .to.be.equal(priceNative.price)
+          .to.be.equal(pricePmx.price)
+          .to.be.equal(price);
       });
 
       it("Should increase leverage from wallet  when source of deposit is different from fee source", async function () {
@@ -2174,6 +2477,8 @@ describe("LimitOrderManager", function () {
           leverage: newLeverage,
           takeDepositFromWallet: true,
           nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const { lockedBalance: balanceAfter } = await traderBalanceVault.balances(trader.address, testTokenA.address);
         expect(balanceAfter).to.equal(depositAmount);
@@ -2188,6 +2493,8 @@ describe("LimitOrderManager", function () {
           leverage: newLeverage,
           takeDepositFromWallet: false,
           nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const { lockedBalance: balanceAfter } = await traderBalanceVault.balances(trader.address, testTokenA.address);
         expect(balanceAfter).to.equal(depositAmount);
@@ -2202,6 +2509,8 @@ describe("LimitOrderManager", function () {
           leverage: newLeverage,
           takeDepositFromWallet: true,
           nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
 
         const { lockedBalance: balanceAfter } = await traderBalanceVault.balances(trader.address, testTokenA.address);
@@ -2216,6 +2525,8 @@ describe("LimitOrderManager", function () {
           depositAmount: newDepositAmount,
           leverage: leverage,
           nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const order = await limitOrderManager.getOrder(1);
         expect(order.depositAmount).to.be.equal(newDepositAmount);
@@ -2234,6 +2545,8 @@ describe("LimitOrderManager", function () {
           takeDepositFromWallet: true,
           leverage: leverage,
           nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const order = await limitOrderManager.getOrder(1);
         expect(order.depositAmount).to.be.equal(newDepositAmount);
@@ -2253,6 +2566,8 @@ describe("LimitOrderManager", function () {
           takeDepositFromWallet: false,
           leverage: leverage,
           nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
 
         const order = await limitOrderManager.getOrder(1);
@@ -2272,6 +2587,8 @@ describe("LimitOrderManager", function () {
           leverage: leverage,
           isProtocolFeeInPmx: isProtocolFeeInPmx,
           nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const order = await limitOrderManager.getOrder(1);
         expect(order.feeToken).to.be.equal(PMXToken.address);
@@ -2290,6 +2607,8 @@ describe("LimitOrderManager", function () {
             leverage: newLeverage,
             isProtocolFeeInPmx: isProtocolFeeInPmx,
             nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         )
           .to.emit(limitOrderManager, "UpdateOrder")
@@ -2352,6 +2671,8 @@ describe("LimitOrderManager", function () {
         closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice))],
         isProtocolFeeInPmx: false,
         nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       orderId = await limitOrderManager.ordersId();
@@ -2510,6 +2831,8 @@ describe("LimitOrderManager", function () {
         closeConditions: [],
         isProtocolFeeInPmx: false,
         nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+        pullOracleTypes: [],
       });
     });
 
@@ -2549,7 +2872,7 @@ describe("LimitOrderManager", function () {
 
       expect(amount0Out1).to.be.gt(amount0Out2);
       const bestShares = await bestDexLens.callStatic[
-        "getBestDexByOrder((address,address,uint256,(uint256,uint256,uint256),(string,bytes32)[],bytes))"
+        "getBestDexByOrder((address,address,uint256,(uint256,uint256,uint256),(string,bytes32)[],bytes,bytes[][],uint256[]))"
       ]([
         positionManager.address,
         limitOrderManager.address,
@@ -2557,6 +2880,8 @@ describe("LimitOrderManager", function () {
         { firstAssetShares: 1, depositInThirdAssetShares: 1, depositToBorrowedShares: 1 },
         dexesWithAncillaryData,
         getEncodedChainlinkRouteViaUsd(testTokenA),
+        [],
+        [],
       ]);
 
       parseArguments(bestShares.firstAssetReturnParams, {
@@ -2591,7 +2916,7 @@ describe("LimitOrderManager", function () {
       expect(amount0Out2).to.be.gt(amount0Out1);
 
       const bestShares = await bestDexLens.callStatic[
-        "getBestDexByOrder((address,address,uint256,(uint256,uint256,uint256),(string,bytes32)[],bytes))"
+        "getBestDexByOrder((address,address,uint256,(uint256,uint256,uint256),(string,bytes32)[],bytes,bytes[][],uint256[]))"
       ]([
         positionManager.address,
         limitOrderManager.address,
@@ -2599,6 +2924,8 @@ describe("LimitOrderManager", function () {
         { firstAssetShares: 1, depositInThirdAssetShares: 1, depositToBorrowedShares: 1 },
         dexesWithAncillaryData,
         getEncodedChainlinkRouteViaUsd(testTokenA),
+        [],
+        [],
       ]);
 
       parseArguments(bestShares.firstAssetReturnParams, {
@@ -2631,7 +2958,7 @@ describe("LimitOrderManager", function () {
       const amount0Out2 = await getAmountsOut(dex2, halfDepositInBorrowed, [testTokenA.address, testTokenB.address]);
 
       const bestShares = await bestDexLens.callStatic[
-        "getBestDexByOrder((address,address,uint256,(uint256,uint256,uint256),(string,bytes32)[],bytes))"
+        "getBestDexByOrder((address,address,uint256,(uint256,uint256,uint256),(string,bytes32)[],bytes,bytes[][],uint256[]))"
       ]([
         positionManager.address,
         limitOrderManager.address,
@@ -2639,6 +2966,8 @@ describe("LimitOrderManager", function () {
         { firstAssetShares: 2, depositInThirdAssetShares: 2, depositToBorrowedShares: 2 },
         dexesWithAncillaryData,
         await getEncodedChainlinkRouteViaUsd(testTokenA),
+        [],
+        [],
       ]);
 
       const expectedRoutes = await getMegaRoutes([
@@ -2765,6 +3094,8 @@ describe("LimitOrderManager", function () {
         closeConditions: [],
         isProtocolFeeInPmx: false,
         nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       await limitOrderManager.connect(trader).createLimitOrder({
@@ -2780,6 +3111,8 @@ describe("LimitOrderManager", function () {
         closeConditions: [],
         isProtocolFeeInPmx: false,
         nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       await limitOrderManager.connect(lender).createLimitOrder({
@@ -2795,6 +3128,8 @@ describe("LimitOrderManager", function () {
         closeConditions: [],
         isProtocolFeeInPmx: false,
         nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       await limitOrderManager.connect(lender).createLimitOrder({
@@ -2810,6 +3145,8 @@ describe("LimitOrderManager", function () {
         closeConditions: [],
         isProtocolFeeInPmx: false,
         nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       await limitOrderManager.connect(lender).createLimitOrder({
@@ -2825,6 +3162,8 @@ describe("LimitOrderManager", function () {
         closeConditions: [],
         isProtocolFeeInPmx: false,
         nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       await limitOrderManager.connect(trader).createLimitOrder({
@@ -2840,6 +3179,8 @@ describe("LimitOrderManager", function () {
         closeConditions: [],
         isProtocolFeeInPmx: false,
         nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+        pullOracleTypes: [],
       });
     });
 

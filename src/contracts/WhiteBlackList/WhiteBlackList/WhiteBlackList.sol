@@ -9,7 +9,7 @@ import {ECDSAUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/crypto
 import "../../libraries/Errors.sol";
 
 import {WhiteBlackListBase} from "../WhiteBlackListBase/WhiteBlackListBase.sol";
-import {MEDIUM_TIMELOCK_ADMIN, EMERGENCY_ADMIN} from "../../Constants.sol";
+import {SMALL_TIMELOCK_ADMIN, EMERGENCY_ADMIN} from "../../Constants.sol";
 
 contract WhiteBlackList is WhiteBlackListBase {
     constructor() {
@@ -37,7 +37,7 @@ contract WhiteBlackList is WhiteBlackListBase {
     /**
      * @inheritdoc WhiteBlackListBase
      */
-    function addAddressToWhitelist(address _address) public override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
+    function addAddressToWhitelist(address _address) public override onlyRole(SMALL_TIMELOCK_ADMIN) {
         _addAddressToWhitelist(_address);
     }
 }

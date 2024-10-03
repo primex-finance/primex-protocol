@@ -54,7 +54,7 @@ module.exports = async function ({
     decreasingGasByReasonParams: JSON.stringify(decreasingGasByReasonParams),
     defaultMaxGasPrice: defaultMaxGasPrice,
     oracleGasPriceTolerance: oracleGasPriceTolerance,
-    minPositionSizeMultiplier: parseEther(keeperRewardConfig.minPositionSizeMultiplier).toString(),
+    minPositionSizeAddend: parseEther(keeperRewardConfig.minPositionSizeAddend).toString(),
     paymentModel: paymentModel,
     pmx: pmx.address,
     registry: registry.address,

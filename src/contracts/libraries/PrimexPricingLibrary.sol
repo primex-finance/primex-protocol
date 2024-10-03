@@ -575,6 +575,7 @@ library PrimexPricingLibrary {
             IKeeperRewardDistributorV3(keeperRewardDistributor),
             estimatedGasAmount,
             estimatedBaseLength,
+            primexDNS,
             _nativePaymentAssetOracleData
         );
 
@@ -661,13 +662,17 @@ library PrimexPricingLibrary {
         IKeeperRewardDistributorV3 _keeperRewardDistributor,
         uint256 _estimatedGasAmount,
         uint256 _estimatedBaseLength,
+        IPrimexDNSV3 primexDNS,
         bytes calldata _nativePaymentAssetOracleData
     ) public returns (uint256 minProtocolFeeInPositionAsset) {
         uint256 restrictedGasPrice = calculateRestrictedGasPrice(_priceOracle, _keeperRewardDistributor);
 
         uint256 l1CostWei = _calculateL1CostWei(_estimatedBaseLength, _keeperRewardDistributor);
 
-        uint256 minProtocolFeeInNativeAsset = _estimatedGasAmount * restrictedGasPrice + l1CostWei;
+        uint256 minProtocolFeeInNativeAsset = _estimatedGasAmount *
+            restrictedGasPrice +
+            l1CostWei +
+            primexDNS.protocolFeeCoefficient();
 
         minProtocolFeeInPositionAsset = getOracleAmountsOut(
             NATIVE_CURRENCY,
@@ -688,15 +693,16 @@ library PrimexPricingLibrary {
         IPrimexDNSStorageV3.TradingOrderType _tradingOrderType
     ) public view returns (uint256 minPositionSizeInNativeAsset) {
         uint256 restrictedGasPrice = calculateRestrictedGasPrice(_priceOracle, _keeperRewardDistributor);
+        (
+            uint256 baseLength,
+            uint256 averageGasPerAction,
+            uint256 protocolFeeCoefficient,
+            uint256 gasPriceBuffer
+        ) = _primexDNS.getParamsForMinPositionSize(_tradingOrderType);
+        uint256 l1CostWei = _calculateL1CostWei(baseLength, _keeperRewardDistributor);
 
-        uint256 l1CostWei = _calculateL1CostWei(
-            _primexDNS.getL1BaseLengthForTradingOrderType(_tradingOrderType),
-            _keeperRewardDistributor
-        );
-
-        minPositionSizeInNativeAsset = (_primexDNS.averageGasPerAction(_tradingOrderType) *
-            restrictedGasPrice +
-            l1CostWei).wmul(_primexDNS.gasPriceBuffer());
+        minPositionSizeInNativeAsset = (averageGasPerAction * restrictedGasPrice + l1CostWei + protocolFeeCoefficient)
+            .wmul(gasPriceBuffer);
     }
 
     function calculateRestrictedGasPrice(

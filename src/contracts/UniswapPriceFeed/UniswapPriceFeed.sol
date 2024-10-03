@@ -17,7 +17,7 @@ import {FullMath} from "@uniswap/v3-core-0.8/contracts/libraries/FullMath.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
-import {MEDIUM_TIMELOCK_ADMIN} from "../Constants.sol";
+import {SMALL_TIMELOCK_ADMIN, MEDIUM_TIMELOCK_ADMIN} from "../Constants.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "../libraries/Errors.sol";
 
@@ -141,9 +141,6 @@ contract UniswapPriceFeed is IUniswapPriceFeed, ERC165 {
      * @param quoteToken Address of an ERC20 token contract used as the quoteAmount denomination
      * @param secondsTwapInterval Number of seconds in the past from which to calculate the time-weighted quote
      * @return quoteAmount Equivalent amount of ERC20 token for baseAmount
-     *
-     * Note: If a pool does not exist or a valid quote is not returned execution will not revert and
-     * `quoteAmount` will be 0.
      */
     function getQuote(
         uint128 baseAmount,
@@ -210,9 +207,6 @@ contract UniswapPriceFeed is IUniswapPriceFeed, ERC165 {
      * @param secondsUpdateInterval Seconds after which a pool is considered stale and an update is triggered
      * @param cardinalityNextIncrease The increase in cardinality to trigger in a pool if current value < MAX_CARDINALITY
      * @return quoteAmount Equivalent amount of ERC20 token for baseAmount
-     *
-     * Note: If a pool does not exist or a valid quote is not returned execution will not revert and
-     * `quoteAmount` will be 0.
      * Note: Set `secondsUpdateInterval` to 0 to always trigger an update, or to block.timestamp to only update if a pool
      * has not been stored yet.
      * Note: Set `cardinalityNextIncrease` to 0 to disable increasing cardinality when updating pool.
@@ -322,7 +316,7 @@ contract UniswapPriceFeed is IUniswapPriceFeed, ERC165 {
      * @notice Set a new twap interval
      * @param _twapInterval new TWAP interval in seconds
      */
-    function setTwapInterval(uint32 _twapInterval) external onlyRole(MEDIUM_TIMELOCK_ADMIN) {
+    function setTwapInterval(uint32 _twapInterval) external onlyRole(SMALL_TIMELOCK_ADMIN) {
         twapInterval = _twapInterval;
     }
 
@@ -331,7 +325,7 @@ contract UniswapPriceFeed is IUniswapPriceFeed, ERC165 {
      * @param _poolUpdateInterval new poolUpdateInterval in seconds
      */
     function setPoolUpdateInterval(uint256 _poolUpdateInterval) external onlyRole(MEDIUM_TIMELOCK_ADMIN) {
-        poolUpdateInterval = poolUpdateInterval;
+        poolUpdateInterval = _poolUpdateInterval;
     }
 
     /**
@@ -422,8 +416,6 @@ contract UniswapPriceFeed is IUniswapPriceFeed, ERC165 {
      * @param pool Address of the pool that we want to observe
      * @param secondsTwapInterval Number of seconds in the past from which to calculate the time-weighted means
      * @return arithmeticMeanTick The arithmetic mean tick from (block.timestamp - secondsTwapInterval) to block.timestamp
-     *
-     * @dev Silently handles errors in `uniswapV3Pool.observe` to prevent reverts.
      */
     function _getArithmeticMeanTick(
         address pool,
@@ -447,6 +439,8 @@ contract UniswapPriceFeed is IUniswapPriceFeed, ERC165 {
             // Always round to negative infinity
             if (tickCumulativesDelta < 0 && (tickCumulativesDelta % int56(uint56(secondsTwapInterval)) != 0))
                 arithmeticMeanTick--;
+        } else {
+            _revert(Errors.POOL_CALL_FAILED.selector);
         }
     }
 

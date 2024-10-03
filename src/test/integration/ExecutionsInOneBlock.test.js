@@ -400,6 +400,8 @@ function tests() {
       firstAssetMegaRoutes: firstAssetRoutes,
       depositInThirdAssetMegaRoutes: [],
       keeper: liquidator.address,
+      pullOracleData: [],
+      pullOracleTypes: [],
     });
     const latestTimeStamp = (await provider.getBlock("latest")).timestamp;
     expect(latestTimeStamp).to.be.equal(updatedConditionsAt);

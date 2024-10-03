@@ -37,7 +37,7 @@ interface ITreasury is ITreasuryStorage, IPausable {
 
     /**
      * @notice Decreases Spending limits for a spender for a specific token.
-     * @dev This function can only be called by an address with the BIG_TIMELOCK_ADMIN or EMERGENCY_ADMIN role.
+     * @dev This function can only be called by an address with the SMALL_TIMELOCK_ADMIN role.
      * @param spender The address of the spender for whom to decrease the maximum transfer amounts and total amount.
      * @param token The address of the token for which to decrease the maximum transfer amounts and total amount.
      * @param newSpendingLimits The new spending limits and restrictions to set for the spender and token.

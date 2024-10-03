@@ -187,7 +187,7 @@ describe("PriceOracle_unit", function () {
     });
   });
   describe("setTimeTolerance", function () {
-    it("Should revert if not MEDIUM_TIMELOCK_ADMIN call setTimeTolerance", async function () {
+    it("Should revert if not SMALL_TIMELOCK_ADMIN call setTimeTolerance", async function () {
       await expect(priceOracle.connect(caller).setTimeTolerance("10")).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
     });
     it("Should successfully setPyth", async function () {
@@ -266,7 +266,7 @@ describe("PriceOracle_unit", function () {
     });
   });
   describe("updateUniv3TypeOracle", function () {
-    it("Should revert if not MEDIUM_TIMELOCK_ADMIN call updateUniv3TypeOracle", async function () {
+    it("Should revert if not SMALL_TIMELOCK_ADMIN call updateUniv3TypeOracle", async function () {
       await expect(priceOracle.connect(caller).updateUniv3TypeOracle([1], [mockUniswapPriceFeed.address])).to.be.revertedWithCustomError(
         ErrorsLibrary,
         "FORBIDDEN",

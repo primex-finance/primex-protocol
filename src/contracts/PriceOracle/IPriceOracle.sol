@@ -135,26 +135,77 @@ interface IPriceOracleV2 is IPriceOracleStorageV3 {
      */
     function getOraclePriceDropFeed(address assetA, address assetB) external view returns (address);
 
+    /**
+     * @notice Calculates exchange rate of one token to another according to the specific oracle route
+     * @param assetA The address of the first asset in the pair.
+     * @param assetB The address of the second asset in the pair.
+     * @param oracleData The list of oracles to use for price calculations
+     * @return exchangeRate for assetA/assetB in 10**18 decimality
+     */
     function getExchangeRate(
         address assetA,
         address assetB,
         bytes calldata oracleData
     ) external payable returns (uint256);
 
+    /**
+     * @notice Sets or updates the Chainlink price feed for the list of tokens to usd.
+     * @dev Only callable by the SMALL_TIMELOCK_ADMIN role.
+     * @param _tokens Array of token addresses.
+     * @param _feeds Array of price feeds.
+     */
     function updateChainlinkPriceFeedsUsd(address[] calldata _tokens, address[] calldata _feeds) external;
 
+    /**
+     * @notice Sets or updates the Pyth pair ids for the list of tokens.
+     * @dev Only callable by the SMALL_TIMELOCK_ADMIN role.
+     * @param _tokens Array of token addresses.
+     * @param _priceFeedIds Array of pair ids.
+     */
     function updatePythPairId(address[] calldata _tokens, bytes32[] calldata _priceFeedIds) external;
 
+    /**
+     * @notice Sets or updates the Supra price feeds for the list of tokens.
+     * @dev Only callable by the SMALL_TIMELOCK_ADMIN role.
+     * @param _params Array of token pairs and Supra ids.
+     */
     function updateSupraDataFeed(UpdateSupraDataFeedParams[] calldata _params) external;
 
+    /**
+     * @notice Sets Uni v3-based TWAP price oracle contracts.
+     * @dev Only callable by the SMALL_TIMELOCK_ADMIN role.
+     * @param _oracleTypes Array of ids of TWAP contracts.
+     * @param _oracles Array of TWAP contract addresses.
+     */
     function updateUniv3TypeOracle(uint256[] calldata _oracleTypes, address[] calldata _oracles) external;
 
+    /**
+     * @notice Sets or updates the Supra price feeds for the list of tokens.
+     * @dev Only callable by the SMALL_TIMELOCK_ADMIN role.
+     * @param _updateParams Array of token pairs, their DEXs and new trusted status.
+     */
     function updateUniv3TrustedPair(UpdateUniv3TrustedPairParams[] calldata _updateParams) external;
+
+    /**
+     * @notice Sets the Pyth address
+     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @param _pyth the address of the Pyth oracle
+     */
 
     function setPyth(address _pyth) external;
 
+    /**
+     * @notice Sets the Supra pull oracle address
+     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @param _supraPullOracle the address of the Supra pull oracle
+     */
     function setSupraPullOracle(address _supraPullOracle) external;
 
+    /**
+     * @notice Sets the Supra storage address
+     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @param _supraStorageOracle the address of the Supra storage
+     */
     function setSupraStorageOracle(address _supraStorageOracle) external;
 
     /**
@@ -167,7 +218,7 @@ interface IPriceOracleV2 is IPriceOracleStorageV3 {
 
     /**
      * @notice Sets the time tolerance
-     * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
+     * @dev Only callable by the SMALL_TIMELOCK_ADMIN role.
      * @param _timeTolerance Time tolerance in seconds
      */
 
@@ -181,6 +232,11 @@ interface IPriceOracleV2 is IPriceOracleStorageV3 {
 
     function setUSDT(address _usdt) external;
 
+    /**
+     * @notice Sets the treasury address
+     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @param _treasury the address of the treasury
+     */
     function setTreasury(address _treasury) external;
 }
 

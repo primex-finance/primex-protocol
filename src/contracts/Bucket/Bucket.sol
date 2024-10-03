@@ -140,7 +140,7 @@ contract Bucket is IBucketV4, BucketStorageV2 {
     }
 
     function setBarCalculationParams(bytes calldata _params) external override {
-        _onlyRole(BIG_TIMELOCK_ADMIN);
+        _onlyRole(MEDIUM_TIMELOCK_ADMIN);
         interestRateStrategy.setBarCalculationParams(_params);
         emit BarCalculationParamsChanged(_params);
     }
@@ -195,7 +195,7 @@ contract Bucket is IBucketV4, BucketStorageV2 {
      * @inheritdoc IBucket
      */
     function setInterestRateStrategy(address _interestRateStrategy) external override {
-        _onlyRole(BIG_TIMELOCK_ADMIN);
+        _onlyRole(MEDIUM_TIMELOCK_ADMIN);
         _require(
             IERC165Upgradeable(_interestRateStrategy).supportsInterface(type(IInterestRateStrategy).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector

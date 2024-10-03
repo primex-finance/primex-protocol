@@ -65,6 +65,8 @@ interface IBestDexLens {
         Shares shares;
         DexWithAncillaryData[] dexes;
         bytes depositBorrowedAssetOracleData;
+        bytes[][] pullOracleData;
+        uint256[] pullOracleTypes;
     }
 
     /**
@@ -166,7 +168,7 @@ interface IBestDexLens {
      */
     function getBestDexByOrder(
         BestDexByOrderParams memory _params
-    ) external returns (GetBestDexByOrderReturnParams memory _returnParams);
+    ) external payable returns (GetBestDexByOrderReturnParams memory _returnParams);
 
     /**
      * @notice Selects the best multiple dexes to open a position

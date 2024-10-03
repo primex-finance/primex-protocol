@@ -15,6 +15,7 @@
   "PrimexDNSconfig": {
     "delistingDelayInDays": 90,
     "adminWithdrawalDelayInDays": 180,
+    "leverageTolerance": "0.02",
     "maxProtocolFee": "MaxUint256",
     "protocolFeeCoefficient": "0",
     "liquidationGasAmount": "250000",
@@ -69,7 +70,7 @@
     "additionalGas": "20000",
     "defaultMaxGasPriceGwei": "500",
     "oracleGasPriceTolerance": "0.25",
-    "minPositionSizeMultiplier": "1.1",
+    "minPositionSizeAddend": "1.1",
     "paymentModel": "DEFAULT",
     "maxGasPerPositionParams": {
       "OpenByOrder": {

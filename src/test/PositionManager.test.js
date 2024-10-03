@@ -30,6 +30,7 @@ const {
   USD_MULTIPLIER,
   PaymentModel,
   KeeperActionType,
+  TradingOrderType,
   ArbGasInfo,
   NATIVE_CURRENCY,
   UpdatePullOracle,
@@ -48,7 +49,7 @@ const {
   fivePercent,
   getExchangeRateByRoutes,
 } = require("./utils/oracleUtils");
-const { calculateFeeInPaymentAsset, calculateFeeAmountInPmx } = require("./utils/protocolUtils");
+const { calculateFeeInPaymentAsset, calculateMinPositionSize, calculateFeeAmountInPmx } = require("./utils/protocolUtils");
 
 const {
   getAmountsOut,
@@ -1666,6 +1667,31 @@ describe("PositionManager", function () {
       OpenPositionParams.depositAmount = depositAmount;
       const gasPrice = parseUnits("1000", "gwei");
       await expect(positionManager.connect(trader).openPosition(OpenPositionParams, { gasPrice: gasPrice })).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "INSUFFICIENT_POSITION_SIZE",
+      );
+    });
+
+    it("Should revert when position size < minPositionSize and correctrly calculate minPositionSize", async function () {
+      await PrimexDNS.setProtocolFeeCoefficient(parseUnits("10", "gwei"));
+      const minPositionSize = await calculateMinPositionSize(
+        TradingOrderType.MarginMarketOrder,
+        testTokenA.address,
+        getEncodedChainlinkRouteViaUsd(testTokenA),
+      );
+      const depositAmount = minPositionSize.div(2).sub(10);
+      const borrowedAmount = minPositionSize.div(2);
+      const swapSize = depositAmount.add(borrowedAmount);
+      const swap = swapSize.mul(multiplierA);
+      const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+      const amountB = amount0Out.mul(multiplierB);
+      const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+
+      OpenPositionParams.marginParams.borrowedAmount = borrowedAmount;
+      OpenPositionParams.depositAmount = depositAmount;
+      await setOraclePrice(testTokenA, testTokenB, price);
+      await expect(positionManager.connect(trader).openPosition(OpenPositionParams)).to.be.revertedWithCustomError(
         ErrorsLibrary,
         "INSUFFICIENT_POSITION_SIZE",
       );
@@ -4078,22 +4104,6 @@ describe("PositionManager", function () {
       };
       parseArguments(bestShares, returnParams);
     });
-    it("When first dex is best to swap borrowedAmount but frozen return correct dexes name", async function () {
-      await PrimexDNS.freezeDEX(dex);
-      const amount0Out2 = await getAmountsOut(dex2, positionAmount, [testTokenB.address, testTokenA.address]);
-      const bestShares = await bestDexLens.callStatic["getBestDexByPosition(address,uint256,uint256,(string,bytes32)[])"](
-        positionManager.address,
-        0,
-        1,
-        dexesWithAncillaryData,
-      );
-      const returnParams = {
-        returnAmount: amount0Out2,
-        estimateGasAmount: dex2GasAmount,
-        megaRoute: dex2Route,
-      };
-      parseArguments(bestShares, returnParams);
-    });
     it("When second dex is best to swap borrowedAmount return correct dexes name", async function () {
       const { positionAmount } = await positionManager.getPosition(0);
 
@@ -4176,19 +4186,7 @@ describe("PositionManager", function () {
       };
       parseArguments(returnParams, bestShares);
     });
-    it("Should be revert if all dexes frozen", async function () {
-      await PrimexDNS.freezeDEX("uniswap");
-      await PrimexDNS.freezeDEX("sushiswap");
-      await PrimexDNS.freezeDEX("uniswapv3");
-      await PrimexDNS.freezeDEX("curve");
-      await PrimexDNS.freezeDEX("balancer");
-      await PrimexDNS.freezeDEX("quickswapv3");
-      await PrimexDNS.freezeDEX("meshswap");
 
-      await expect(
-        bestDexLens.callStatic.getBestDexByPosition(positionManager.address, 0, 1, dexesWithAncillaryData),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "NO_ACTIVE_DEXES");
-    });
     describe("Add pair testTokenA-testTokenX on first dex", function () {
       it("When the first dex has this swap pair, and the second does not, should returns correct dexes name", async function () {
         await testTokenX.mint(lender.address, parseUnits("10", decimalsX));

@@ -2,7 +2,7 @@
 const { getConfig, getConfigByName } = require("../../config/configUtils");
 const { NATIVE_CURRENCY } = require("../../test/utils/constants");
 
-module.exports = async ({ run, ethers: { getContract } }) => {
+module.exports = async ({ run, network, ethers: { getContract } }) => {
   const registry = await getContract("Registry");
   const errorsLibrary = await getContract("Errors");
   const uniswapPriceFeed = await getContract("UniswapPriceFeed");
@@ -22,20 +22,29 @@ module.exports = async ({ run, ethers: { getContract } }) => {
 
   if (!process.env.TEST) {
     const priceOracle = await getContract("PriceOracle");
-    const { assets } = getConfig();
     const pythPriceFeedsIds = getConfigByName("pythPriceFeedsIds.json");
+    const { timeTolerance } = getConfigByName("generalConfig.json");
+    await priceOracle.setTimeTolerance(timeTolerance);
+
     const assetsArray = [];
     const priceFeedIds = [];
-    const assetKeys = Object.keys(assets);
-    const pythPriceFeedKeys = Object.keys(pythPriceFeedsIds);
 
-    assetKeys.forEach(assetKey => {
-      if (pythPriceFeedKeys.includes(assetKey)) {
-        assetsArray.push(assets[assetKey]);
-        priceFeedIds.push(pythPriceFeedsIds[assetKey]);
-        console.log(`For asset ${assetKey}, found pythPriceFeedId: ${pythPriceFeedsIds[assetKey]}`);
+    for (const key in pythPriceFeedsIds) {
+      if (key === "matic" && network.name === "polygon") {
+        assetsArray.push(NATIVE_CURRENCY);
+        priceFeedIds.push(pythPriceFeedsIds[key]);
+        continue;
       }
-    });
+      if (key === "eth" && (network.name === "ethereum" || network.name === "arbitrumOne")) {
+        assetsArray.push(NATIVE_CURRENCY);
+        priceFeedIds.push(pythPriceFeedsIds[key]);
+        continue;
+      }
+      if (assets[key]) {
+        assetsArray.push(assets[key]);
+        priceFeedIds.push(pythPriceFeedsIds[key]);
+      }
+    }
     await priceOracle.updatePythPairId(assetsArray, priceFeedIds);
   }
 };

@@ -100,6 +100,8 @@ library LimitOrderLibrary {
         Condition[] closeConditions;
         bool isProtocolFeeInPmx;
         bytes nativeDepositAssetOracleData;
+        bytes[][] pullOracleData;
+        uint256[] pullOracleTypes;
     }
 
     struct CreateLimitOrderVars {
@@ -108,7 +110,6 @@ library LimitOrderLibrary {
         uint256 positionSize;
         address priceOracle;
         uint256 rate;
-        address feeToken;
         IPrimexDNSStorageV3.TradingOrderType tradingOrderType;
         bool isThirdAsset;
     }
@@ -139,6 +140,7 @@ library LimitOrderLibrary {
         bytes nativeSoldAssetOracleData;
         bytes[][] pullOracleData;
         uint256[] pullOracleTypes;
+        uint256 borrowedAmount;
     }
 
     struct OpenPositionByOrderVars {
@@ -173,6 +175,7 @@ library LimitOrderLibrary {
         bytes nativePositionAssetOracleData;
         bytes pmxPositionAssetOracleData;
         bytes nativeSoldAssetOracleData;
+        uint256 borrowedAmount;
     }
 
     /**
@@ -190,6 +193,8 @@ library LimitOrderLibrary {
         bool isProtocolFeeInPmx;
         bool takeDepositFromWallet;
         bytes nativeDepositOracleData;
+        bytes[][] pullOracleData;
+        uint256[] pullOracleTypes;
     }
 
     /**
@@ -379,11 +384,6 @@ library LimitOrderLibrary {
             vars.tradingOrderType,
             _params.nativeDepositAssetOracleData
         );
-        if (_params.isProtocolFeeInPmx) {
-            vars.feeToken = primexDNS.pmx();
-        } else {
-            vars.feeToken = order.positionAsset;
-        }
 
         // deposit locking
         depositLockOrUnlock(
@@ -419,6 +419,19 @@ library LimitOrderLibrary {
         OpenPositionByOrderVars memory vars;
         bool isSpot = address(order.bucket) == address(0);
 
+        if (order.protocolFee != 0) {
+            traderBalanceVault.unlockAsset(
+                ITraderBalanceVault.UnlockAssetParams({
+                    trader: order.trader,
+                    receiver: order.trader,
+                    asset: order.feeToken,
+                    amount: order.protocolFee
+                })
+            );
+            order.protocolFee = 0;
+            order.feeToken = order.positionAsset;
+        }
+
         if (order.shouldOpenPosition) {
             vars.closeReason = isSpot ? CloseReason.FilledSpot : CloseReason.FilledMargin;
             (vars.amountIn, vars.amountOut, vars.newPositionId, vars.exchangeRate, vars.feeInPositionAsset) = pm
@@ -435,7 +448,8 @@ library LimitOrderLibrary {
                         positionUsdOracleData: _params.positionUsdOracleData,
                         nativePositionAssetOracleData: _params.nativePositionAssetOracleData,
                         pmxPositionAssetOracleData: _params.pmxPositionAssetOracleData,
-                        nativeSoldAssetOracleData: _params.nativeSoldAssetOracleData
+                        nativeSoldAssetOracleData: _params.nativeSoldAssetOracleData,
+                        borrowedAmount: _params.borrowedAmount
                     })
                 );
         } else {

@@ -83,13 +83,18 @@ interface ISwapManager is IPausable {
     /**
      * @notice Initializes the contract with the specified parameters.
      * @param _registry The address of the PrimexRegistry contract.
+     */
+    function initialize(address _registry) external;
+
+    /**
+     * @notice Re-initializes the contract with the specified parameters.
+     * @dev Only BIG_TIMELOCK_ADMIN can call it.
      * @param _primexDNS The address of the PrimexDNS contract.
      * @param _traderBalanceVault The address of the TraderBalanceVault contract.
      * @param _priceOracle The address of the PriceOracle contract.
      * @param _whiteBlackList The address of the WhiteBlackList contract.
      */
-    function initialize(
-        address _registry,
+    function initializeAfterUpgrade(
         address _primexDNS,
         address payable _traderBalanceVault,
         address _priceOracle,

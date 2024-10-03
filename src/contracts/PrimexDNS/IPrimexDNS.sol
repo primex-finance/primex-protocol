@@ -26,6 +26,7 @@ interface IPrimexDNSV3 is IPrimexDNSStorageV3 {
     event ChangeAdditionalGasSpent(uint256 indexed additionalGasSpent);
     event ChangeGasPriceBuffer(uint256 indexed gasPriceBuffer);
     event ChangeMinFeeRestrictions(CallingMethod indexed callingMethod, MinFeeRestrictions minFeeRestrictions);
+    event ChangeLeverageTolerance(uint256 leverageTolerance);
 
     /**
      * @param feeRateType The order type for which the rate is set
@@ -71,6 +72,7 @@ interface IPrimexDNSV3 is IPrimexDNSStorageV3 {
         uint256 additionalGasSpent;
         uint256 pmxDiscountMultiplier;
         uint256 gasPriceBuffer;
+        uint256 leverageTolerance;
     }
 
     /**
@@ -167,6 +169,7 @@ interface IPrimexDNSV3 is IPrimexDNSStorageV3 {
      * @dev The function to specify the address of conditional manager of some type
      * 1 => LimitPriceCOM
      * 2 => TakeProfitStopLossCCM
+     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
      * @param _address Address to be set for a conditional manager
      * @param _cmType The type of a conditional manager
      */
@@ -200,7 +203,7 @@ interface IPrimexDNSV3 is IPrimexDNSStorageV3 {
 
     /**
      * @notice Set average gas amount of gas spent by Keeper on the corresponding action.
-     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
      */
     function setAverageGasPerAction(AverageGasPerActionParams calldata _averageGasPerActionParams) external;
 
@@ -219,27 +222,33 @@ interface IPrimexDNSV3 is IPrimexDNSStorageV3 {
 
     /**
      * @notice Set liquidation gas amount (average gas amount spent for a single liquidation).
-     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
      */
     function setLiquidationGasAmount(uint256 _maxProtocolFee) external;
 
     /**
      * @notice Set pmxDiscountMultiplier.
-     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @dev Only callable by the SMALL_TIMELOCK_ADMIN role.
      */
     function setPmxDiscountMultiplier(uint256 _pmxDiscountMultiplier) external;
 
     /**
      * @notice Set new additionalGas. Used to calculate the minProtocol fee
-     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
      */
     function setAdditionalGasSpent(uint256 _additionalGasSpent) external;
 
     /**
      * @notice Set new gasPriceBuffer.
-     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
      */
     function setGasPriceBuffer(uint256 _gasPriceBuffer) external;
+
+    /**
+     * @notice Set new leverageTolerance.
+     * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
+     */
+    function setLeverageTolerance(uint256 _leverageTolerance) external;
 
     /**
      * @notice Retrieves pmx, treasury, feeRateType, maxProtocolFee, pmxDiscountMultiplier
@@ -254,6 +263,13 @@ interface IPrimexDNSV3 is IPrimexDNSStorageV3 {
     function getParamsForMinProtocolFee(
         CallingMethod _callingMethod
     ) external view returns (uint256, uint256, uint256, uint256, uint256);
+
+    /**
+     * @notice Retrieves baseLength, averageGasPerAction, protocolFeeCoefficient and gasPriceBuffer
+     */
+    function getParamsForMinPositionSize(
+        TradingOrderType _tradingOrderType
+    ) external view returns (uint256, uint256, uint256, uint256);
 
     /**
      * @notice Retrieves baseLength for L2 chain payment model depending from tradingOrderType

@@ -34,6 +34,8 @@ interface IPrimexUpkeep {
         bytes nativeSoldAssetOracleData;
         bytes[][] pullOracleData;
         uint256[] pullOracleTypes;
+        uint256 value;
+        uint256 borrowedAmount;
     }
 
     struct ClosePositionInfo {
@@ -49,6 +51,7 @@ interface IPrimexUpkeep {
         bytes nativeSoldAssetOracleData;
         bytes[][] pullOracleData;
         uint256[] pullOracleTypes;
+        uint256 value;
     }
 
     struct MegaRoutes {
@@ -90,28 +93,28 @@ interface IPrimexUpkeep {
      * @param toLiquidate Array of ClosePositionInfo containing information about positions to be liquidated.
      * @param keeper The address of the keeper performing the upkeep.
      */
-    function performUpkeepPositions(ClosePositionInfo[] calldata toLiquidate, address keeper) external;
+    function performUpkeepPositions(ClosePositionInfo[] calldata toLiquidate, address keeper) external payable;
 
     /**
      * @notice Equivalent to performUpkeepPositions() but lacking the try/catch block internally.
      * @param toLiquidate Array of ClosePositionInfo containing information about positions to be liquidated.
      * @param keeper The address of the keeper performing the upkeep.
      */
-    function performUpkeepPositionsUnsafe(ClosePositionInfo[] calldata toLiquidate, address keeper) external;
+    function performUpkeepPositionsUnsafe(ClosePositionInfo[] calldata toLiquidate, address keeper) external payable;
 
     /**
      * @notice Executes limit orders based on the provided OpenByOrderInfo array.
      * @param toOpenByOrder The array of OpenByOrderInfo structs containing the necessary information to open positions.
      * @param keeper The address of the keeper performing the upkeep.
      */
-    function performUpkeepOrders(OpenByOrderInfo[] calldata toOpenByOrder, address keeper) external;
+    function performUpkeepOrders(OpenByOrderInfo[] calldata toOpenByOrder, address keeper) external payable;
 
     /**
      * @notice Equivalent to performUpkeepOrders() but lacking the try/catch block internally.
      * @param toOpenByOrder The array of OpenByOrderInfo structs containing the necessary information to open positions.
      * @param keeper The address of the keeper performing the upkeep.
      */
-    function performUpkeepOrdersUnsafe(OpenByOrderInfo[] calldata toOpenByOrder, address keeper) external;
+    function performUpkeepOrdersUnsafe(OpenByOrderInfo[] calldata toOpenByOrder, address keeper) external payable;
 
     /**
      * @notice  Initializes the PrimexUpkeep contract.

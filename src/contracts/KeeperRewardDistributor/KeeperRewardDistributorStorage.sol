@@ -44,6 +44,7 @@ abstract contract KeeperRewardDistributorStorageV2 is
     KeeperRewardDistributorStorage
 {
     /// @custom:oz-retyped-from int256
-    uint256 public override minPositionSizeMultiplier;
+    /// @custom:oz-renamed-from minPositionSizeMultiplier
+    uint256 public override minPositionSizeAddend;
     uint256 public override optimisticGasCoefficient;
 }

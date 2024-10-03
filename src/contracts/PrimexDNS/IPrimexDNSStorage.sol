@@ -116,4 +116,6 @@ interface IPrimexDNSStorageV3 is IPrimexDNSStorageV2 {
     function pmxDiscountMultiplier() external view returns (uint256);
 
     function gasPriceBuffer() external view returns (uint256);
+
+    function leverageTolerance() external view returns (uint256);
 }

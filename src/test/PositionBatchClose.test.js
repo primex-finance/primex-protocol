@@ -255,7 +255,40 @@ describe("PositionManager batch functions", function () {
   });
 
   describe("initialize", function () {
-    let batchManagerFactory, registryAddress, deployBM, args, gasPerPosition, gasPerBatch;
+    let batchManagerFactory, registryAddress, deployBM;
+    before(async function () {
+      const PositionLibrary = await getContract("PositionLibrary");
+      const PrimexPricingLibrary = await getContract("PrimexPricingLibrary");
+      registryAddress = (await getContract("Registry")).address;
+
+      batchManagerFactory = await getContractFactory("BatchManager", {
+        libraries: {
+          PositionLibrary: PositionLibrary.address,
+          PrimexPricingLibrary: PrimexPricingLibrary.address,
+          TokenTransfersLibrary: tokenTransfersLibrary.address,
+        },
+      });
+
+      deployBM = async function deployBM(args) {
+        return await upgrades.deployProxy(batchManagerFactory, [...args], {
+          unsafeAllow: ["constructor", "delegatecall", "external-library-linking"],
+        });
+      };
+      // to hide OZ warnings: You are using the "unsafeAllow.external-library-linking" flag to include external libraries.
+      await upgrades.silenceWarnings();
+    });
+    it("Should deploy", async function () {
+      const batchManager = await deployBM([registryAddress]);
+      expect(await batchManager.registry()).to.be.equal(registryAddress);
+    });
+
+    it("Should revert when a param '_registry' is not supported", async function () {
+      await expect(deployBM([PrimexDNS.address])).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
+    });
+  });
+
+  describe("initializeAfterUpgrade", function () {
+    let batchManagerFactory, registryAddress, deployBM, gasPerPosition, gasPerBatch, batchManager, args, snapshotId;
     before(async function () {
       const PositionLibrary = await getContract("PositionLibrary");
       const PrimexPricingLibrary = await getContract("PrimexPricingLibrary");
@@ -276,38 +309,48 @@ describe("PositionManager batch functions", function () {
           unsafeAllow: ["constructor", "delegatecall", "external-library-linking"],
         });
       };
-      // to hide OZ warnings: You are using the "unsafeAllow.external-library-linking" flag to include external libraries.
-      await upgrades.silenceWarnings();
+      batchManager = await deployBM([registryAddress]);
     });
+
     beforeEach(async function () {
-      args = [positionManager.address, priceOracle.address, whiteBlackList.address, registryAddress, gasPerPosition, gasPerBatch];
+      args = [positionManager.address, priceOracle.address, whiteBlackList.address, gasPerPosition, gasPerBatch];
+      snapshotId = await network.provider.request({
+        method: "evm_snapshot",
+        params: [],
+      });
     });
-    it("Should deploy dexAdapter and set the correct PM and PriceOracle", async function () {
-      const batchManager = await deployBM(args);
-      expect(await batchManager.positionManager()).to.be.equal(positionManager.address);
-      expect(await batchManager.priceOracle()).to.be.equal(priceOracle.address);
-      expect(await batchManager.whiteBlackList()).to.be.equal(whiteBlackList.address);
-      expect(await batchManager.registry()).to.be.equal(registryAddress);
-      expect(await batchManager.gasPerPosition()).to.be.equal(gasPerPosition);
-      expect(await batchManager.gasPerBatch()).to.be.equal(gasPerBatch);
+
+    afterEach(async function () {
+      await network.provider.request({
+        method: "evm_revert",
+        params: [snapshotId],
+      });
+    });
+    it("Should revert if not BIG_TIMELOCK_ADMIN call initializeAfterkUpgrade", async function () {
+      await expect(batchManager.connect(trader).initializeAfterUpgrade(...args)).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
     });
     it("Should revert when a param '_positionManager' is not supported", async function () {
       args[0] = PrimexDNS.address;
-      await expect(deployBM(args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
+      await expect(batchManager.initializeAfterUpgrade(...args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
     it("Should revert when a param '_priceOracle' is not supported", async function () {
       args[1] = PrimexDNS.address;
-      await expect(deployBM(args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
+      await expect(batchManager.initializeAfterUpgrade(...args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
     it("Should revert when a param '_whiteBlackList' is not supported", async function () {
       args[2] = PrimexDNS.address;
-      await expect(deployBM(args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
+      await expect(batchManager.initializeAfterUpgrade(...args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
-    it("Should revert when a param '_registry' is not supported", async function () {
-      args[3] = PrimexDNS.address;
-      await expect(deployBM(args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
+    it("Should initializeAfterUpgrade", async function () {
+      await batchManager.initializeAfterUpgrade(...args);
+      expect(await batchManager.positionManager()).to.be.equal(positionManager.address);
+      expect(await batchManager.priceOracle()).to.be.equal(priceOracle.address);
+      expect(await batchManager.whiteBlackList()).to.be.equal(whiteBlackList.address);
+      expect(await batchManager.gasPerPosition()).to.be.equal(gasPerPosition);
+      expect(await batchManager.gasPerBatch()).to.be.equal(gasPerBatch);
     });
   });
+
   describe("pause & unpause", function () {
     let registry, snapshotId;
 
@@ -1630,9 +1673,9 @@ describe("PositionManager batch functions", function () {
       const balanceOfBefore = await debtTokenA.scaledBalanceOf(trader.address);
       const primexLens = await getContract("PrimexLens");
 
-      await primexLens.callStatic.isStopLossReached(positionManager.address, 0, getEncodedChainlinkRouteViaUsd(testTokenA));
-      await primexLens.callStatic.isStopLossReached(positionManager.address, 1, getEncodedChainlinkRouteViaUsd(testTokenA));
-      await primexLens.callStatic.isStopLossReached(positionManager.address, 2, getEncodedChainlinkRouteViaUsd(testTokenA));
+      await primexLens.callStatic.isStopLossReached(positionManager.address, 0, getEncodedChainlinkRouteViaUsd(testTokenA), [], []);
+      await primexLens.callStatic.isStopLossReached(positionManager.address, 1, getEncodedChainlinkRouteViaUsd(testTokenA), [], []);
+      await primexLens.callStatic.isStopLossReached(positionManager.address, 2, getEncodedChainlinkRouteViaUsd(testTokenA), [], []);
 
       expect(oldBalanceBefore).to.be.equal(totalSupplyBefore).to.be.equal(balanceOfBefore);
 

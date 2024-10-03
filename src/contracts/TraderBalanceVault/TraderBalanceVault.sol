@@ -115,6 +115,7 @@ contract TraderBalanceVault is ITraderBalanceVault, TraderBalanceVaultStorage {
         if (_params.depositReceiver != address(0)) {
             _require(_params.depositAsset != NATIVE_CURRENCY, Errors.NATIVE_CURRENCY_CANNOT_BE_ASSET.selector);
             TokenTransfersLibrary.doTransferOut(_params.depositAsset, _params.depositReceiver, _params.depositAmount);
+            emit Withdraw(_params.trader, _params.depositAsset, _params.depositAmount);
         }
     }
 
@@ -151,6 +152,7 @@ contract TraderBalanceVault is ITraderBalanceVault, TraderBalanceVaultStorage {
         // >= since we use this function in batchTopUpAvailableBalance
         if (asset == NATIVE_CURRENCY) _require(msg.value >= amount, Errors.INVALID_AMOUNT.selector);
         balances[receiver][asset].availableBalance += amount;
+        emit Deposit(receiver, asset, amount);
     }
 
     /**
@@ -175,6 +177,7 @@ contract TraderBalanceVault is ITraderBalanceVault, TraderBalanceVaultStorage {
         } else {
             TokenTransfersLibrary.doTransferOut(_asset, _to, _amount);
         }
+        emit Withdraw(_from, _asset, _amount);
     }
 
     /**

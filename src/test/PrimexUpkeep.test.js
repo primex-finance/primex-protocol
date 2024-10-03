@@ -14,7 +14,7 @@ const {
   deployments: { fixture },
 } = require("hardhat");
 const { addLiquidity, checkIsDexSupported, getAncillaryDexData, getAmountsOut, getSingleMegaRoute } = require("./utils/dexOperations");
-const { wadDiv } = require("./utils/math");
+const { wadDiv, wadMul } = require("./utils/math");
 const {
   deployMockAccessControl,
   deployMockPositionManager,
@@ -60,6 +60,7 @@ describe("PrimexUpkeep", function () {
     let bestRoutesPosToLiquidate, bestRoutesPosToLiquidate2, bestRoutesOrderToLiquidate, bestRoutesOrderToLiquidate2;
     let orderCOMAdditionalParams, order2COMAdditionalParams, conditionIndex;
     let priceOracle;
+    let borrowedAmountForOrders, PrimexDNS;
 
     before(async function () {
       await fixture(["Test"]);
@@ -87,7 +88,7 @@ describe("PrimexUpkeep", function () {
 
       primexLens = await getContract("PrimexLens");
       bestDexLens = await getContract("BestDexLens");
-      const PrimexDNS = await getContract("PrimexDNS");
+      PrimexDNS = await getContract("PrimexDNS");
       const bucketAddress = (await PrimexDNS.buckets("bucket1")).bucketAddress;
       const bucket = await getContractAt("Bucket", bucketAddress);
 
@@ -130,6 +131,8 @@ describe("PrimexUpkeep", function () {
       const leverage = parseEther("2.5");
       await testTokenA.mint(trader.address, MaxUint256.div(2));
 
+      borrowedAmountForOrders = wadMul(depositAmount.toString(), leverage.sub(parseEther("1")).toString()).toString();
+
       const bigLimitPrice = MaxUint256.div(WAD);
       let deadline = new Date().getTime() + 600;
       // liquidator always can openPositionByOrder by this order
@@ -146,6 +149,8 @@ describe("PrimexUpkeep", function () {
         closeConditions: [],
         isProtocolFeeInPmx: false,
         nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+        pullOracleTypes: [],
       });
       orderIdLiquidate = await limitOrderManager.ordersId();
       await limitOrderManager.connect(trader).createLimitOrder({
@@ -161,6 +166,8 @@ describe("PrimexUpkeep", function () {
         closeConditions: [],
         isProtocolFeeInPmx: false,
         nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+        pullOracleTypes: [],
       });
       orderIdLiquidate2 = await limitOrderManager.ordersId();
 
@@ -178,6 +185,8 @@ describe("PrimexUpkeep", function () {
         closeConditions: [],
         isProtocolFeeInPmx: false,
         nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       // open positions
@@ -305,6 +314,8 @@ describe("PrimexUpkeep", function () {
         { firstAssetShares: 10, depositInThirdAssetShares: 10, depositToBorrowedShares: 10 },
         dexesWithAncillaryData,
         [],
+        [],
+        [],
       ]);
       bestRoutesOrderToLiquidate2 = await bestDexLens.callStatic.getBestDexByOrder([
         positionManager.address,
@@ -312,6 +323,8 @@ describe("PrimexUpkeep", function () {
         orderIdLiquidate2,
         { firstAssetShares: 10, depositInThirdAssetShares: 10, depositToBorrowedShares: 10 },
         dexesWithAncillaryData,
+        [],
+        [],
         [],
       ]);
 
@@ -425,6 +438,7 @@ describe("PrimexUpkeep", function () {
         nativeSoldAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
         pullOracleTypes: [],
+        value: 0,
       };
 
       const positionIdLiquidate2Info = {
@@ -443,6 +457,7 @@ describe("PrimexUpkeep", function () {
         nativeSoldAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
         pullOracleTypes: [],
+        value: 0,
       };
 
       await PrimexUpkeep.performUpkeepPositions([positionLiquidateInfo, positionIdLiquidate2Info], deployer.address);
@@ -459,6 +474,8 @@ describe("PrimexUpkeep", function () {
     });
 
     it("PrimexUpkeep open positions by performUpkeepOrders", async function () {
+      await PrimexDNS.setLeverageTolerance(parseEther("0.2"));
+
       const orderToLiquidateInfo = {
         id: orderIdLiquidate,
         conditionIndex: conditionIndex,
@@ -476,6 +493,8 @@ describe("PrimexUpkeep", function () {
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
         pullOracleTypes: [],
+        value: 0,
+        borrowedAmount: borrowedAmountForOrders,
       };
 
       const orderToLiquidate2Info = {
@@ -495,6 +514,8 @@ describe("PrimexUpkeep", function () {
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
         pullOracleTypes: [],
+        value: 0,
+        borrowedAmount: borrowedAmountForOrders,
       };
 
       await PrimexUpkeep.performUpkeepOrdersUnsafe([orderToLiquidateInfo, orderToLiquidate2Info], deployer.address);

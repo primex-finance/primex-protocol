@@ -47,6 +47,7 @@ library Errors {
     error SENDER_IS_BLACKLISTED();
     error NATIVE_CURRENCY_CANNOT_BE_ASSET();
     error INVALID_AMOUNT();
+    error POOL_CALL_FAILED();
 
     // bonus executor
     error CALLER_IS_NOT_NFT();
@@ -122,6 +123,7 @@ library Errors {
     error IS_SPOT_ORDER();
     error SHOULD_NOT_HAVE_CLOSE_CONDITIONS();
     error ORDER_HAS_EXPIRED();
+    error INCORRECT_BORROWED_AMOUNT();
 
     // LiquidityMiningRewardDistributor
     error BUCKET_IS_NOT_STABLE();
@@ -189,12 +191,12 @@ library Errors {
     error DEX_IS_ALREADY_FROZEN();
     error DEX_IS_ALREADY_ADDED();
     error BUCKET_NOT_ADDED();
-    error DEX_NOT_ACTIVE();
     error BUCKET_ALREADY_ACTIVATED();
     error DEX_NOT_ADDED();
     error BUCKET_IS_INACTIVE();
     error WITHDRAWAL_NOT_ALLOWED();
     error BUCKET_IS_ALREADY_DEPRECATED();
+    error LEVERAGE_TOLERANCE_IS_NOT_CORRECT();
 
     // Primex upkeep
     error NUMBER_IS_0();
@@ -227,6 +229,7 @@ library Errors {
     error IDENTICAL_ASSETS();
     error SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO();
     error DIFFERENT_PRICE_DEX_AND_ORACLE();
+    error LEVERAGE_TOLERANCE_EXCEEDED();
     error TAKE_PROFIT_IS_LTE_LIMIT_PRICE();
     error STOP_LOSS_IS_GTE_LIMIT_PRICE();
     error STOP_LOSS_IS_LTE_LIQUIDATION_PRICE();

@@ -51,7 +51,7 @@ interface ISpotTradingRewardDistributorV2 is ISpotTradingRewardDistributorStorag
     function claimReward() external;
 
     /**
-     * @dev Function to set new reward per period. Only BIG_TIMELOCK_ADMIN can call it.
+     * @dev Function to set new reward per period. Only MEDIUM_TIMELOCK_ADMIN can call it.
      * @param rewardPerPeriod New value for reward per period
      */
     function setRewardPerPeriod(uint256 rewardPerPeriod) external;
@@ -70,6 +70,7 @@ interface ISpotTradingRewardDistributorV2 is ISpotTradingRewardDistributorStorag
 
     /**
      * @dev Function to withdraw PMX from the contract to treasury
+     * @dev Only BIG_TIMELOCK_ADMIN can call it.
      * @param amount Amount of PMX to withdraw from the contract
      */
     function withdrawPmx(uint256 amount) external;

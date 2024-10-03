@@ -7,7 +7,7 @@ module.exports = async function (
     nativePartInReward,
     positionSizeCoefficient,
     additionalGas,
-    minPositionSizeMultiplier,
+    minPositionSizeAddend,
     maxGasPerPositionParams,
     decreasingGasByReasonParams,
     defaultMaxGasPrice,
@@ -86,9 +86,9 @@ module.exports = async function (
     whiteBlackList = await getContractAt("WhiteBlackList", whiteBlackList);
     let tx = await whiteBlackList.addAddressToWhitelist(keeperRewardDistributor.address);
     await tx.wait();
-    if (minPositionSizeMultiplier !== undefined) {
+    if (minPositionSizeAddend !== undefined) {
       const keeperRewardDistributorContract = await getContractAt("KeeperRewardDistributor", keeperRewardDistributor.address);
-      tx = await keeperRewardDistributorContract.setMinPositionSizeMultiplier(minPositionSizeMultiplier);
+      tx = await keeperRewardDistributorContract.setMinPositionSizeAddend(minPositionSizeAddend);
       await tx.wait();
     }
   }

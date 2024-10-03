@@ -70,4 +70,6 @@ abstract contract PrimexDNSStorageV3 is IPrimexDNSStorageV3, PrimexDNSStorageV2 
     uint256 public override pmxDiscountMultiplier;
     // protects position from immediate liquidation after gas price changed
     uint256 public override gasPriceBuffer;
+    // the limits of available deviation of the actual leverage from the leverage of an order
+    uint256 public override leverageTolerance;
 }

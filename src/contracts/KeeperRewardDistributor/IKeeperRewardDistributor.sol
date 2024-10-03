@@ -59,7 +59,7 @@ interface IKeeperRewardDistributorV3 is IKeeperRewardDistributorStorageV2, IPaus
     event PositionSizeCoefficientChanged(uint256 indexed positionSizeCoefficient);
     event AdditionalGasChanged(uint256 indexed additionalGas);
     event KeeperRewardUpdated(address indexed keeper, uint256 rewardInPmx, uint256 rewardInNativeCurrency);
-    event MinPositionSizeMultiplierChanged(uint256 newMinPositionSizeMultiplier);
+    event MinPositionSizeAddendChanged(uint256 newMinPositionSizeAddend);
     event OptimisticGasCoefficientChanged(uint256 newOptimismGasCoefficient);
 
     /**
@@ -134,6 +134,7 @@ interface IKeeperRewardDistributorV3 is IKeeperRewardDistributorStorageV2, IPaus
 
     /**
      * @notice Sets the dataLengthRestrictions for the specified KeeperCallingMethod.
+     * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
      * @param _callingMethod The calling method for which dataLengthRestrictions is set
      * @param _maxRoutesLength The maximum routes length for which an additional fee will be paid in the ARBITRUM payment model, in bytes
      * @param _baseLength The length of the data entering the protocol function including method signature
@@ -181,12 +182,12 @@ interface IKeeperRewardDistributorV3 is IKeeperRewardDistributorStorageV2, IPaus
     function setAdditionalGas(uint256 _additionalGas) external;
 
     /**
-     * @notice Sets the minPositionSizeMultiplier for reward calculations.
+     * @notice Sets the minPositionSizeAddend for reward calculations.
      * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
-     * @param _minPositionSizeMultiplier The new minPositionSizeMultiplier value (in WAD).
+     * @param _minPositionSizeAddend The new minPositionSizeAddend value (in WAD).
      */
 
-    function setMinPositionSizeMultiplier(uint256 _minPositionSizeMultiplier) external;
+    function setMinPositionSizeAddend(uint256 _minPositionSizeAddend) external;
 
     /**
      * @notice Retrieves gas calculation params.

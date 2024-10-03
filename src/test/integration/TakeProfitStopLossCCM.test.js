@@ -230,7 +230,9 @@ describe("TakeProfitStopLossCCM_integration", function () {
         pullOracleData: [],
         pullOracleTypes: [],
       });
-      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenA))).to.be.equal(false);
+      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenA), [], [])).to.be.equal(
+        false,
+      );
     });
     it("isStopLossReached should return 'true' when oracle price <= stopLossPrice", async function () {
       const stopLossPrice = reversePrice(price.toString()).mul(USD_MULTIPLIER).toString();
@@ -260,10 +262,14 @@ describe("TakeProfitStopLossCCM_integration", function () {
         pullOracleTypes: [],
       });
       // when stopLossPrice == exchangeRate
-      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenA))).to.be.equal(true);
+      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenA), [], [])).to.be.equal(
+        true,
+      );
       // when stopLossPrice > exchangeRate;
       await setOraclePrice(testTokenA, testTokenB, price.add("2"));
-      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenA))).to.be.equal(true);
+      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenA), [], [])).to.be.equal(
+        true,
+      );
     });
   });
 });

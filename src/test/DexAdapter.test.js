@@ -264,14 +264,6 @@ describe("DexAdapter", function () {
       );
     });
 
-    it("Should revert swapExactTokensForTokens() when a param 'address _params.dexRouter' is zero", async function () {
-      swapExactTokensForTokensParams.dexRouter = AddressZero;
-      await expect(dexAdapter.connect(caller).swapExactTokensForTokens(swapExactTokensForTokensParams)).to.be.revertedWithCustomError(
-        ErrorsLibrary,
-        "ADDRESS_NOT_SUPPORTED",
-      );
-    });
-
     it("Should revert swapExactTokensForTokens() when amount in is zero", async function () {
       swapExactTokensForTokensParams.amountIn = 0;
       await expect(dexAdapter.connect(caller).swapExactTokensForTokens(swapExactTokensForTokensParams)).to.be.revertedWithCustomError(
@@ -280,7 +272,6 @@ describe("DexAdapter", function () {
       );
     });
     it("Should swapExactTokensForTokens() through swapWithArbitraryDex", async function () {
-      await dexAdapter.setDexType(dexRouter, 0);
       const amountIn = parseUnits("1", decimalsA);
       const amountOutMin = 0;
       const path = [testTokenA.address, testTokenB.address];
@@ -295,7 +286,7 @@ describe("DexAdapter", function () {
         to,
         deadline,
       ]);
-      const encodedPath = defaultAbiCoder.encode(["address", "bytes"], [dexRouter, encodedData]);
+      const encodedPath = defaultAbiCoder.encode(["address", "address", "bytes"], [dexRouter, dexRouter, encodedData]);
       const swapExactTokensForTokensParams = {
         encodedPath: encodedPath,
         tokenIn: testTokenA.address,
@@ -304,7 +295,7 @@ describe("DexAdapter", function () {
         amountOutMin: amountOutMin,
         to: to,
         deadline: deadline,
-        dexRouter: dexRouter,
+        dexRouter: AddressZero,
       };
       expect(await dexAdapter.connect(caller).swapExactTokensForTokens(swapExactTokensForTokensParams));
     });

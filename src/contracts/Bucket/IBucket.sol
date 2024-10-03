@@ -99,6 +99,10 @@ interface IBucket is IBucketStorage, IBucketEvents {
      */
     function removeAsset(address _assetToDelete) external;
 
+    /**
+     * @dev Sets barCalculationParams (urOptimal, k0, k1, b0, b1)
+     * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
+     */
     function setBarCalculationParams(bytes memory _params) external;
 
     /**
@@ -124,13 +128,14 @@ interface IBucket is IBucketStorage, IBucketEvents {
 
     /**
      * @dev Sets the interest rate strategy contract address.
-     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
      * @param _interestRateStrategy The address of the interest rate strategy contract.
      */
     function setInterestRateStrategy(address _interestRateStrategy) external;
 
     /**
      * @notice The function sets the max total deposit for the particular bucket
+     * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
      * @param _maxTotalDeposit The amount of max total deposit for the bucket
      */
     function setMaxTotalDeposit(uint256 _maxTotalDeposit) external;

@@ -353,6 +353,7 @@ describe("ProxyContracts", function () {
         additionalGasSpent: 100,
         pmxDiscountMultiplier: 100,
         gasPriceBuffer: 100,
+        leverageTolerance: 0,
       };
     });
     it("Should not initialize again from proxy", async function () {

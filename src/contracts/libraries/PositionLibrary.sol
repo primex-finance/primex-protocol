@@ -174,6 +174,7 @@ library PositionLibrary {
         bool isThirdAsset;
         bool takeDepositFromWallet;
         bool byOrder;
+        uint256 orderLeverage;
         address sender;
         LimitOrderLibrary.Condition[] closeConditions;
         bool needOracleTolerableLimitCheck;
@@ -385,19 +386,21 @@ library PositionLibrary {
 
         params.traderBalanceVault.topUpAvailableBalance(position.trader, position.soldAsset, params.amount);
 
-        uint256 feeInPaymentAsset = PrimexPricingLibrary.calculateFeeInPaymentAsset(
-            PrimexPricingLibrary.CalculateFeeInPaymentAssetParams({
-                primexDNS: params.primexDNS,
-                priceOracle: address(params.priceOracle),
-                feeRateType: IPrimexDNSStorageV3.FeeRateType.MarginPositionClosedByKeeper,
-                paymentAsset: position.soldAsset,
-                paymentAmount: params.amount,
-                keeperRewardDistributor: params.keeperRewardDistributor,
-                gasSpent: 0,
-                isFeeProhibitedInPmx: true,
-                nativePaymentAssetOracleData: params.nativeSoldAssetOracleData
-            })
-        );
+        uint256 feeInPaymentAsset = decodeFeeTokenAddress(position.extraParams) == address(0)
+            ? 0
+            : PrimexPricingLibrary.calculateFeeInPaymentAsset(
+                PrimexPricingLibrary.CalculateFeeInPaymentAssetParams({
+                    primexDNS: params.primexDNS,
+                    priceOracle: address(params.priceOracle),
+                    feeRateType: IPrimexDNSStorageV3.FeeRateType.MarginPositionClosedByKeeper,
+                    paymentAsset: position.soldAsset,
+                    paymentAmount: params.amount,
+                    keeperRewardDistributor: params.keeperRewardDistributor,
+                    gasSpent: 0,
+                    isFeeProhibitedInPmx: true,
+                    nativePaymentAssetOracleData: params.nativeSoldAssetOracleData
+                })
+            );
         _require(
             health(
                 position,
@@ -858,6 +861,14 @@ library PositionLibrary {
                     ),
                 Errors.INSUFFICIENT_DEPOSIT.selector
             );
+            if (_vars.byOrder) {
+                uint256 leverageTolerance = _pmParams.primexDNS.leverageTolerance();
+                _require(
+                    data.leverage <= _vars.orderLeverage.wmul(WadRayMath.WAD + leverageTolerance) &&
+                        data.leverage >= _vars.orderLeverage.wmul(WadRayMath.WAD - leverageTolerance),
+                    Errors.LEVERAGE_TOLERANCE_EXCEEDED.selector
+                );
+            }
         }
 
         if (!_vars.byOrder) {
@@ -951,6 +962,7 @@ library PositionLibrary {
             isThirdAsset: false,
             takeDepositFromWallet: _params.takeDepositFromWallet,
             byOrder: false,
+            orderLeverage: 0,
             sender: address(0),
             closeConditions: _params.closeConditions,
             needOracleTolerableLimitCheck: _params.marginParams.borrowedAmount > 0,
@@ -1029,8 +1041,9 @@ library PositionLibrary {
                 depositAmount: _params.order.depositAmount,
                 leverage: _params.order.leverage
             }),
-            borrowedAmount: 0,
+            borrowedAmount: _params.borrowedAmount,
             amountOutMin: 0,
+            orderLeverage: _params.order.leverage,
             deadline: _params.order.deadline,
             isSpot: _params.order.leverage == WadRayMath.WAD,
             isThirdAsset: false,
@@ -1080,7 +1093,12 @@ library PositionLibrary {
                 address(priceOracle),
                 _params.depositSoldAssetOracleData
             );
-            vars.borrowedAmount = position.depositAmountInSoldAsset.wmul(_params.order.leverage - WadRayMath.WAD);
+            if (_params.order.depositAsset == position.soldAsset) {
+                _require(
+                    vars.borrowedAmount == _params.order.depositAmount.wmul(_params.order.leverage - WadRayMath.WAD),
+                    Errors.INCORRECT_BORROWED_AMOUNT.selector
+                );
+            }
         }
         address feeToken = _params.order.feeToken == primexDNS.pmx() ? primexDNS.pmx() : position.soldAsset;
         position.extraParams = abi.encode(feeToken);

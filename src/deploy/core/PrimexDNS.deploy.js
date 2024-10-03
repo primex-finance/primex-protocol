@@ -67,6 +67,7 @@ module.exports = async ({
     liquidationGasAmount: liquidationGasAmount,
     protocolFeeCoefficient: protocolFeeCoefficient,
     additionalGasSpent: additionalGasSpent,
+    leverageTolerance: PrimexDNSconfig.leverageTolerance ? parseEther(PrimexDNSconfig.leverageTolerance).toString() : "0",
     pmxDiscountMultiplier: pmxDiscountMultiplier,
     gasPriceBuffer: gasPriceBuffer,
     errorsLibrary: errorsLibrary.address,

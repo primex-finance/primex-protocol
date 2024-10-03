@@ -176,8 +176,10 @@ async function calculateMinPositionSize(tradingOrderType, asset, nativePaymentOr
 
     const l1CostWei = paymentModel === PaymentModel.ARBITRUM ? l1GasPrice * 16 * (baseLength.toNumber() + 140) : Zero;
 
+    const protocolFeeCoefficient = await primexDNS.protocolFeeCoefficient();
+
     const minPositionSizeInNativeAsset = wadMul(
-      averageGasPerAction.mul(restrictedGasPrice).add(l1CostWei).toString(),
+      averageGasPerAction.mul(restrictedGasPrice).add(l1CostWei).add(protocolFeeCoefficient).toString(),
       gasPriceBuffer.toString(),
     );
 

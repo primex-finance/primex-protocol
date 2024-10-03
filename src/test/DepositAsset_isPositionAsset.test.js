@@ -102,6 +102,7 @@ describe("DepositAsset_isPositionAsset", function () {
     const debtTokenAddress = await bucket.debtToken();
     debtTokenA = await getContractAt("DebtToken", debtTokenAddress);
     primexPricingLibrary = await getContract("PrimexPricingLibrary");
+    await PrimexDNS.setLeverageTolerance(parseEther("0.2"));
     const PrimexPricingLibraryMockFactory = await getContractFactory("PrimexPricingLibraryMock", {
       libraries: {
         PrimexPricingLibrary: primexPricingLibrary.address,
@@ -2028,7 +2029,7 @@ describe("DepositAsset_isPositionAsset", function () {
   });
 
   describe("LimitOrderManager", function () {
-    let leverage, ethAddress;
+    let leverage, ethAddress, borrowedAmount;
     before(async function () {
       leverage = parseEther("5");
     });
@@ -2054,8 +2055,8 @@ describe("DepositAsset_isPositionAsset", function () {
 
         const priceFromOracle = await getExchangeRateByRoutes(testTokenB, await getEncodedChainlinkRouteViaUsd(testTokenA));
         depositInBorrowedAmount = BigNumber.from(wadMul(depositAmountB.toString(), priceFromOracle.toString()).toString());
-
-        const amountToSwap = wadMul(depositInBorrowedAmount.toString(), leverage.sub(parseEther("1")).toString()).toString();
+        borrowedAmount = wadMul(depositInBorrowedAmount.toString(), leverage.sub(parseEther("1")).toString()).toString();
+        const amountToSwap = borrowedAmount;
         const amountTokenB = await getAmountsOut(dex1, amountToSwap, [testTokenA.address, testTokenB.address]);
         const amountToSwapInWadDecimals = BigNumber.from(amountToSwap).mul(multiplierA);
         const amountTokenBInWadDecimals = amountTokenB.mul(multiplierB);
@@ -2086,6 +2087,8 @@ describe("DepositAsset_isPositionAsset", function () {
           closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(tpPrice, slPrice))],
           isProtocolFeeInPmx: false,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         orderId = await limitOrderManager.ordersId();
 
@@ -2104,6 +2107,8 @@ describe("DepositAsset_isPositionAsset", function () {
           openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(dexRate))],
           closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(tpPrice, slPrice))],
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         feeInPmxOderId = await limitOrderManager.ordersId();
 
@@ -2154,6 +2159,7 @@ describe("DepositAsset_isPositionAsset", function () {
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
             pullOracleData: [],
             pullOracleTypes: [],
+            borrowedAmount,
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "DIFFERENT_PRICE_DEX_AND_ORACLE");
       });
@@ -2176,6 +2182,8 @@ describe("DepositAsset_isPositionAsset", function () {
           openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(dexRate))],
           closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(tpPrice, slPrice))],
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
 
         const orderId = await limitOrderManager.ordersId();
@@ -2198,6 +2206,7 @@ describe("DepositAsset_isPositionAsset", function () {
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
           pullOracleData: [],
           pullOracleTypes: [],
+          borrowedAmount,
         });
       });
 
@@ -2221,6 +2230,7 @@ describe("DepositAsset_isPositionAsset", function () {
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
             pullOracleData: [],
             pullOracleTypes: [],
+            borrowedAmount,
           }),
         ).to.changeTokenBalances(
           testTokenA,
@@ -2248,6 +2258,7 @@ describe("DepositAsset_isPositionAsset", function () {
           false,
           getEncodedChainlinkRouteViaUsd(testTokenB),
         );
+        const borrowedAmount = wadMul(depositInBorrowedAmount.toString(), leverage.sub(parseEther("1")).toString()).toString();
 
         await limitOrderManager.connect(liquidator).openPositionByOrder({
           orderId: orderId,
@@ -2267,9 +2278,9 @@ describe("DepositAsset_isPositionAsset", function () {
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
           pullOracleData: [],
           pullOracleTypes: [],
+          borrowedAmount,
         });
         const borrowIndex = await bucket.variableBorrowIndex();
-        const borrowedAmount = wadMul(depositInBorrowedAmount.toString(), leverage.sub(parseEther("1")).toString()).toString();
         const scaledDebtAmount = rayDiv(borrowedAmount.toString(), borrowIndex.toString()).toString();
         expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
         const position = await positionManager.getPosition(0);
@@ -2330,6 +2341,7 @@ describe("DepositAsset_isPositionAsset", function () {
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
             pullOracleData: [],
             pullOracleTypes: [],
+            borrowedAmount,
           }),
         ).to.changeTokenBalances(
           PMXToken,
@@ -2370,6 +2382,7 @@ describe("DepositAsset_isPositionAsset", function () {
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
           pullOracleData: [],
           pullOracleTypes: [],
+          borrowedAmount,
         });
         const borrowIndex = await bucket.variableBorrowIndex();
         const scaledDebtAmount = rayDiv(amount0.toString(), borrowIndex.toString()).toString();

@@ -38,10 +38,8 @@ module.exports = async function (
       viaAdminContract: "PrimexProxyAdmin",
       proxyContract: "OpenZeppelinTransparentProxy",
       execute: {
-        init: {
-          methodName: "initialize",
-          args: [positionManager, priceOracle, whiteBlackList, registry, gasPerPosition, gasPerBatch],
-        },
+        methodName: "initialize",
+        args: [registry],
       },
     },
     libraries: {
@@ -53,6 +51,16 @@ module.exports = async function (
   });
 
   if (batchManager.newlyDeployed && !notExecuteNewDeployedTasks) {
+    const BatchManagerContract = await getContractAt("BatchManager", batchManager.address);
+    const initializeTx = await BatchManagerContract.initializeAfterUpgrade(
+      positionManager,
+      priceOracle,
+      whiteBlackList,
+      gasPerPosition,
+      gasPerBatch,
+    );
+    await initializeTx.wait();
+
     whiteBlackList = await getContractAt("WhiteBlackList", whiteBlackList);
     const tx = await whiteBlackList.addAddressToWhitelist(batchManager.address);
     await tx.wait();

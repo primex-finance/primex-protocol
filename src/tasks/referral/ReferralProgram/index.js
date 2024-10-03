@@ -7,3 +7,5 @@ task("deploy:ReferralProgram", "Deploy ReferralProgram contract", require("./ref
 
 task("saveReferralsToFile", "Save current referrers and referrals to file", require("./dataMigration/saveReferralsToFile"));
 task("updateReferralsFromFile", "Update referrers and referrals from file", require("./dataMigration/updateReferralsFromFile"));
+
+task("parseRefferalsByEvents", "", require("./dataMigration/parseRefferalsByEvents"));

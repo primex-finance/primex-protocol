@@ -54,22 +54,37 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
         __ERC165_init();
     }
 
+    /**
+     * @inheritdoc IPriceOracleV2
+     */
     function setTreasury(address _treasury) external override onlyRole(BIG_TIMELOCK_ADMIN) {
         _setTreasury(_treasury);
     }
 
+    /**
+     * @inheritdoc IPriceOracleV2
+     */
     function setPyth(address _pyth) external override onlyRole(BIG_TIMELOCK_ADMIN) {
         pyth = IPyth(_pyth);
     }
 
+    /**
+     * @inheritdoc IPriceOracleV2
+     */
     function setUSDT(address _usdt) external override onlyRole(BIG_TIMELOCK_ADMIN) {
         usdt = _usdt;
     }
 
+    /**
+     * @inheritdoc IPriceOracleV2
+     */
     function setSupraPullOracle(address _supraPullOracle) external override onlyRole(BIG_TIMELOCK_ADMIN) {
         supraPullOracle = ISupraOraclePull(_supraPullOracle);
     }
 
+    /**
+     * @inheritdoc IPriceOracleV2
+     */
     function setSupraStorageOracle(address _supraStorageOracle) external override onlyRole(BIG_TIMELOCK_ADMIN) {
         supraStorageOracle = ISupraSValueFeed(_supraStorageOracle);
     }
@@ -92,7 +107,7 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
     /**
      * @inheritdoc IPriceOracleV2
      */
-    function setTimeTolerance(uint256 _timeTolerance) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
+    function setTimeTolerance(uint256 _timeTolerance) external override onlyRole(SMALL_TIMELOCK_ADMIN) {
         timeTolerance = _timeTolerance;
         emit TimeToleranceUpdated(_timeTolerance);
     }
@@ -131,6 +146,9 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
         }
     }
 
+    /**
+     * @inheritdoc IPriceOracleV2
+     */
     function updateChainlinkPriceFeedsUsd(
         address[] calldata _tokens,
         address[] calldata _feeds
@@ -142,6 +160,9 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
         }
     }
 
+    /**
+     * @inheritdoc IPriceOracleV2
+     */
     function updatePythPairId(
         address[] calldata _tokens,
         bytes32[] calldata _priceFeedIds
@@ -153,6 +174,9 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
         }
     }
 
+    /**
+     * @inheritdoc IPriceOracleV2
+     */
     function updateSupraDataFeed(
         UpdateSupraDataFeedParams[] calldata _params
     ) external override onlyRole(SMALL_TIMELOCK_ADMIN) {
@@ -165,7 +189,6 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
     /**
      * @inheritdoc IPriceOracleV2
      */
-
     function updatePullOracle(bytes[][] calldata _data, uint256[] calldata _oracleTypes) external payable override {
         _require(_data.length == _oracleTypes.length, Errors.PARAMS_LENGTH_MISMATCH.selector);
         uint256 remainingValue = msg.value;
@@ -185,10 +208,13 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
         }
     }
 
+    /**
+     * @inheritdoc IPriceOracleV2
+     */
     function updateUniv3TypeOracle(
         uint256[] calldata _oracleTypes,
         address[] calldata _oracles
-    ) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
+    ) external override onlyRole(SMALL_TIMELOCK_ADMIN) {
         _require(_oracleTypes.length == _oracles.length, Errors.PARAMS_LENGTH_MISMATCH.selector);
         for (uint256 i; i < _oracleTypes.length; i++) {
             univ3TypeOracles[_oracleTypes[i]] = _oracles[i];
@@ -196,6 +222,9 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
         }
     }
 
+    /**
+     * @inheritdoc IPriceOracleV2
+     */
     function updateUniv3TrustedPair(
         UpdateUniv3TrustedPairParams[] calldata _updateParams
     ) external override onlyRole(SMALL_TIMELOCK_ADMIN) {
@@ -216,6 +245,9 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
         }
     }
 
+    /**
+     * @inheritdoc IPriceOracleV2
+     */
     function getExchangeRate(
         address assetA,
         address assetB,

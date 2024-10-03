@@ -100,7 +100,7 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV3, KeeperRewardDist
      * @inheritdoc IKeeperRewardDistributorV3
      */
     function updateReward(UpdateRewardParams calldata _params) external override onlyManagerRole {
-        uint256 positionSizeMultiplier = (
+        uint256 positionSizeAddend = (
             PrimexPricingLibrary.getOracleAmountsOut(
                 _params.positionAsset,
                 NATIVE_CURRENCY,
@@ -109,7 +109,7 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV3, KeeperRewardDist
                 _params.positionNativeAssetOracleData
             )
         ).wmul(positionSizeCoefficient);
-        if (positionSizeMultiplier < minPositionSizeMultiplier) positionSizeMultiplier = minPositionSizeMultiplier;
+        if (positionSizeAddend < minPositionSizeAddend) positionSizeAddend = minPositionSizeAddend;
 
         uint256 gasAmount = additionalGas + _pureGasSpent(_params.gasSpent, _params.decreasingCounter);
         uint256 maxGasAmount = _getMaxGasAmount(_params.action, _params.numberOfActions);
@@ -165,7 +165,7 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV3, KeeperRewardDist
                 }
             }
 
-            uint256 reward = gasAmount * gasPrice + l1CostWei + positionSizeMultiplier;
+            uint256 reward = gasAmount * gasPrice + l1CostWei + positionSizeAddend;
             rewardInNativeCurrency = reward.wmul(nativePartInReward);
             rewardInPmx = PrimexPricingLibrary
                 .getOracleAmountsOut(NATIVE_CURRENCY, pmx, reward, priceOracle, _params.nativePmxOracleData)
@@ -233,15 +233,11 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV3, KeeperRewardDist
      * @inheritdoc IKeeperRewardDistributorV3
      */
 
-    function setMinPositionSizeMultiplier(
-        uint256 _minPositionSizeMultiplier
+    function setMinPositionSizeAddend(
+        uint256 _minPositionSizeAddend
     ) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
-        _require(
-            _minPositionSizeMultiplier > 0 && _minPositionSizeMultiplier <= WadRayMath.WAD * 2,
-            Errors.INCORRECT_MULTIPLIER.selector
-        );
-        minPositionSizeMultiplier = _minPositionSizeMultiplier;
-        emit MinPositionSizeMultiplierChanged(_minPositionSizeMultiplier);
+        minPositionSizeAddend = _minPositionSizeAddend;
+        emit MinPositionSizeAddendChanged(_minPositionSizeAddend);
     }
 
     /**

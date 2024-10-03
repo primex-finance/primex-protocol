@@ -140,6 +140,7 @@ describe("PrimexDNS", function () {
           additionalGasSpent: parseEther(additionalGasSpent),
           pmxDiscountMultiplier: parseEther(pmxDiscountMultiplier),
           gasPriceBuffer: parseEther(gasPriceBuffer),
+          leverageTolerance: 0,
         },
       ];
     });
@@ -256,6 +257,38 @@ describe("PrimexDNS", function () {
       );
     });
   });
+  describe("setLeverageTolerance", function () {
+    it("Should setLeverageTolerance if called by MEDIUM_TIMELOCK_ADMIN", async function () {
+      const leverageTolerance = parseEther("0.1");
+      await PrimexDNS.connect(MediumTimelockAdmin).setLeverageTolerance(leverageTolerance);
+      expect(await PrimexDNS.leverageTolerance()).to.equal(leverageTolerance);
+    });
+
+    it("Should emit ChangeLeverageTolerance when set is successful", async function () {
+      const leverageTolerance = parseEther("0.1");
+
+      await expect(PrimexDNS.connect(MediumTimelockAdmin).setLeverageTolerance(leverageTolerance))
+        .to.emit(PrimexDNS, "ChangeLeverageTolerance")
+        .withArgs(leverageTolerance);
+    });
+
+    it("Should revert if the leverage tolerance is greater than 0.2 WAD", async function () {
+      const leverageTolerance = parseEther("0.2").add("1");
+      await expect(PrimexDNS.connect(MediumTimelockAdmin).setLeverageTolerance(leverageTolerance)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "LEVERAGE_TOLERANCE_IS_NOT_CORRECT",
+      );
+    });
+
+    it("Should revert if not BIG_TIMELOCK_ADMIN call setConditionalManager", async function () {
+      const leverageTolerance = parseEther("0.2").add("1");
+      await expect(PrimexDNS.connect(SmallTimelockAdmin).setLeverageTolerance(leverageTolerance)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+  });
+
   describe("setAavePool", function () {
     let newAavePool;
     before(async function () {
@@ -429,15 +462,21 @@ describe("PrimexDNS", function () {
     await expect(PrimexDNS.getBucketAddress("notAddedBucket")).to.be.revertedWithCustomError(ErrorsLibrary, "BUCKET_NOT_ADDED");
   });
 
-  it("getDnsDex revert if dex not added", async function () {
-    await expect(PrimexDNS.getDexAddress("notAddedDex")).to.be.revertedWithCustomError(ErrorsLibrary, "DEX_NOT_ADDED");
-  });
-
   it("dnsBucket return correct bucketData ", async function () {
     expect((await PrimexDNS.buckets("notAddedBucket")).bucketAddress).to.equal(AddressZero);
     expect((await PrimexDNS.buckets("notAddedBucket")).currentStatus).to.equal(0);
     expect((await PrimexDNS.buckets("notAddedBucket")).delistingDeadline).to.equal(0);
     expect((await PrimexDNS.buckets("notAddedBucket")).adminDeadline).to.equal(0);
+  });
+
+  it("should return correct values when calling getParamsForMinPositionSize", async function () {
+    const expectedBaseLength = await PrimexDNS.getL1BaseLengthForTradingOrderType(TradingOrderType.MarginMarketOrder);
+    const expectedAverageGasPerAction = await PrimexDNS.averageGasPerAction(TradingOrderType.MarginMarketOrder);
+    const expectedProtocolFeeCoefficient = await PrimexDNS.protocolFeeCoefficient();
+    const expectedGasPriceBuffer = await PrimexDNS.gasPriceBuffer();
+    const params = await PrimexDNS.getParamsForMinPositionSize(TradingOrderType.MarginMarketOrder);
+
+    expect(params).to.deep.equal([expectedBaseLength, expectedAverageGasPerAction, expectedProtocolFeeCoefficient, expectedGasPriceBuffer]);
   });
 
   it("dnsDex return correct dexData", async function () {
@@ -714,10 +753,6 @@ describe("PrimexDNS", function () {
     describe("freezeDEX", function () {
       beforeEach(async function () {
         await PrimexDNS.connect(MediumTimelockAdmin).freezeDEX(dexName);
-      });
-
-      it("getDnsDex revert if dex not active", async function () {
-        await expect(PrimexDNS.getDexAddress(dexName)).to.be.revertedWithCustomError(ErrorsLibrary, "DEX_NOT_ACTIVE");
       });
 
       it("dnsDex return correct dexData", async function () {

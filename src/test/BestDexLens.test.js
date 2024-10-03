@@ -957,6 +957,8 @@ describe("BestDexLens", function () {
           { firstAssetShares: 1, depositInThirdAssetShares: 1, depositToBorrowedShares: 1 },
           dexesWithAncillaryData,
           getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
+          [],
         ]),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
@@ -971,6 +973,8 @@ describe("BestDexLens", function () {
           { firstAssetShares: 1, depositInThirdAssetShares: 1, depositToBorrowedShares: 1 },
           dexesWithAncillaryData,
           getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
+          [],
         ]),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });

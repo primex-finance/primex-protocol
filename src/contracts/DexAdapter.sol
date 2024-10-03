@@ -147,7 +147,7 @@ contract DexAdapter is IDexAdapter, IERC165, Initializable {
      * @inheritdoc IDexAdapter
      */
     function swapExactTokensForTokens(SwapParams memory _params) external payable override returns (uint256[3] memory) {
-        _require(_params.to != address(0) && _params.dexRouter != address(0), Errors.ADDRESS_NOT_SUPPORTED.selector);
+        _require(_params.to != address(0), Errors.ADDRESS_NOT_SUPPORTED.selector);
         _require(_params.amountIn != 0, Errors.ZERO_AMOUNT_IN.selector);
         return _swapExactTokensForTokens(_params);
     }
@@ -795,14 +795,17 @@ contract DexAdapter is IDexAdapter, IERC165, Initializable {
     function _swapWithArbitraryDex(SwapParams memory _params) private returns (uint256[3] memory) {
         uint256 balance = IERC20(_params.tokenOut).balanceOf(_params.to);
 
-        (address spender, bytes memory encodedPath) = abi.decode(_params.encodedPath, (address, bytes));
+        (address spender, address dexRouter, bytes memory encodedPath) = abi.decode(
+            _params.encodedPath,
+            (address, address, bytes)
+        );
 
         if (_params.tokenIn != NATIVE_CURRENCY) {
             TokenApproveLibrary.doApprove(_params.tokenIn, spender, _params.amountIn);
         }
         // we just pass all payload data to the target router
         Address.functionCallWithValue(
-            _params.dexRouter,
+            dexRouter,
             encodedPath,
             _params.tokenIn == NATIVE_CURRENCY ? _params.amountIn : 0
         );

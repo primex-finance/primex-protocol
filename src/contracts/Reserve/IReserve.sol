@@ -36,7 +36,7 @@ interface IReserve is IReserveStorage, IPausable {
     function payBonus(string memory _bucketName, address _to, uint256 _amount) external;
 
     /**
-     * @dev Function to transfer tokens to the Treasury. Only BIG_TIMELOCK_ADMIN can call it.
+     * @dev Function to transfer tokens to the Treasury. Only MEDIUM_TIMELOCK_ADMIN can call it.
      * @param bucket The bucket from which to transfer pTokens
      * @param amount The amount of pTokens to transfer
      */
@@ -44,7 +44,7 @@ interface IReserve is IReserveStorage, IPausable {
 
     /**
      * @dev Function to set transfer restrictions for a token.
-     * @notice Only BIG_TIMELOCK_ADMIN can call it.
+     * @notice Only MEDIUM_TIMELOCK_ADMIN can call it.
      * @param pToken pToken to set restrictions for
      * @param transferRestrictions Min amount to be left in the Reserve
      */

@@ -69,18 +69,24 @@ interface IBatchManager is IBatchManagerStorage, IPausable {
 
     /**
      * @notice Initializes the contract with the specified parameters.
+     * @param _registry The address of the PrimexRegistry contract.
+     */
+    function initialize(address _registry) external;
+
+    /**
+     * @notice Re-Initializes the contract with the specified parameters.
+     * @dev Only BIG_TIMELOCK_ADMIN can call it.
      * @param _positionManager The address of the PositionManager contract.
      * @param _priceOracle The address of the PriceOracle contract.
      * @param _whiteBlackList The address of the WhiteBlackList contract.
-     * @param _registry The address of the PrimexRegistry contract.
      * @param _gasPerPosition The gas amount per position.
      * @param _gasPerBatch The gas amount per batch.
      */
-    function initialize(
+
+    function initializeAfterUpgrade(
         address _positionManager,
         address _priceOracle,
         address _whiteBlackList,
-        address _registry,
         uint256 _gasPerPosition,
         uint256 _gasPerBatch
     ) external;

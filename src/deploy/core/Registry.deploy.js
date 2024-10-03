@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 const { getConfig } = require("../../config/configUtils");
+const { SMALL_TIMELOCK_ADMIN, VAULT_ACCESS_ROLE, NO_FEE_ROLE } = require("../../Constants.js");
 
-module.exports = async ({ run, ethers: { getNamedSigners } }) => {
+module.exports = async ({ run, ethers: { getNamedSigners, getContract } }) => {
   const { deployer } = await getNamedSigners();
   // TODO: Rename contract or task: Registry <-> PrimexRegistry
   const Registry = await run("deploy:Registry");
@@ -39,6 +40,11 @@ module.exports = async ({ run, ethers: { getNamedSigners } }) => {
         });
       }
     }
+    const registry = await getContract("Registry");
+    let tx = await registry.setRoleAdmin(VAULT_ACCESS_ROLE, SMALL_TIMELOCK_ADMIN);
+    await tx.wait();
+    tx = await registry.setRoleAdmin(NO_FEE_ROLE, SMALL_TIMELOCK_ADMIN);
+    await tx.wait();
   }
 };
 module.exports.tags = ["Registry", "Test", "PrimexCore"];

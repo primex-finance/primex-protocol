@@ -18,6 +18,7 @@ task("deploy:PrimexDNS", "Deploy PrimexDNS contract", require("./PrimexDNS.deplo
   .addParam("additionalGasSpent", "Gas that will be additionally spend after gasSpent calculation")
   .addParam("pmxDiscountMultiplier", "Multiplier for PMX discount calculation")
   .addParam("gasPriceBuffer", "Multiplier which protects position from immediate liquidation after gas price changed")
+  .addParam("leverageTolerance", "The limits of available deviation of the actual leverage from the leverage of an order")
 
   .addOptionalParam("errorsLibrary", "The address of errorsLibrary contract");
 

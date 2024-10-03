@@ -18,6 +18,10 @@ task("upgrade", "", require("./upgrade-8-1.js"))
   .addFlag("executeFromDeployer", "The flag to indicate whether to execute on behalf of the deployer")
   .addFlag("executeUpgrade", "The flag to indicate whether contract updates should be executed");
 
+task("upgradeTraderBalanceVault", "", require("./upgradeTraderBalanceVault.js"))
+  .addFlag("executeFromDeployer", "The flag to indicate whether to execute on behalf of the deployer")
+  .addFlag("executeUpgrade", "The flag to indicate whether contract updates should be executed");
+
 task("updateRates", "", require("./updateRates.js"))
   .addFlag("executeFromDeployer", "The flag to indicate whether to execute on behalf of the deployer")
   .addFlag("executeUpgrade", "The flag to indicate whether contract updates should be executed");
@@ -41,3 +45,11 @@ task(
 );
 
 task("createProposalsAddBucketsToDNS", "", require("./createProposalsAddBucketsToDNS.js"));
+
+task("upgradeLimitOrderManager", "", require("./upgradeLimitOrderManager.js"))
+  .addFlag("executeFromDeployer", "The flag to indicate whether to execute on behalf of the deployer")
+  .addFlag("executeUpgrade", "The flag to indicate whether contract updates should be executed");
+
+task("upgradeBatchManager", "", require("./upgradeBatchManager.js"))
+  .addFlag("executeFromDeployer", "The flag to indicate whether to execute on behalf of the deployer")
+  .addFlag("executeUpgrade", "The flag to indicate whether contract updates should be executed");

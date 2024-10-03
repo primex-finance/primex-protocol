@@ -518,7 +518,7 @@ describe("Bucket", function () {
         .withArgs(bucketExtension.address);
     });
 
-    it("Should revert if not BIG_TIMELOCK_ADMIN call setBarCalculationParams", async function () {
+    it("Should revert if not MEDIUM_TIMELOCK_ADMIN call setBarCalculationParams", async function () {
       await expect(bucket.connect(caller).setBarCalculationParams([])).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
     });
 
@@ -630,13 +630,13 @@ describe("Bucket", function () {
       const newFeeBuffer = parseEther("1.001");
       await expect(bucket.setFeeBuffer(newFeeBuffer)).to.emit(bucket, "FeeBufferChanged").withArgs(newFeeBuffer);
     });
-    it("Should revert if not BIG_TIMELOCK_ADMIN call setInterestRateStrategy", async function () {
+    it("Should revert if not MEDIUM_TIMELOCK_ADMIN call setInterestRateStrategy", async function () {
       await expect(bucket.connect(caller).setInterestRateStrategy(deployer.address));
     });
 
     it("Should set a new InterestRateStrategy address if it supports IInterestRateStrategy", async function () {
       const newInterestRateStrategy = await deployMockInterestRateStrategy(deployer);
-      expect(await bucket.connect(BigTimelockAdmin).setInterestRateStrategy(newInterestRateStrategy.address));
+      expect(await bucket.connect(MediumTimelockAdmin).setInterestRateStrategy(newInterestRateStrategy.address));
     });
 
     it("Should emit InterestRateStrategyChanged when interestRateStrategy is changed", async function () {

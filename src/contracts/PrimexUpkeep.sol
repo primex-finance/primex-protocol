@@ -69,10 +69,10 @@ contract PrimexUpkeep is IPrimexUpkeep, Initializable {
     /**
      * @inheritdoc IPrimexUpkeep
      */
-    function performUpkeepOrders(OpenByOrderInfo[] calldata toOpenByOrder, address keeper) external override {
+    function performUpkeepOrders(OpenByOrderInfo[] calldata toOpenByOrder, address keeper) external payable override {
         for (uint256 i; i < toOpenByOrder.length; i++) {
             try
-                lom.openPositionByOrder(
+                lom.openPositionByOrder{value: toOpenByOrder[i].value}(
                     LimitOrderLibrary.OpenPositionParams({
                         orderId: toOpenByOrder[i].id,
                         conditionIndex: toOpenByOrder[i].conditionIndex,
@@ -90,7 +90,8 @@ contract PrimexUpkeep is IPrimexUpkeep, Initializable {
                         positionUsdOracleData: toOpenByOrder[i].positionUsdOracleData,
                         nativeSoldAssetOracleData: toOpenByOrder[i].nativeSoldAssetOracleData,
                         pullOracleData: toOpenByOrder[i].pullOracleData,
-                        pullOracleTypes: toOpenByOrder[i].pullOracleTypes
+                        pullOracleTypes: toOpenByOrder[i].pullOracleTypes,
+                        borrowedAmount: toOpenByOrder[i].borrowedAmount
                     })
                 )
             {} catch Error(string memory revertReason) {
@@ -106,9 +107,12 @@ contract PrimexUpkeep is IPrimexUpkeep, Initializable {
     /**
      * @inheritdoc IPrimexUpkeep
      */
-    function performUpkeepOrdersUnsafe(OpenByOrderInfo[] calldata toOpenByOrder, address keeper) external override {
+    function performUpkeepOrdersUnsafe(
+        OpenByOrderInfo[] calldata toOpenByOrder,
+        address keeper
+    ) external payable override {
         for (uint256 i; i < toOpenByOrder.length; i++) {
-            lom.openPositionByOrder(
+            lom.openPositionByOrder{value: toOpenByOrder[i].value}(
                 LimitOrderLibrary.OpenPositionParams({
                     orderId: toOpenByOrder[i].id,
                     conditionIndex: toOpenByOrder[i].conditionIndex,
@@ -126,7 +130,8 @@ contract PrimexUpkeep is IPrimexUpkeep, Initializable {
                     positionUsdOracleData: toOpenByOrder[i].positionUsdOracleData,
                     nativeSoldAssetOracleData: toOpenByOrder[i].nativeSoldAssetOracleData,
                     pullOracleData: toOpenByOrder[i].pullOracleData,
-                    pullOracleTypes: toOpenByOrder[i].pullOracleTypes
+                    pullOracleTypes: toOpenByOrder[i].pullOracleTypes,
+                    borrowedAmount: toOpenByOrder[i].borrowedAmount
                 })
             );
         }
@@ -135,10 +140,13 @@ contract PrimexUpkeep is IPrimexUpkeep, Initializable {
     /**
      * @inheritdoc IPrimexUpkeep
      */
-    function performUpkeepPositions(ClosePositionInfo[] calldata toLiquidate, address keeper) external override {
+    function performUpkeepPositions(
+        ClosePositionInfo[] calldata toLiquidate,
+        address keeper
+    ) external payable override {
         for (uint256 i; i < toLiquidate.length; i++) {
             try
-                pm.closePositionByCondition(
+                pm.closePositionByCondition{value: toLiquidate[i].value}(
                     IPositionManagerV2.ClosePositionByConditionParams({
                         id: toLiquidate[i].id,
                         keeper: keeper,
@@ -168,9 +176,12 @@ contract PrimexUpkeep is IPrimexUpkeep, Initializable {
     /**
      * @inheritdoc IPrimexUpkeep
      */
-    function performUpkeepPositionsUnsafe(ClosePositionInfo[] calldata toLiquidate, address keeper) external override {
+    function performUpkeepPositionsUnsafe(
+        ClosePositionInfo[] calldata toLiquidate,
+        address keeper
+    ) external payable override {
         for (uint256 i; i < toLiquidate.length; i++) {
-            pm.closePositionByCondition(
+            pm.closePositionByCondition{value: toLiquidate[i].value}(
                 IPositionManagerV2.ClosePositionByConditionParams({
                     id: toLiquidate[i].id,
                     keeper: keeper,

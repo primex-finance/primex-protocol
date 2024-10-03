@@ -23,6 +23,24 @@ const { FLASH_LOAN_FREE_BORROWER_ROLE } = require("../../Constants");
 const { RAY } = require("../utils/constants");
 process.env.TEST = true;
 
+function sortAddressesAndAmounts(addresses, amounts) {
+  const sorted = addresses
+    .map((address, index) => ({ address, amount: amounts[index] }))
+    .sort((a, b) => {
+      const addressA = BigNumber.from(a.address);
+      const addressB = BigNumber.from(b.address);
+
+      if (addressA.lt(addressB)) return -1;
+      if (addressA.gt(addressB)) return 1;
+      return 0;
+    });
+
+  return {
+    sortedAddresses: sorted.map(item => item.address),
+    sortedAmounts: sorted.map(item => item.amount),
+  };
+}
+
 describe("FlashLoanManager_integration", function () {
   let dex, testTokenA, testTokenB;
   let Treasury, PrimexDNS, Registry, ErrorsLibrary;
@@ -107,7 +125,10 @@ describe("FlashLoanManager_integration", function () {
     let flashLoanParams, flashLoanFee, feeToTreasury, feeToBucket, flashLoanFeeRate;
     let snapshotId;
     before(async function () {
-      flashLoanParams = [flashLoanReceiver.address, [bucket2.address, bucket.address], [borrowedAmount, borrowedAmount], params];
+      flashLoanParams = [flashLoanReceiver.address, [bucket.address, bucket2.address], [borrowedAmount, borrowedAmount], params];
+      const { sortedAddresses, sortedAmounts } = sortAddressesAndAmounts(flashLoanParams[1], flashLoanParams[2]);
+      flashLoanParams[1] = sortedAddresses;
+      flashLoanParams[2] = sortedAmounts;
       flashLoanFeeRate = await FlashLoanManager.flashLoanFeeRate();
       const flashLoanProtocolRate = await FlashLoanManager.flashLoanProtocolRate();
       flashLoanFee = wadMul(borrowedAmount.toString(), flashLoanFeeRate.toString()).toString();
@@ -177,12 +198,13 @@ describe("FlashLoanManager_integration", function () {
     it("Should revert flashLoan if bucket address is not added to primexDNS but bucketName is added", async function () {
       const mockBucket = await deployMockBucket(deployer);
       await mockBucket.mock.name.returns("bucket2");
-      const flashLoanParams = [
-        flashLoanReceiver.address,
-        [mockBucket.address, bucket2.address, bucket.address],
-        [borrowedAmount, borrowedAmount, borrowedAmount],
-        params,
-      ];
+      const buckets = [mockBucket.address, bucket.address, bucket2.address];
+      buckets.sort((a, b) => {
+        return BigNumber.from(a).sub(b).isNegative() ? -1 : 1;
+      });
+
+      const flashLoanParams = [flashLoanReceiver.address, buckets, [borrowedAmount, borrowedAmount, borrowedAmount], params];
+
       await expect(FlashLoanManager.connect(trader).flashLoan(...flashLoanParams)).to.be.revertedWithCustomError(
         ErrorsLibrary,
         "BUCKET_OUTSIDE_PRIMEX_PROTOCOL",
@@ -190,7 +212,10 @@ describe("FlashLoanManager_integration", function () {
     });
 
     it("Should revert flashLoan if bucket is not active", async function () {
-      const flashLoanParams = [flashLoanReceiver.address, [bucket2.address, bucket.address], [borrowedAmount, borrowedAmount], params];
+      const flashLoanParams = [flashLoanReceiver.address, [bucket.address, bucket2.address], [borrowedAmount, borrowedAmount], params];
+      const { sortedAddresses, sortedAmounts } = sortAddressesAndAmounts(flashLoanParams[1], flashLoanParams[2]);
+      flashLoanParams[1] = sortedAddresses;
+      flashLoanParams[2] = sortedAmounts;
       await PrimexDNS.freezeBucket("bucket1");
       await expect(FlashLoanManager.connect(trader).flashLoan(...flashLoanParams)).to.be.revertedWithCustomError(
         ErrorsLibrary,
@@ -199,7 +224,10 @@ describe("FlashLoanManager_integration", function () {
     });
     it("Should revert flashLoan if bucket doesn't have enough amount", async function () {
       const borrowedAmount = parseUnits("101", decimalsA);
-      const flashLoanParams = [flashLoanReceiver.address, [bucket2.address, bucket.address], [borrowedAmount, borrowedAmount], params];
+      const flashLoanParams = [flashLoanReceiver.address, [bucket.address, bucket2.address], [borrowedAmount, borrowedAmount], params];
+      const { sortedAddresses, sortedAmounts } = sortAddressesAndAmounts(flashLoanParams[1], flashLoanParams[2]);
+      flashLoanParams[1] = sortedAddresses;
+      flashLoanParams[2] = sortedAmounts;
       await expect(FlashLoanManager.connect(trader).flashLoan(...flashLoanParams)).to.be.revertedWith(
         "ERC20: transfer amount exceeds balance",
       );
@@ -215,7 +243,10 @@ describe("FlashLoanManager_integration", function () {
 
     it("Should revert if receiver doesn't approve sufficient allowance to flashLoanManager", async function () {
       const borrowedAmount = parseUnits("11", decimalsA);
-      const flashLoanParams = [flashLoanReceiver.address, [bucket2.address, bucket.address], [borrowedAmount, borrowedAmount], params];
+      const flashLoanParams = [flashLoanReceiver.address, [bucket.address, bucket2.address], [borrowedAmount, borrowedAmount], params];
+      const { sortedAddresses, sortedAmounts } = sortAddressesAndAmounts(flashLoanParams[1], flashLoanParams[2]);
+      flashLoanParams[1] = sortedAddresses;
+      flashLoanParams[2] = sortedAmounts;
       await expect(FlashLoanManager.connect(trader).flashLoan(...flashLoanParams)).to.be.revertedWith("ERC20: insufficient allowance");
     });
     it("Should revert if receiver doesn't have sufficient amount to return back", async function () {
@@ -223,7 +254,10 @@ describe("FlashLoanManager_integration", function () {
       const flashLoanFee = wadMul(borrowedAmount.toString(), flashLoanFeeRate.toString()).toString();
       const amountToApprove = borrowedAmount.add(flashLoanFee).mul(2);
       await flashLoanReceiver.setAmountToApprove(amountToApprove);
-      const flashLoanParams = [flashLoanReceiver.address, [bucket2.address, bucket.address], [borrowedAmount, borrowedAmount], params];
+      const flashLoanParams = [flashLoanReceiver.address, [bucket.address, bucket2.address], [borrowedAmount, borrowedAmount], params];
+      const { sortedAddresses, sortedAmounts } = sortAddressesAndAmounts(flashLoanParams[1], flashLoanParams[2]);
+      flashLoanParams[1] = sortedAddresses;
+      flashLoanParams[2] = sortedAmounts;
       await expect(FlashLoanManager.connect(trader).flashLoan(...flashLoanParams)).to.be.revertedWith(
         "ERC20: transfer amount exceeds balance",
       );

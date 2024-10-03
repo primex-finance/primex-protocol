@@ -8,7 +8,7 @@ import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
 import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
 import {TokenTransfersLibrary} from "../libraries/TokenTransfersLibrary.sol";
 import {SwapManagerStorage, IERC165Upgradeable} from "./SwapManagerStorage.sol";
-import {SMALL_TIMELOCK_ADMIN, EMERGENCY_ADMIN, NO_FEE_ROLE, LOM_ROLE, NATIVE_CURRENCY, USD} from "../Constants.sol";
+import {SMALL_TIMELOCK_ADMIN, BIG_TIMELOCK_ADMIN, EMERGENCY_ADMIN, NO_FEE_ROLE, LOM_ROLE, NATIVE_CURRENCY, USD} from "../Constants.sol";
 import "../libraries/Errors.sol";
 
 import {ISwapManager, IPausable} from "./ISwapManager.sol";
@@ -44,23 +44,28 @@ contract SwapManager is ISwapManager, SwapManagerStorage {
     /**
      * @inheritdoc ISwapManager
      */
-    function initialize(
-        address _registry,
+    function initialize(address _registry) external override initializer {
+        _require(
+            IERC165Upgradeable(_registry).supportsInterface(type(IAccessControl).interfaceId),
+            Errors.ADDRESS_NOT_SUPPORTED.selector
+        );
+        registry = IAccessControl(_registry);
+    }
+
+    function initializeAfterUpgrade(
         address _primexDNS,
         address payable _traderBalanceVault,
         address _priceOracle,
         address _whiteBlackList
-    ) external override initializer {
+    ) external override onlyRole(BIG_TIMELOCK_ADMIN) reinitializer(2) {
         _require(
-            IERC165Upgradeable(_registry).supportsInterface(type(IAccessControl).interfaceId) &&
-                IERC165Upgradeable(_primexDNS).supportsInterface(type(IPrimexDNSV3).interfaceId) &&
+            IERC165Upgradeable(_primexDNS).supportsInterface(type(IPrimexDNSV3).interfaceId) &&
                 IERC165Upgradeable(_traderBalanceVault).supportsInterface(type(ITraderBalanceVault).interfaceId) &&
                 IERC165Upgradeable(_priceOracle).supportsInterface(type(IPriceOracleV2).interfaceId) &&
                 IERC165Upgradeable(_whiteBlackList).supportsInterface(type(IWhiteBlackList).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
         whiteBlackList = IWhiteBlackList(_whiteBlackList);
-        registry = IAccessControl(_registry);
         primexDNS = IPrimexDNSV3(_primexDNS);
         traderBalanceVault = ITraderBalanceVault(_traderBalanceVault);
         priceOracle = IPriceOracleV2(_priceOracle);

@@ -155,6 +155,7 @@ interface IPrimexLens {
      * If it is greater than 1, then the position is not risky, if it is less than 1 risky.
      * The decimals of this parameter is determined by the decimals `borrowedAsset`.
      * @param profit An integer showing the profit/loss for open position.
+     * @param extraParams byte-encoded params, utilized for the feeToken address
      */
     struct OpenPositionData {
         uint256 id;
@@ -167,6 +168,7 @@ interface IPrimexLens {
         uint256 debt;
         uint256 depositAmount;
         uint256 createdAt;
+        bytes extraParams;
     }
     /**
      * @dev Structure for the getOpenPositionsWithConditions function
@@ -385,8 +387,10 @@ interface IPrimexLens {
     function isStopLossReached(
         address _positionManager,
         uint256 _id,
-        bytes calldata _positionSoldAssetOracleData
-    ) external returns (bool);
+        bytes calldata _positionSoldAssetOracleData,
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
+    ) external payable returns (bool);
 
     /**
      * @notice Retrieves the maximum decrease in position value for a given position ID.
@@ -399,8 +403,10 @@ interface IPrimexLens {
     function getPositionMaxDecrease(
         IPositionManagerV2 _pm,
         uint256 _id,
-        bytes calldata _positionSoldAssetOracleData
-    ) external returns (uint256);
+        bytes calldata _positionSoldAssetOracleData,
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
+    ) external payable returns (uint256);
 
     /**
      * @notice Retrieves information about a lender from the LiquidityMiningRewardDistributor contract.

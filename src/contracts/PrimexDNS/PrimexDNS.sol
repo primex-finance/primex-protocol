@@ -49,6 +49,7 @@ contract PrimexDNS is IPrimexDNSV3, PrimexDNSStorageV3 {
         _setAdditionalGasSpent(_params.additionalGasSpent);
         _setPmxDiscountMultiplier(_params.pmxDiscountMultiplier);
         _setGasPriceBuffer(_params.gasPriceBuffer);
+        _setLeverageTolerance(_params.leverageTolerance);
 
         for (uint256 i; i < _params.feeRateParams.length; i++) {
             _setProtocolFeeRate(_params.feeRateParams[i]);
@@ -171,6 +172,13 @@ contract PrimexDNS is IPrimexDNSV3, PrimexDNSStorageV3 {
     /**
      * @inheritdoc IPrimexDNSV3
      */
+    function setLeverageTolerance(uint256 _leverageTolerance) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
+        _setLeverageTolerance(_leverageTolerance);
+    }
+
+    /**
+     * @inheritdoc IPrimexDNSV3
+     */
     function getPrimexDNSParams(
         FeeRateType _feeRateType
     ) external view override returns (address, address, uint256, uint256, uint256) {
@@ -196,6 +204,16 @@ contract PrimexDNS is IPrimexDNSV3, PrimexDNSStorageV3 {
     /**
      * @inheritdoc IPrimexDNSV3
      */
+    function getParamsForMinPositionSize(
+        TradingOrderType _tradingOrderType
+    ) external view override returns (uint256, uint256, uint256, uint256) {
+        uint256 baseLength = this.getL1BaseLengthForTradingOrderType(_tradingOrderType);
+        return (baseLength, averageGasPerAction[_tradingOrderType], protocolFeeCoefficient, gasPriceBuffer);
+    }
+
+    /**
+     * @inheritdoc IPrimexDNSV3
+     */
     function getL1BaseLengthForTradingOrderType(
         TradingOrderType _tradingOrderType
     ) external view override returns (uint256) {
@@ -204,12 +222,8 @@ contract PrimexDNS is IPrimexDNSV3, PrimexDNSStorageV3 {
             _tradingOrderType == TradingOrderType.SpotMarketOrder
         ) {
             return minFeeRestrictions[CallingMethod.ClosePositionByCondition].baseLength;
-        } else if (_tradingOrderType == TradingOrderType.SwapLimitOrder) {
-            return minFeeRestrictions[CallingMethod.OpenPositionByOrder].baseLength;
         } else {
-            return
-                minFeeRestrictions[CallingMethod.OpenPositionByOrder].baseLength +
-                minFeeRestrictions[CallingMethod.ClosePositionByCondition].baseLength;
+            return minFeeRestrictions[CallingMethod.OpenPositionByOrder].baseLength;
         }
     }
 
@@ -333,8 +347,6 @@ contract PrimexDNS is IPrimexDNSV3, PrimexDNSStorageV3 {
      */
     function getDexAddress(string memory _name) external view override returns (address) {
         DexData memory dex = dexes[_name];
-        _require(dex.routerAddress != address(0), Errors.DEX_NOT_ADDED.selector);
-        _require(dex.isActive, Errors.DEX_NOT_ACTIVE.selector);
         return dex.routerAddress;
     }
 
@@ -391,5 +403,11 @@ contract PrimexDNS is IPrimexDNSV3, PrimexDNSStorageV3 {
     function _setGasPriceBuffer(uint256 _gasPriceBuffer) internal {
         gasPriceBuffer = _gasPriceBuffer;
         emit ChangeGasPriceBuffer(_gasPriceBuffer);
+    }
+
+    function _setLeverageTolerance(uint256 _leverageTolerance) internal {
+        _require(_leverageTolerance <= WadRayMath.WAD / 5, Errors.LEVERAGE_TOLERANCE_IS_NOT_CORRECT.selector); // <= 20%
+        leverageTolerance = _leverageTolerance;
+        emit ChangeLeverageTolerance(_leverageTolerance);
     }
 }

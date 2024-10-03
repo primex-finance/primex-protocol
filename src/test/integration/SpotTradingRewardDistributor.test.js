@@ -197,6 +197,8 @@ describe("SpotTradingRewardDistributor_integration", function () {
         closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(tpPrice, slPrice))],
         isProtocolFeeInPmx: false,
         nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        pullOracleData: [],
+        pullOracleTypes: [],
       });
       orderId = await limitOrderManager.ordersId();
       order = await limitOrderManager.getOrder(orderId);
@@ -247,6 +249,7 @@ describe("SpotTradingRewardDistributor_integration", function () {
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         pullOracleData: [],
         pullOracleTypes: [],
+        borrowedAmount: 0,
       });
       const { positionAmount } = await positionManager.getPosition(0);
       let positionSizeInUsd = wadMul(positionAmount.toString(), parseEther("1").toString()).toString();

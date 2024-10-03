@@ -1047,7 +1047,9 @@ describe("SpotTrading", function () {
         getEncodedChainlinkRouteViaUsd(testTokenC),
       );
 
-      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenC))).to.equal(true);
+      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenC), [], [])).to.equal(
+        true,
+      );
 
       await expect(() =>
         positionManager.connect(liquidator).closePositionByCondition({ ...closePositionByConditionParams }),
@@ -1388,7 +1390,9 @@ describe("SpotTrading", function () {
         pullOracleData: [],
         pullOracleTypes: [],
       });
-      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenC))).to.be.equal(false);
+      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenC), [], [])).to.be.equal(
+        false,
+      );
     });
 
     it("isStopLossReached should return 'true' when oracle price <= stopLossPrice", async function () {
@@ -1420,7 +1424,9 @@ describe("SpotTrading", function () {
       });
 
       await setOraclePrice(testTokenC, testTokenD, price0.add(2));
-      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenC))).to.be.equal(true);
+      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenC), [], [])).to.be.equal(
+        true,
+      );
     });
   });
 
@@ -1483,6 +1489,8 @@ describe("SpotTrading", function () {
             leverage: leverage,
             shouldOpenPosition: true,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "SHOULD_BE_DIFFERENT_ASSETS_IN_SPOT");
       });
@@ -1503,6 +1511,8 @@ describe("SpotTrading", function () {
             leverage: parseEther("2"),
             shouldOpenPosition: true,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "LEVERAGE_SHOULD_BE_1");
       });
@@ -1529,6 +1539,8 @@ describe("SpotTrading", function () {
             leverage: leverage,
             shouldOpenPosition: true,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.changeTokenBalances(testTokenC, [trader, traderBalanceVault], [depositAmount.mul(NegativeOne), depositAmount]);
 
@@ -1571,6 +1583,8 @@ describe("SpotTrading", function () {
           leverage: leverage,
           shouldOpenPosition: true,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
 
         const { availableBalance: availableAfter, lockedBalance: lockedAfter } = await traderBalanceVault.balances(
@@ -1605,6 +1619,8 @@ describe("SpotTrading", function () {
             getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(parseEther("2"), parseEther("1").sub("1"))),
           ],
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const orderCreatedAt = (await provider.getBlock("latest")).timestamp;
         const order = await limitOrderManager.getOrder(1);
@@ -1664,6 +1680,8 @@ describe("SpotTrading", function () {
             getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(parseEther("2"), parseEther("1").sub("1"))),
           ],
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const orderCreatedAt = (await provider.getBlock("latest")).timestamp;
         const order = await limitOrderManager.getOrder(1);
@@ -1739,6 +1757,8 @@ describe("SpotTrading", function () {
             getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(parseEther("2"), parseEther("1").sub("1"))),
           ],
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const orderCreatedAt = (await provider.getBlock("latest")).timestamp;
         const order = await limitOrderManager.getOrder(1);
@@ -1786,6 +1806,8 @@ describe("SpotTrading", function () {
           closeConditions: [],
           isProtocolFeeInPmx: true,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
 
         const orderObject = {
@@ -1827,6 +1849,8 @@ describe("SpotTrading", function () {
           closeConditions: [],
           isProtocolFeeInPmx: true,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
 
         const orderObject = {
@@ -1868,6 +1892,8 @@ describe("SpotTrading", function () {
             openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
             closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(0, stopLossPrice))],
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.emit(limitOrderManager, "CreateLimitOrder");
       });
@@ -1892,6 +1918,8 @@ describe("SpotTrading", function () {
           openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
           closeConditions: [],
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const txReceipt = await txCreateLimitOrder.wait();
         orderId = txReceipt.events?.filter(x => {
@@ -1964,6 +1992,8 @@ describe("SpotTrading", function () {
             leverage: leverage,
             shouldOpenPosition: true,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+            pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "INSUFFICIENT_POSITION_SIZE");
       });
@@ -1984,6 +2014,9 @@ describe("SpotTrading", function () {
             leverage: leverage,
             shouldOpenPosition: true,
             nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+            pullOracleData: [],
+            pullOracleTypes: [],
+            borrowedAmount: 0,
           }),
         ).to.emit(limitOrderManager, "CreateLimitOrder");
       });
@@ -2008,6 +2041,8 @@ describe("SpotTrading", function () {
           leverage: leverage,
           shouldOpenPosition: true,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const orderId = await limitOrderManager.ordersId();
 
@@ -2032,6 +2067,7 @@ describe("SpotTrading", function () {
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
             pullOracleData: [],
             pullOracleTypes: [],
+            borrowedAmount: 0,
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "INSUFFICIENT_POSITION_SIZE");
       });
@@ -2080,6 +2116,8 @@ describe("SpotTrading", function () {
           openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
           closeConditions: closeConditions,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         orderId = await limitOrderManager.ordersId();
         order = await limitOrderManager.getOrder(1);
@@ -2117,6 +2155,7 @@ describe("SpotTrading", function () {
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
           pullOracleData: [],
           pullOracleTypes: [],
+          borrowedAmount: 0,
         };
         snapshotId = await network.provider.request({
           method: "evm_snapshot",
@@ -2132,6 +2171,11 @@ describe("SpotTrading", function () {
           method: "evm_snapshot",
           params: [],
         });
+      });
+      it("Should revert openPositionByOrder when borrowedAmount is not zero", async function () {
+        await expect(
+          limitOrderManager.connect(liquidator).openPositionByOrder({ ...openPositionByOrderParams, borrowedAmount: 1 }),
+        ).to.be.revertedWithCustomError(ErrorsLibrary, "INCORRECT_BORROWED_AMOUNT");
       });
 
       it("Should revert openPositionByOrder when firstAssetMegaRoutes is empty list", async function () {
@@ -2328,6 +2372,8 @@ describe("SpotTrading", function () {
           openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
           closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(tpPrice, slPrice))],
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const orderId = await limitOrderManager.ordersId();
 
@@ -2356,6 +2402,7 @@ describe("SpotTrading", function () {
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
             pullOracleData: [],
             pullOracleTypes: [],
+            borrowedAmount: 0,
           }),
         ).to.changeTokenBalances(
           PMXToken,
@@ -2396,6 +2443,8 @@ describe("SpotTrading", function () {
           openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
           closeConditions: [],
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         orderId = await limitOrderManager.ordersId();
 
@@ -2444,6 +2493,7 @@ describe("SpotTrading", function () {
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
             pullOracleData: [],
             pullOracleTypes: [],
+            borrowedAmount: 0,
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "ORDER_CAN_NOT_BE_FILLED");
       });
@@ -2468,6 +2518,7 @@ describe("SpotTrading", function () {
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
             pullOracleData: [],
             pullOracleTypes: [],
+            borrowedAmount: 0,
           }),
         ).to.changeTokenBalances(testTokenC, [traderBalanceVault, pair], [depositAmount.mul(NegativeOne.toString()), depositAmount]);
 
@@ -2517,6 +2568,7 @@ describe("SpotTrading", function () {
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
           pullOracleData: [],
           pullOracleTypes: [],
+          borrowedAmount: 0,
         });
         await expect(() => tx).to.changeTokenBalance(testTokenD, traderBalanceVault, amountDOut.sub(feeInPositionAsset));
         const { availableBalance: availableAfterC, lockedBalance: lockedAfterC } = await traderBalanceVault.balances(
@@ -2555,6 +2607,8 @@ describe("SpotTrading", function () {
           openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
           closeConditions: [],
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
         const orderId = await limitOrderManager.ordersId();
 
@@ -2590,6 +2644,7 @@ describe("SpotTrading", function () {
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
           pullOracleData: [],
           pullOracleTypes: [],
+          borrowedAmount: 0,
         });
         await expect(() => tx).to.changeTokenBalance(testTokenD, traderBalanceVault, amountDOut);
 
@@ -2632,6 +2687,7 @@ describe("SpotTrading", function () {
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
           pullOracleData: [],
           pullOracleTypes: [],
+          borrowedAmount: 0,
         });
 
         const expectedArguments = {
@@ -2679,6 +2735,8 @@ describe("SpotTrading", function () {
           leverage: leverage,
           shouldOpenPosition: true,
           nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+          pullOracleTypes: [],
         });
       });
 
@@ -2715,7 +2773,7 @@ describe("SpotTrading", function () {
 
         expect(amount0Out1).to.be.gt(amount0Out2);
         const bestShares = await bestDexLens.callStatic[
-          "getBestDexByOrder((address,address,uint256,(uint256,uint256,uint256),(string,bytes32)[],bytes))"
+          "getBestDexByOrder((address,address,uint256,(uint256,uint256,uint256),(string,bytes32)[],bytes,bytes[][],uint256[]))"
         ]([
           positionManager.address,
           limitOrderManager.address,
@@ -2723,6 +2781,8 @@ describe("SpotTrading", function () {
           { firstAssetShares: 1, depositInThirdAssetShares: 1, depositToBorrowedShares: 1 },
           dexesWithAncillaryData,
           getEncodedChainlinkRouteViaUsd(testTokenC),
+          [],
+          [],
         ]);
         parseArguments(bestShares.firstAssetReturnParams, {
           returnAmount: amount0Out1,
@@ -2753,7 +2813,7 @@ describe("SpotTrading", function () {
         expect(amount0Out2).to.be.gt(amount0Out1);
 
         const bestShares = await bestDexLens.callStatic[
-          "getBestDexByOrder((address,address,uint256,(uint256,uint256,uint256),(string,bytes32)[],bytes))"
+          "getBestDexByOrder((address,address,uint256,(uint256,uint256,uint256),(string,bytes32)[],bytes,bytes[][],uint256[]))"
         ]([
           positionManager.address,
           limitOrderManager.address,
@@ -2761,6 +2821,8 @@ describe("SpotTrading", function () {
           { firstAssetShares: 1, depositInThirdAssetShares: 1, depositToBorrowedShares: 1 },
           dexesWithAncillaryData,
           getEncodedChainlinkRouteViaUsd(testTokenC),
+          [],
+          [],
         ]);
         parseArguments(bestShares.firstAssetReturnParams, {
           returnAmount: amount0Out2,
@@ -2884,6 +2946,8 @@ describe("SpotTrading", function () {
         openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
         closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice))],
         nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        pullOracleData: [],
+        pullOracleTypes: [],
       });
     });
 
@@ -2904,6 +2968,8 @@ describe("SpotTrading", function () {
         openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
         closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice))],
         nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        pullOracleData: [],
+        pullOracleTypes: [],
       });
       const orderId = await limitOrderManager.ordersId();
 
@@ -2913,6 +2979,8 @@ describe("SpotTrading", function () {
           depositAmount: depositAmount,
           leverage: newLeverage,
           nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+          pullOracleTypes: [],
         }),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "CANNOT_CHANGE_SPOT_ORDER_TO_MARGIN");
     });

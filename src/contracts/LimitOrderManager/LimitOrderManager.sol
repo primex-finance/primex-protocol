@@ -10,6 +10,7 @@ import {IKeeperRewardDistributorStorage} from "../KeeperRewardDistributor/IKeepe
 import {IKeeperRewardDistributorV3} from "../KeeperRewardDistributor/IKeeperRewardDistributor.sol";
 import {IPrimexDNSStorageV3} from "../PrimexDNS/IPrimexDNSStorage.sol";
 import {IPausable} from "../interfaces/IPausable.sol";
+import {IPriceOracleV2} from "../PriceOracle/IPriceOracle.sol";
 
 contract LimitOrderManager is ILimitOrderManagerV2, LimitOrderManagerStorage {
     using WadRayMath for uint256;
@@ -82,6 +83,7 @@ contract LimitOrderManager is ILimitOrderManagerV2, LimitOrderManagerStorage {
     function createLimitOrder(
         LimitOrderLibrary.CreateLimitOrderParams calldata _params
     ) external payable override nonReentrant notBlackListed whenNotPaused {
+        pm.priceOracle().updatePullOracle{value: msg.value}(_params.pullOracleData, _params.pullOracleTypes);
         LimitOrderLibrary.LimitOrder memory order = LimitOrderLibrary.createLimitOrder(
             _params,
             pm,
@@ -194,6 +196,8 @@ contract LimitOrderManager is ILimitOrderManagerV2, LimitOrderManagerStorage {
             _require(order.bucket.isActive(), Errors.BUCKET_IS_NOT_ACTIVE.selector);
             (, bool isSupported) = order.bucket.allowedAssets(order.positionAsset);
             _require(isSupported, Errors.ASSET_IS_NOT_SUPPORTED.selector);
+        } else {
+            _require(_params.borrowedAmount == 0, Errors.INCORRECT_BORROWED_AMOUNT.selector);
         }
         _require(_params.keeper != address(0), Errors.ADDRESS_IS_ZERO.selector);
 
@@ -271,7 +275,9 @@ contract LimitOrderManager is ILimitOrderManagerV2, LimitOrderManagerStorage {
             _require(bucket.isActive(), Errors.BUCKET_IS_NOT_ACTIVE.selector);
         }
 
-        address priceOracle = address(pm.priceOracle());
+        IPriceOracleV2 priceOracle = pm.priceOracle();
+
+        priceOracle.updatePullOracle{value: msg.value}(_params.pullOracleData, _params.pullOracleTypes);
 
         if (_params.depositAmount != order.depositAmount) {
             order.updateDeposit(_params.depositAmount, _params.takeDepositFromWallet, traderBalanceVault);
@@ -279,11 +285,18 @@ contract LimitOrderManager is ILimitOrderManagerV2, LimitOrderManagerStorage {
         if (_params.leverage != order.leverage) {
             order.updateLeverage(_params.leverage, primexDNS);
         }
-        if (_params.isProtocolFeeInPmx) {
-            order.feeToken = primexDNS.pmx();
-        } else {
-            order.feeToken = order.positionAsset;
+        if (order.protocolFee != 0) {
+            traderBalanceVault.unlockAsset(
+                ITraderBalanceVault.UnlockAssetParams({
+                    trader: order.trader,
+                    receiver: order.trader,
+                    asset: order.feeToken,
+                    amount: order.protocolFee
+                })
+            );
+            order.protocolFee = 0;
         }
+        order.feeToken = _params.isProtocolFeeInPmx ? primexDNS.pmx() : order.positionAsset;
 
         uint256 positionSize = order.depositAmount.wmul(order.leverage);
         IPrimexDNSStorageV3.TradingOrderType tradingOrderType;
@@ -302,7 +315,7 @@ contract LimitOrderManager is ILimitOrderManagerV2, LimitOrderManagerStorage {
         PrimexPricingLibrary.validateMinPositionSize(
             positionSize,
             order.depositAsset,
-            priceOracle,
+            address(priceOracle),
             pm.keeperRewardDistributor(),
             primexDNS,
             tradingOrderType,

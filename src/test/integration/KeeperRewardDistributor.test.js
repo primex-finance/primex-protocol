@@ -82,6 +82,7 @@ describe("KeeperRewardDistributor_integration", function () {
     decimalsB = await testTokenB.decimals();
     // dec = await
     PrimexDNS = await getContract("PrimexDNS");
+    await PrimexDNS.setLeverageTolerance(parseEther("0.2"));
     PMXToken = await getContract("EPMXToken");
     KeeperRewardDistributor = await getContract("KeeperRewardDistributor");
     positionManager = await getContract("PositionManager");
@@ -245,8 +246,8 @@ describe("KeeperRewardDistributor_integration", function () {
 
     const receipt = await tx.wait();
     const gasCost = updateRewardParams.gasSpent.add(additionalGas).mul(receipt.effectiveGasPrice);
-    const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
-    const reward = gasCost.add(positionSizeMultiplier);
+    const positionSizeAddend = wadMul(ethAmount, positionSizeCoefficient);
+    const reward = gasCost.add(positionSizeAddend);
     const rewardInEth = wadMul(reward, nativePartInReward);
     const rewardInPmx = wadMul(
       await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
@@ -372,8 +373,8 @@ describe("KeeperRewardDistributor_integration", function () {
       );
       const l1CostWei = l1GasPrice * 16 * (routesLength + baseLength + 140);
       const gasCost = gasSpent.add(additionalGas).mul(receipt.effectiveGasPrice).add(l1CostWei);
-      const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
-      const reward = gasCost.add(positionSizeMultiplier);
+      const positionSizeAddend = wadMul(ethAmount, positionSizeCoefficient);
+      const reward = gasCost.add(positionSizeAddend);
       const rewardInEth = wadMul(reward, nativePartInReward);
       const rewardInPmx = wadMul(
         await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
@@ -427,8 +428,8 @@ describe("KeeperRewardDistributor_integration", function () {
       );
       const l1CostWei = l1GasPrice * 16 * (routesLength + baseLength + 140);
       const gasCost = gasSpent.add(additionalGas).mul(receipt.effectiveGasPrice).add(l1CostWei);
-      const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
-      const reward = gasCost.add(positionSizeMultiplier);
+      const positionSizeAddend = wadMul(ethAmount, positionSizeCoefficient);
+      const reward = gasCost.add(positionSizeAddend);
       const rewardInEth = wadMul(reward, nativePartInReward);
       const rewardInPmx = wadMul(
         await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
@@ -484,8 +485,8 @@ describe("KeeperRewardDistributor_integration", function () {
       );
       const l1CostWei = l1GasPrice * 16 * (variableLength + baseLength + 140);
       const gasCost = gasSpent.add(additionalGas).mul(receipt.effectiveGasPrice).add(l1CostWei);
-      const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
-      const reward = gasCost.add(positionSizeMultiplier);
+      const positionSizeAddend = wadMul(ethAmount, positionSizeCoefficient);
+      const reward = gasCost.add(positionSizeAddend);
       const rewardInEth = wadMul(reward, nativePartInReward);
       const rewardInPmx = wadMul(
         await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
@@ -539,8 +540,8 @@ describe("KeeperRewardDistributor_integration", function () {
       );
       const l1CostWei = l1GasPrice * 16 * (maxRoutesLength + baseLength + batchValidPositionsLength + 140);
       const gasCost = gasSpent.add(additionalGas).mul(receipt.effectiveGasPrice).add(l1CostWei);
-      const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
-      const reward = gasCost.add(positionSizeMultiplier);
+      const positionSizeAddend = wadMul(ethAmount, positionSizeCoefficient);
+      const reward = gasCost.add(positionSizeAddend);
       const rewardInEth = wadMul(reward, nativePartInReward);
       const rewardInPmx = wadMul(
         await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
@@ -670,8 +671,8 @@ describe("KeeperRewardDistributor_integration", function () {
       const l1GasUsed = 16 * (routesLength + baseLength + overhead.toNumber()) + 68 * 16;
       const l1CostWei = (l1BaseFee * l1GasUsed * scalar) / 10 ** 6;
       const gasAmount = gasSpent.add(additionalGas);
-      const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
-      const reward = gasAmount.mul(receipt.effectiveGasPrice).add(l1CostWei.toString()).add(positionSizeMultiplier);
+      const positionSizeAddend = wadMul(ethAmount, positionSizeCoefficient);
+      const reward = gasAmount.mul(receipt.effectiveGasPrice).add(l1CostWei.toString()).add(positionSizeAddend);
       const rewardInEth = wadMul(reward, nativePartInReward);
 
       const rewardInPmx = wadMul(
@@ -732,8 +733,8 @@ describe("KeeperRewardDistributor_integration", function () {
       const l1GasUsed = 16 * (routesLength + baseLength + overhead.toNumber()) + 68 * 16;
       const l1CostWei = (l1BaseFee * l1GasUsed * scalar) / 10 ** 6;
       const gasCost = gasSpent.add(additionalGas).mul(receipt.effectiveGasPrice).add(l1CostWei);
-      const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
-      const reward = gasCost.add(positionSizeMultiplier);
+      const positionSizeAddend = wadMul(ethAmount, positionSizeCoefficient);
+      const reward = gasCost.add(positionSizeAddend);
       const rewardInEth = wadMul(reward, nativePartInReward);
       const rewardInPmx = wadMul(
         await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
@@ -794,8 +795,8 @@ describe("KeeperRewardDistributor_integration", function () {
       const l1GasUsed = 16 * (variableLength + baseLength + overhead.toNumber()) + 68 * 16;
       const l1CostWei = (l1BaseFee * l1GasUsed * scalar) / 10 ** 6;
       const gasCost = gasSpent.add(additionalGas).mul(receipt.effectiveGasPrice).add(l1CostWei);
-      const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
-      const reward = gasCost.add(positionSizeMultiplier);
+      const positionSizeAddend = wadMul(ethAmount, positionSizeCoefficient);
+      const reward = gasCost.add(positionSizeAddend);
 
       const rewardInEth = wadMul(reward, nativePartInReward);
       const rewardInPmx = wadMul(
@@ -855,8 +856,8 @@ describe("KeeperRewardDistributor_integration", function () {
       const l1GasUsed = 16 * (maxRoutesLength + baseLength + batchValidPositionsLength + overhead.toNumber()) + 68 * 16;
       const l1CostWei = (l1BaseFee * l1GasUsed * scalar) / 10 ** 6;
       const gasCost = gasSpent.add(additionalGas).mul(receipt.effectiveGasPrice).add(l1CostWei);
-      const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
-      const reward = gasCost.add(positionSizeMultiplier);
+      const positionSizeAddend = wadMul(ethAmount, positionSizeCoefficient);
+      const reward = gasCost.add(positionSizeAddend);
       const rewardInEth = wadMul(reward, nativePartInReward);
       const rewardInPmx = wadMul(
         await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
@@ -907,8 +908,8 @@ describe("KeeperRewardDistributor_integration", function () {
 
     const receipt = await tx.wait();
     const gasCost = maxGasAmount.mul(receipt.effectiveGasPrice);
-    const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
-    const reward = gasCost.add(positionSizeMultiplier);
+    const positionSizeAddend = wadMul(ethAmount, positionSizeCoefficient);
+    const reward = gasCost.add(positionSizeAddend);
     const rewardInEth = wadMul(reward, nativePartInReward);
     const rewardInPmx = wadMul(
       await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
@@ -963,8 +964,8 @@ describe("KeeperRewardDistributor_integration", function () {
     const oracleGasPrice = (await priceOracle.getGasPrice()).toString();
     const maxGasPricePlusTolerance = wadMul(oracleGasPrice, BigNumber.from(WAD).add(oracleGasPriceTolerance).toString());
     const gasCost = updateRewardParams.gasSpent.add(additionalGas).mul(maxGasPricePlusTolerance);
-    const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
-    const reward = gasCost.add(positionSizeMultiplier);
+    const positionSizeAddend = wadMul(ethAmount, positionSizeCoefficient);
+    const reward = gasCost.add(positionSizeAddend);
     const rewardInEth = wadMul(reward, nativePartInReward);
     const rewardInPmx = wadMul(
       await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
@@ -1237,6 +1238,8 @@ describe("KeeperRewardDistributor_integration", function () {
       openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
       closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(tpPrice, slPrice))],
       nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      pullOracleData: [],
+      pullOracleTypes: [],
     });
     const orderId = await limitOrderManager.ordersId();
 
@@ -1264,6 +1267,7 @@ describe("KeeperRewardDistributor_integration", function () {
       nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
       pullOracleData: [],
       pullOracleTypes: [],
+      borrowedAmount: wadMul(depositAmount.toString(), leverage.sub(parseEther("1")).toString()).toString(),
     });
 
     const { pmxBalance: pmxRewardAfter, nativeBalance: nativeRewardAfter } = await KeeperRewardDistributor.keeperBalance(

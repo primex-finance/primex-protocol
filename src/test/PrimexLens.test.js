@@ -24,6 +24,7 @@ const {
   TAKE_PROFIT_STOP_LOSS_CM_TYPE,
   USD_DECIMALS,
   USD_MULTIPLIER,
+  UpdatePullOracle,
 } = require("./utils/constants");
 const { getAmountsOut, addLiquidity, swapExactTokensForTokens, checkIsDexSupported, getSingleMegaRoute } = require("./utils/dexOperations");
 const { parseArguments } = require("./utils/eventValidation");
@@ -549,6 +550,7 @@ describe("PrimexLens", function () {
     before(async function () {
       // Since the quickswapv3 has a dynamic fee system the amount0Out from the Quoter may differ from the actual amountOut in swap in separate transactions
       if (dex === "quickswapv3") this.skip();
+      const extraParams = defaultAbiCoder.encode(["address"], [testTokenA.address]);
 
       expectedValues = [
         [
@@ -563,6 +565,7 @@ describe("PrimexLens", function () {
             debt: positionDebt0,
             depositAmount: depositAmountA,
             createdAt: timestamps[0],
+            extraParams: extraParams
           },
           {
             id: 1,
@@ -575,6 +578,7 @@ describe("PrimexLens", function () {
             debt: positionDebt1,
             depositAmount: depositAmountAFromB,
             createdAt: timestamps[1],
+            extraParams: extraParams
           },
           {
             id: 2,
@@ -587,6 +591,7 @@ describe("PrimexLens", function () {
             debt: positionDebt2,
             depositAmount: depositAmountAFromX,
             createdAt: timestamps[2],
+            extraParams: extraParams
           },
         ],
         0,
@@ -642,6 +647,7 @@ describe("PrimexLens", function () {
     before(async function () {
       // Since the quickswapv3 has a dynamic fee system the amount0Out from the Quoter may differ from the actual amountOut in swap in separate transactions
       if (dex === "quickswapv3") this.skip();
+      const extraParams = defaultAbiCoder.encode(["address"], [testTokenA.address]);
 
       expectedValues = [
         [
@@ -656,6 +662,7 @@ describe("PrimexLens", function () {
             debt: positionDebt0,
             depositAmount: depositAmountA,
             createdAt: timestamps[0],
+            extraParams: extraParams
           },
           {
             id: 1,
@@ -668,6 +675,7 @@ describe("PrimexLens", function () {
             debt: positionDebt1,
             depositAmount: depositAmountAFromB,
             createdAt: timestamps[1],
+            extraParams: extraParams
           },
           {
             id: 2,
@@ -680,6 +688,7 @@ describe("PrimexLens", function () {
             debt: positionDebt2,
             depositAmount: depositAmountAFromX,
             createdAt: timestamps[2],
+            extraParams: extraParams
           },
         ],
         0,
@@ -904,6 +913,8 @@ describe("PrimexLens", function () {
         closeConditions: [],
         isProtocolFeeInPmx: true,
         nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+        pullOracleTypes: [],
       });
       const createdAt0 = (await provider.getBlock("latest")).timestamp;
 
@@ -924,6 +935,8 @@ describe("PrimexLens", function () {
         closeConditions: [],
         isProtocolFeeInPmx: true,
         nativeDepositAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+        pullOracleTypes: [],
       });
       const createdAt1 = (await provider.getBlock("latest")).timestamp;
 
@@ -1097,6 +1110,8 @@ describe("PrimexLens", function () {
         positionManager.address,
         positionId,
         getEncodedChainlinkRouteViaUsd(testTokenA),
+        [],
+        [],
       );
       expect(maxDecrease).to.equal(position.depositAmountInSoldAsset);
       await positionManager
@@ -1181,6 +1196,8 @@ describe("PrimexLens", function () {
         positionManager.address,
         positionId,
         getEncodedChainlinkRouteViaUsd(testTokenA),
+        [],
+        [],
       );
 
       expect(maxDecrease).to.equal(depositDecrease);
@@ -1211,6 +1228,123 @@ describe("PrimexLens", function () {
         );
       const positionAfter = await positionManager.getPosition(positionId);
       expect(positionAfter.depositAmountInSoldAsset).to.equal(depositAmountA.sub(BigNumber.from(safeDecrease)));
+    });
+
+    it("should get position max decrease via pyth oracle", async function () {
+      await testTokenA.connect(trader).approve(traderBalanceVault.address, depositAmountA);
+      await traderBalanceVault.connect(trader).deposit(testTokenA.address, depositAmountA);
+      const swapSize = depositAmountA.add(borrowedAmount0);
+      const multiplierA = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsA));
+      const swap = swapSize.mul(multiplierA);
+
+      const amountBOut = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+      const multiplierB = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB));
+      const amountB = amountBOut.mul(multiplierB);
+
+      dexExchangeRateTtaTtb = wadDiv(amountB.toString(), swap.toString()).toString();
+      const price0 = BigNumber.from(dexExchangeRateTtaTtb).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price0);
+
+      const tokenAID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b1";
+      const tokenBID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b2";
+      const nativeID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b3";
+      const PMXID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b4";
+      const pyth = await getContract("MockPyth");
+
+      await priceOracle.updatePythPairId(
+        [testTokenA.address, testTokenB.address, await priceOracle.eth(), PMXToken.address],
+        [tokenAID, tokenBID, nativeID, PMXID],
+      );
+      // price in 10**8
+      const expo = -8;
+      const price = BigNumber.from("1").mul(BigNumber.from("10").pow(expo * -1));
+
+      const timeStamp = (await provider.getBlock("latest")).timestamp;
+      const updateDataTokenA = await pyth.createPriceFeedUpdateData(
+        tokenAID,
+        price,
+        0,
+        expo, // expo
+        0,
+        0,
+        timeStamp,
+        0,
+      );
+      const updateDataTokenB = await pyth.createPriceFeedUpdateData(
+        tokenBID,
+        price,
+        0,
+        expo, // expo
+        0,
+        0,
+        timeStamp,
+        0,
+      );
+      const pullOracleData = [[updateDataTokenA, updateDataTokenB]];
+      const pullOracleTypes = [UpdatePullOracle.Pyth];
+
+      const positionId = await positionManager.positionsId();
+      await positionManager.connect(trader).openPosition(
+        {
+          marginParams: {
+            bucket: "bucket1",
+            borrowedAmount: borrowedAmount0,
+            depositInThirdAssetMegaRoutes: [],
+          },
+          firstAssetMegaRoutes: firstAssetRoutes,
+          depositAsset: testTokenA.address,
+          depositAmount: depositAmountA,
+          positionAsset: testTokenB.address,
+          amountOutMin: 0,
+          deadline: new Date().getTime() + 600,
+          takeDepositFromWallet: false,
+          closeConditions: [],
+          firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+          thirdAssetOracleData: [],
+          depositSoldAssetOracleData: [],
+          positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+          nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+          pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+          nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: pullOracleData,
+          pullOracleTypes: pullOracleTypes,
+        },
+        { value: 2 },
+      );
+      const position = await positionManager.getPosition(positionId);
+      const pairPriceDrop = await priceOracle.pairPriceDrops(position.positionAsset, await bucket.borrowedAsset());
+      const feeBuffer = await bucket.feeBuffer();
+      const securityBuffer = await positionManager.securityBuffer();
+      const oracleTolerableLimit = await positionManager.getOracleTolerableLimit(testTokenB.address, testTokenA.address);
+      const maintenanceBuffer = await positionManager.maintenanceBuffer();
+      const priceFromOracle = await getExchangeRateByRoutes(testTokenB, await getEncodedChainlinkRouteViaUsd(testTokenA));
+      const amount0OutOracle = wadMul(position.positionAmount.toString(), priceFromOracle.toString()).toString();
+      const multiplier = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsA));
+      const amount0OutOracleInBorrowedDecimals = BigNumber.from(amount0OutOracle).div(multiplier);
+      const bnWAD = BigNumber.from(WAD.toString());
+
+      let maxDebt = wadMul(
+        wadMul(
+          wadMul(bnWAD.sub(securityBuffer).toString(), bnWAD.sub(oracleTolerableLimit).toString()),
+          bnWAD.sub(pairPriceDrop).toString(),
+        ),
+        amount0OutOracleInBorrowedDecimals.toString(),
+      ).toString();
+      maxDebt = wadDiv(maxDebt, wadMul(feeBuffer.toString(), bnWAD.add(maintenanceBuffer).toString()).toString()).toString();
+      const normalizedVariableDebt = await bucket.getNormalizedVariableDebt();
+      const currentDebt = rayMul(position.scaledDebtAmount.toString(), normalizedVariableDebt.toString()).toString();
+      const depositDecrease = BigNumber.from(maxDebt).sub(BigNumber.from(currentDebt));
+
+      const maxDecrease = await PrimexLens.callStatic.getPositionMaxDecrease(
+        positionManager.address,
+        positionId,
+        getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData,
+        pullOracleTypes,
+        { value: 2 },
+      );
+
+      expect(maxDecrease).to.equal(depositDecrease);
     });
   });
 
@@ -1373,6 +1507,7 @@ describe("PrimexLens", function () {
   });
 
   it("getOpenPositionData return correct values", async function () {
+    const extraParams = defaultAbiCoder.encode(["address"], [testTokenA.address]);
     const expectedValues = {
       id: 0,
       bucket: await getBucketMetaData(bucket.address, trader),
@@ -1384,6 +1519,7 @@ describe("PrimexLens", function () {
       debt: positionDebt0,
       depositAmount: depositAmountA,
       createdAt: timestamps[0],
+      extraParams: extraParams
     };
 
     parseArguments(expectedValues, await PrimexLens.callStatic.getOpenPositionData(positionManager.address, 0));
@@ -1416,6 +1552,7 @@ describe("PrimexLens", function () {
       pullOracleData: [],
       pullOracleTypes: [],
     });
+    const extraParams = defaultAbiCoder.encode(["address"], [testTokenA.address]);
     const timestamp = (await provider.getBlock("latest")).timestamp;
 
     const position4 = await positionManager.getPosition(3);
@@ -1431,6 +1568,7 @@ describe("PrimexLens", function () {
       debt: 0,
       depositAmount: depositAmountA,
       createdAt: timestamp,
+      extraParams: extraParams
     };
 
     parseArguments(expectedValues, await PrimexLens.callStatic.getOpenPositionData(positionManager.address, 3));

@@ -33,11 +33,15 @@ contract BestDexLens is IBestDexLens, IERC165 {
      */
     function getBestDexByOrder(
         BestDexByOrderParams memory _params
-    ) external override returns (GetBestDexByOrderReturnParams memory _returnParams) {
+    ) external payable override returns (GetBestDexByOrderReturnParams memory _returnParams) {
         _require(
             IERC165(address(_params.positionManager)).supportsInterface(type(IPositionManagerV2).interfaceId) &&
                 IERC165(address(_params.limitOrderManager)).supportsInterface(type(ILimitOrderManager).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
+        );
+        _params.positionManager.priceOracle().updatePullOracle{value: msg.value}(
+            _params.pullOracleData,
+            _params.pullOracleTypes
         );
 
         LimitOrderLibrary.LimitOrder memory order = _params.limitOrderManager.getOrder(_params.orderId);
