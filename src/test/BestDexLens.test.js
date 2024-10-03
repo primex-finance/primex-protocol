@@ -214,6 +214,7 @@ describe("BestDexLens", function () {
       pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
       nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
       pullOracleData: [],
+      pullOracleTypes: [],
     });
 
     /// POSITION 2 /////
@@ -251,6 +252,7 @@ describe("BestDexLens", function () {
       pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
       nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
       pullOracleData: [],
+      pullOracleTypes: [],
     });
 
     /// POSITION 3 /////
@@ -292,6 +294,7 @@ describe("BestDexLens", function () {
       pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
       nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
       pullOracleData: [],
+      pullOracleTypes: [],
     });
 
     const { positionsData } = await primexLens.getArrayOpenPositionDataByTrader(positionManager.address, trader.address, 0, 10);

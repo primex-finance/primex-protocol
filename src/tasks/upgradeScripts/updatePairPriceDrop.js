@@ -23,6 +23,9 @@ module.exports = async function (
   const priceOracleProxy = await getContract("PriceOracle_Proxy");
   const priceOracle = await getContractAt("PriceOracle", priceOracleProxy.address);
 
+  const tokensToInclude = [];
+  const tokensToExclude = [];
+
   let tx;
 
   const smallDelay = await smallTimeLock.getMinDelay();
@@ -36,8 +39,24 @@ module.exports = async function (
 
   if (executeFromDeployer) {
     for (const pair in pairsConfig) {
+      const tokens = pair.split("-");
+
+      if (tokensToInclude.length !== 0) {
+        // set price drop only if at least one of the tokens belongs to the list
+        if (!tokensToInclude.includes(tokens[0]) && !tokensToInclude.includes(tokens[1])) {
+          continue;
+        }
+      }
+
+      if (tokensToExclude.length !== 0) {
+        // set price drop only if none of the tokens belongs to the list
+        if (tokensToExclude.includes(tokens[0]) || tokensToExclude.includes(tokens[1])) {
+          continue;
+        }
+      }
+
       const pairContracts = await Promise.all(
-        pair.split("-").map(async asset => {
+        tokens.map(async asset => {
           try {
             return await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", assets[asset]);
           } catch {
@@ -70,8 +89,23 @@ module.exports = async function (
     }
   } else {
     for (const pair in pairsConfig) {
+      const tokens = pair.split("-");
+      if (tokensToInclude.length !== 0) {
+        // set price drop only if at least one of the tokens belongs to the list
+        if (!tokensToInclude.includes(tokens[0]) && !tokensToInclude.includes(tokens[1])) {
+          continue;
+        }
+      }
+
+      if (tokensToExclude.length !== 0) {
+        // set price drop only if none of the tokens belongs to the list
+        if (tokensToExclude.includes(tokens[0]) || tokensToExclude.includes(tokens[1])) {
+          continue;
+        }
+      }
+
       const pairContracts = await Promise.all(
-        pair.split("-").map(async asset => {
+        tokens.map(async asset => {
           try {
             return await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", assets[asset]);
           } catch {

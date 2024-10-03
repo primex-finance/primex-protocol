@@ -72,7 +72,7 @@ contract TakeProfitStopLossCCM is IConditionalClosingManager, ITakeProfitStopLos
         bytes calldata,
         uint256 _closeAmount,
         uint256 _borowedAssetAmount,
-        bytes memory _positionSoldAssetOracleData
+        bytes calldata _positionSoldAssetOracleData
     ) external payable override returns (bool) {
         if (_params.length == 0) return false;
         uint256 multiplierAssetOut = 10 ** (18 - IERC20Metadata(_position.soldAsset).decimals());
@@ -91,7 +91,7 @@ contract TakeProfitStopLossCCM is IConditionalClosingManager, ITakeProfitStopLos
     function isStopLossReached(
         PositionLibrary.Position calldata _position,
         uint256 _stopLossPrice,
-        bytes memory _positionSoldAssetOracleData
+        bytes calldata _positionSoldAssetOracleData
     ) public override returns (bool) {
         if (_stopLossPrice == 0) return false;
         uint256 exchangeRate = IPriceOracleV2(priceOracle).getExchangeRate(

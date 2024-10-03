@@ -151,6 +151,7 @@ describe("PrimexNFT_integration", function () {
       pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
       nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
       pullOracleData: [],
+      pullOracleTypes: [],
     });
 
     uris = ["primexURL/" + "37" + "0", "primexURL/" + "37" + "1"];
@@ -467,6 +468,7 @@ describe("PrimexNFT_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       const { accumulatedAmount: accumulatedAfter, lastUpdatedIndex: lastUpdatedIndexAfter } = await FeeDecreaser.getBonus(
@@ -492,7 +494,9 @@ describe("PrimexNFT_integration", function () {
         0,
         getEncodedChainlinkRouteViaUsd(testTokenA),
         getEncodedChainlinkRouteViaUsd(testTokenB),
-        getEncodedChainlinkRouteViaUsd(testTokenB),
+        getEncodedChainlinkRouteViaUsd(testTokenA),
+        getEncodedChainlinkRouteViaUsd(testTokenA),
+        [],
         [],
       );
       const { accumulatedAmount: accumulatedAfter, lastUpdatedIndex: lastUpdatedIndexAfter } = await FeeDecreaser.getBonus(

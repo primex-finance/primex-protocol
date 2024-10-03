@@ -25,7 +25,7 @@ import {ILiquidityMiningRewardDistributor} from "../LiquidityMiningRewardDistrib
 import {IInterestRateStrategy} from "../interfaces/IInterestRateStrategy.sol";
 import {IPrimexDNSV3, IPrimexDNSStorage, IPrimexDNSStorageV3} from "../PrimexDNS/PrimexDNS.sol";
 import {IKeeperRewardDistributorStorage} from "../KeeperRewardDistributor/IKeeperRewardDistributorStorage.sol";
-import {ARB_NITRO_ORACLE, GAS_FOR_BYTE, TRANSACTION_METADATA_BYTES} from "../Constants.sol";
+import {ARB_NITRO_ORACLE, GAS_FOR_BYTE, OVM_GASPRICEORACLE, TRANSACTION_METADATA_BYTES} from "../Constants.sol";
 
 /**
  * @dev  All functions in this contract are intended to be called off-chain. Do not call functions from other contracts to avoid an out-of-gas error.
@@ -223,10 +223,16 @@ contract PrimexLens is IPrimexLens, ERC165 {
                 _positionAsset != address(0),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
-
-        address bucket = IPositionManagerV2(_positionManager).primexDNS().getBucketAddress(_bucket);
-
-        return PrimexPricingLibrary.getLiquidationPrice(bucket, _positionAsset, _positionAmount, _borrowedAmount);
+        IPrimexDNSV3 primexDNS = IPositionManagerV2(_positionManager).primexDNS();
+        address bucket = primexDNS.getBucketAddress(_bucket);
+        return
+            PrimexPricingLibrary.getLiquidationPrice(
+                bucket,
+                _positionAsset,
+                _positionAmount,
+                _borrowedAmount,
+                address(primexDNS)
+            );
     }
 
     /**
@@ -584,7 +590,8 @@ contract PrimexLens is IPrimexLens, ERC165 {
                 address(position.bucket),
                 position.positionAsset,
                 position.positionAmount,
-                positionDebt
+                positionDebt,
+                address(IPositionManagerV2(_positionManager).primexDNS())
             );
     }
 
@@ -632,15 +639,32 @@ contract PrimexLens is IPrimexLens, ERC165 {
             address(_pm.priceOracle()),
             _pm.keeperRewardDistributor()
         );
-        IKeeperRewardDistributorStorage.PaymentModel paymentModel = _pm.keeperRewardDistributor().paymentModel();
-
-        uint256 l1CostWei = paymentModel == IKeeperRewardDistributorStorage.PaymentModel.ARBITRUM
-            ? ARB_NITRO_ORACLE.getL1BaseFeeEstimate() *
-                GAS_FOR_BYTE *
-                (_pm.primexDNS().getArbitrumBaseLengthForTradingOrderType(_tradingOrderType) +
-                    TRANSACTION_METADATA_BYTES)
-            : 0;
-
+        (, , uint256 optimisticGasCoefficient, IKeeperRewardDistributorStorage.PaymentModel paymentModel) = _pm
+            .keeperRewardDistributor()
+            .getGasCalculationParams();
+        uint256 l1CostWei;
+        if (paymentModel != IKeeperRewardDistributorStorage.PaymentModel.DEFAULT) {
+            if (paymentModel == IKeeperRewardDistributorStorage.PaymentModel.ARBITRUM) {
+                l1CostWei =
+                    ARB_NITRO_ORACLE.getL1BaseFeeEstimate() *
+                    GAS_FOR_BYTE *
+                    (_pm.primexDNS().getL1BaseLengthForTradingOrderType(_tradingOrderType) +
+                        TRANSACTION_METADATA_BYTES);
+            }
+            if (paymentModel == IKeeperRewardDistributorStorage.PaymentModel.OPTIMISTIC) {
+                // Adds 68 bytes of padding to account for the fact that the input does not have a signature.
+                uint256 l1GasUsed = GAS_FOR_BYTE *
+                    (_pm.primexDNS().getL1BaseLengthForTradingOrderType(_tradingOrderType) +
+                        OVM_GASPRICEORACLE.overhead() +
+                        68);
+                l1CostWei =
+                    (OVM_GASPRICEORACLE.l1BaseFee() *
+                        l1GasUsed *
+                        OVM_GASPRICEORACLE.scalar() *
+                        optimisticGasCoefficient) /
+                    10 ** 6;
+            }
+        }
         uint256 estimatedMinProtocolFeeInNativeAsset = _pm.primexDNS().averageGasPerAction(_tradingOrderType) *
             restrictedGasPrice +
             l1CostWei;

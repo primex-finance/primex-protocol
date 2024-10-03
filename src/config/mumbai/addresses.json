@@ -62,6 +62,8 @@
   },
   "aave": "0x3f4FE3E43351971a81669Af382BE9F79e6F43A4D",
   "pyth": "0xFC6bd9F9f0c6481c6Af3A7Eb46b296A5B85ed379",
+  "supraPullOracle": "0x6Cd59830AAD978446e6cc7f6cc173aF7656Fb917",
+  "supraStorageOracle": "0xCD2De2170a34241379d2E064E0D37889b33E7671",
   "priceDropfeeds": {
     "selfDeployed": {
       "weth-usdc": "0x92830D4af653897864C4BD1abC015779A6b00582",

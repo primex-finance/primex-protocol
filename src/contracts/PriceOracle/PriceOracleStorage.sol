@@ -4,10 +4,12 @@ pragma solidity 0.8.18;
 
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 
-import {IPriceOracleStorage, IPriceOracleStorageV2} from "./IPriceOracleStorage.sol";
+import {IPriceOracleStorage, IPriceOracleStorageV2, IPriceOracleStorageV3} from "./IPriceOracleStorage.sol";
 
 import {IPyth} from "@pythnetwork/pyth-sdk-solidity/IPyth.sol";
 import {PythStructs} from "@pythnetwork/pyth-sdk-solidity/PythStructs.sol";
+import {ISupraOraclePull} from "../interfaces/ISupraOraclePull.sol";
+import {ISupraSValueFeed} from "../interfaces/ISupraSValueFeed.sol";
 
 abstract contract PriceOracleStorage is IPriceOracleStorage, ERC165Upgradeable {
     address public override registry;
@@ -44,4 +46,14 @@ abstract contract PriceOracleStorageV2 is IPriceOracleStorageV2, PriceOracleStor
 
     // univ3TypeOracles => tokenA => tokenB
     mapping(uint256 => mapping(address => mapping(address => bool))) public override univ3TrustedPairs;
+}
+
+abstract contract PriceOracleStorageV3 is IPriceOracleStorageV3, PriceOracleStorageV2 {
+    ISupraOraclePull public override supraPullOracle;
+    ISupraSValueFeed public override supraStorageOracle;
+
+    // assetA => assetB => feedId
+    mapping(address => mapping(address => SupraDataFeedId)) public override supraDataFeedID;
+    address public override usdt;
+    address public override treasury;
 }

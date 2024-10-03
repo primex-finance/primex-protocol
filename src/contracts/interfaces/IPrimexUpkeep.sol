@@ -32,7 +32,8 @@ interface IPrimexUpkeep {
         bytes pmxPositionAssetOracleData;
         bytes positionUsdOracleData;
         bytes nativeSoldAssetOracleData;
-        bytes[] pullOracleData;
+        bytes[][] pullOracleData;
+        uint256[] pullOracleTypes;
     }
 
     struct ClosePositionInfo {
@@ -44,9 +45,10 @@ interface IPrimexUpkeep {
         bytes positionSoldAssetOracleData;
         bytes nativePmxOracleData;
         bytes positionNativeAssetOracleData;
-        bytes pmxPositionAssetOracleData;
-        bytes nativePositionAssetOracleData;
-        bytes[] pullOracleData;
+        bytes pmxSoldAssetOracleData;
+        bytes nativeSoldAssetOracleData;
+        bytes[][] pullOracleData;
+        uint256[] pullOracleTypes;
     }
 
     struct MegaRoutes {

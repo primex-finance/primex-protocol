@@ -109,7 +109,7 @@ contract SwapManager is ISwapManager, SwapManagerStorage {
 
         if (!isZeroFee) {
             if (primexDNS.protocolFeeRates(IPrimexDNSStorageV3.FeeRateType.SwapMarketOrder) != 0) {
-                priceOracle.updatePullOracle{value: msg.value}(params.pullOracleData);
+                priceOracle.updatePullOracle{value: msg.value}(params.pullOracleData, params.pullOracleTypes);
                 uint256 feeInPositionAsset;
                 uint256 feeInPmx;
                 address feeToken;
@@ -130,12 +130,12 @@ contract SwapManager is ISwapManager, SwapManagerStorage {
                         swapManager: address(0),
                         keeperRewardDistributor: address(0),
                         primexDNS: primexDNS,
-                        positionAsset: params.tokenB,
-                        positionSize: amountOut,
+                        paymentAsset: params.tokenB,
+                        paymentAmount: amountOut,
                         gasSpent: 0,
-                        isFeeOnlyInPositionAsset: false,
-                        pmxPositionAssetOracleData: params.pmxPositionAssetOracleData,
-                        nativePositionAssetOracleData: params.nativePositionAssetOracleData
+                        isFeeProhibitedInPmx: false,
+                        pmxPaymentAssetOracleData: params.pmxPositionAssetOracleData,
+                        nativePaymentAssetOracleData: params.nativePositionAssetOracleData
                     })
                 );
                 amountOut -= feeInPositionAsset;
@@ -209,12 +209,12 @@ contract SwapManager is ISwapManager, SwapManagerStorage {
                 swapManager: address(this),
                 keeperRewardDistributor: params.keeperRewardDistributor,
                 primexDNS: primexDNS,
-                positionAsset: params.positionAsset,
-                positionSize: amountOut,
+                paymentAsset: params.positionAsset,
+                paymentAmount: amountOut,
                 gasSpent: params.gasSpent,
-                isFeeOnlyInPositionAsset: false,
-                pmxPositionAssetOracleData: params.pmxPositionAssetOracleData,
-                nativePositionAssetOracleData: params.nativePositionAssetOracleData
+                isFeeProhibitedInPmx: false,
+                pmxPaymentAssetOracleData: params.pmxPositionAssetOracleData,
+                nativePaymentAssetOracleData: params.nativePositionAssetOracleData
             })
         );
         amountOut -= feeInPositionAsset;

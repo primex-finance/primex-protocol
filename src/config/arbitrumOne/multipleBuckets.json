@@ -1,0 +1,599 @@
+{
+  "DELAY_IN_DAYS_AFTER_DEPLOY": 0,
+  "buckets": [
+    {
+      "bucketName": "Primex Bucket PEPE",
+      "tokenName": "pepe",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 70000000000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket SPELL",
+      "tokenName": "spell",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 500000000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket DODO",
+      "tokenName": "dodo",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 5000000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket GRT",
+      "tokenName": "grt",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 3333333,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket WOO",
+      "tokenName": "woo",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 3000000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket CRV",
+      "tokenName": "crv",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 2200000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket KNC",
+      "tokenName": "knc",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 300000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket XAI",
+      "tokenName": "xai",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 1100000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket AXL",
+      "tokenName": "axl",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 360000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket FRAX",
+      "tokenName": "frax",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 1000000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket USDD",
+      "tokenName": "usdd",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 85000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket DAI",
+      "tokenName": "dai",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 1000000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket TUSD",
+      "tokenName": "tusd",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 55000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket BAL",
+      "tokenName": "bal",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 250000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket FXS",
+      "tokenName": "fxs",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 160000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket TIA.n",
+      "tokenName": "tia",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 35000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket RPL",
+      "tokenName": "rpl",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 5500,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket COMP",
+      "tokenName": "comp",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 2300,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket YFI",
+      "tokenName": "yfi",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 7.5,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket CAKE",
+      "tokenName": "cake",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 70000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket AAVE",
+      "tokenName": "aave",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 9700,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    },
+    {
+      "bucketName": "Primex Bucket JOE",
+      "tokenName": "joe",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 2000000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
+    }
+  ]
+}

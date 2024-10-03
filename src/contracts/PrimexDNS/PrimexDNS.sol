@@ -12,7 +12,7 @@ import "./PrimexDNSStorage.sol";
 import {BIG_TIMELOCK_ADMIN, MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN, EMERGENCY_ADMIN} from "../Constants.sol";
 import {IBucketV3} from "../Bucket/IBucket.sol";
 import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
-import {IPrimexDNSV3} from "./IPrimexDNS.sol";
+import {IPrimexDNSV3, IPrimexDNS} from "./IPrimexDNS.sol";
 import {IDexAdapter} from "../interfaces/IDexAdapter.sol";
 import {ILiquidityMiningRewardDistributor} from "../LiquidityMiningRewardDistributor/ILiquidityMiningRewardDistributor.sol";
 import {ITreasury} from "../Treasury/ITreasury.sol";
@@ -196,7 +196,7 @@ contract PrimexDNS is IPrimexDNSV3, PrimexDNSStorageV3 {
     /**
      * @inheritdoc IPrimexDNSV3
      */
-    function getArbitrumBaseLengthForTradingOrderType(
+    function getL1BaseLengthForTradingOrderType(
         TradingOrderType _tradingOrderType
     ) external view override returns (uint256) {
         if (
@@ -343,7 +343,10 @@ contract PrimexDNS is IPrimexDNSV3, PrimexDNSStorageV3 {
      * @param interfaceId The interface id to check
      */
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IPrimexDNSV3).interfaceId || super.supportsInterface(interfaceId);
+        return
+            interfaceId == type(IPrimexDNSV3).interfaceId ||
+            interfaceId == type(IPrimexDNS).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 
     function _setMaxProtocolFee(uint256 _maxProtocolFee) internal {

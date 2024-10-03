@@ -6,3 +6,4 @@ require("./SynchronizationBotLens");
 require("./SynchronizationBotLensUniV3");
 require("./SynchronizationBotLensQuickswap");
 require("./BalancerBotLens");
+require("./MockFlashLoanReceiver");

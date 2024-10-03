@@ -221,6 +221,7 @@ describe("PrimexUpkeep", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       const amount1Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
       liquidationPrice = await primexLens["getLiquidationPrice(address,string,uint256,address,uint256)"](
@@ -256,6 +257,7 @@ describe("PrimexUpkeep", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       positionIdLiquidate2 = 1;
 
@@ -282,6 +284,7 @@ describe("PrimexUpkeep", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       const swapSizeInWad = swapSize.mul(multiplierA);
       const amount0OutInWad = amount0Out.mul(multiplierB);
@@ -418,9 +421,10 @@ describe("PrimexUpkeep", function () {
         positionSoldAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenA),
         nativePmxOracleData: await getEncodedChainlinkRouteViaUsd(PMXToken),
         positionNativeAssetOracleData: await getEncodedChainlinkRouteViaUsd(await priceOracle.eth()),
-        pmxPositionAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenB),
-        nativePositionAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxSoldAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenA),
+        nativeSoldAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       };
 
       const positionIdLiquidate2Info = {
@@ -435,9 +439,10 @@ describe("PrimexUpkeep", function () {
         positionSoldAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenA),
         nativePmxOracleData: await getEncodedChainlinkRouteViaUsd(PMXToken),
         positionNativeAssetOracleData: await getEncodedChainlinkRouteViaUsd(await priceOracle.eth()),
-        pmxPositionAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenB),
-        nativePositionAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxSoldAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenA),
+        nativeSoldAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       };
 
       await PrimexUpkeep.performUpkeepPositions([positionLiquidateInfo, positionIdLiquidate2Info], deployer.address);
@@ -470,6 +475,7 @@ describe("PrimexUpkeep", function () {
         positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       };
 
       const orderToLiquidate2Info = {
@@ -488,6 +494,7 @@ describe("PrimexUpkeep", function () {
         positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       };
 
       await PrimexUpkeep.performUpkeepOrdersUnsafe([orderToLiquidateInfo, orderToLiquidate2Info], deployer.address);

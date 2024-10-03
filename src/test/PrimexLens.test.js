@@ -364,6 +364,7 @@ describe("PrimexLens", function () {
       pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
       nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
       pullOracleData: [],
+      pullOracleTypes: [],
     });
     timestamps.push((await provider.getBlock("latest")).timestamp);
 
@@ -411,6 +412,7 @@ describe("PrimexLens", function () {
       pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
       nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
       pullOracleData: [],
+      pullOracleTypes: [],
     });
     timestamps.push((await provider.getBlock("latest")).timestamp);
 
@@ -463,6 +465,7 @@ describe("PrimexLens", function () {
       pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
       nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
       pullOracleData: [],
+      pullOracleTypes: [],
     });
     timestamps.push((await provider.getBlock("latest")).timestamp);
 
@@ -735,7 +738,7 @@ describe("PrimexLens", function () {
       const scaledDebtAmount0 = rayDiv(borrowedAmount0.toString(), openBorrowIndex.toString()).toString();
       const scaledDebtAmount1 = rayDiv(borrowedAmount1.toString(), openBorrowIndex1.toString()).toString();
       const scaledDebtAmount2 = rayDiv(borrowedAmount2.toString(), openBorrowIndex2.toString()).toString();
-      const extraParams = defaultAbiCoder.encode(["address"], [testTokenB.address]);
+      const extraParams = defaultAbiCoder.encode(["address"], [testTokenA.address]);
       position0 = [
         BigNumber.from("0"),
         scaledDebtAmount0,
@@ -841,6 +844,7 @@ describe("PrimexLens", function () {
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(testTokenB),
           getEncodedChainlinkRouteViaUsd(testTokenB),
+          [],
           [],
         );
 
@@ -1007,7 +1011,6 @@ describe("PrimexLens", function () {
     it("should return correct values", async function () {
       const borrowedAmount4 = borrowedAmount2;
       const positionAmount4 = await getAmountsOut(dex, depositAmountA.add(borrowedAmount4), [testTokenA.address, testTokenB.address]);
-
       const liquidationPricePreliminary = await PrimexLens["getLiquidationPrice(address,string,uint256,address,uint256)"](
         positionManager.address,
         "bucket1",
@@ -1015,7 +1018,6 @@ describe("PrimexLens", function () {
         testTokenB.address,
         positionAmount4,
       );
-
       const deadline = new Date().getTime() + 600;
       await testTokenA.mint(trader.address, depositAmountA);
       await testTokenA.connect(trader).approve(positionManager.address, depositAmountA);
@@ -1045,6 +1047,7 @@ describe("PrimexLens", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       const pairPriceDrop = await priceOracle.pairPriceDrops(testTokenB.address, testTokenA.address);
@@ -1053,13 +1056,15 @@ describe("PrimexLens", function () {
       const oracleTolerableLimit = await positionManager.getOracleTolerableLimit(testTokenB.address, testTokenA.address);
 
       // position 4
+      const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
       const denominator = wadMul(
         wadMul(
           wadMul(BigNumber.from(WAD).sub(securityBuffer).toString(), BigNumber.from(WAD).sub(oracleTolerableLimit).toString()),
-          BigNumber.from(WAD).sub(pairPriceDrop).toString(),
+          wadMul(BigNumber.from(WAD).sub(pairPriceDrop).toString(), BigNumber.from(WAD).sub(feeRate).toString()),
         ),
         positionAmount4.toString(),
       ).toString();
+
       const denominatorInWadDecimals = BigNumber.from(denominator).mul(multiplier2);
       const numerator = wadMul(feeBuffer.toString(), borrowedAmount4.toString()).toString();
       const numeratorInWadDecimals = BigNumber.from(numerator).mul(multiplier1);
@@ -1080,21 +1085,6 @@ describe("PrimexLens", function () {
         "ADDRESS_NOT_SUPPORTED",
       );
     });
-
-    it("should revert if positionAsset isn't allowed in bucket", async function () {
-      const borrowedAmount4 = borrowedAmount2;
-      const positionAmount4 = await getAmountsOut(dex, depositAmountA.add(borrowedAmount4), [testTokenA.address, testTokenB.address]);
-
-      await expect(
-        PrimexLens["getLiquidationPrice(address,string,uint256,address,uint256)"](
-          positionManager.address,
-          "bucket1",
-          borrowedAmount4,
-          trader.address,
-          positionAmount4,
-        ),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "TOKEN_NOT_SUPPORTED");
-    });
   });
 
   describe("getPositionMaxDecrease", function () {
@@ -1109,7 +1099,16 @@ describe("PrimexLens", function () {
         getEncodedChainlinkRouteViaUsd(testTokenA),
       );
       expect(maxDecrease).to.equal(position.depositAmountInSoldAsset);
-      await positionManager.connect(trader).decreaseDeposit(positionId, maxDecrease, getEncodedChainlinkRouteViaUsd(testTokenA), []);
+      await positionManager
+        .connect(trader)
+        .decreaseDeposit(
+          positionId,
+          maxDecrease,
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
+          [],
+        );
 
       const positionAfter = await positionManager.getPosition(positionId);
       expect(positionAfter.depositAmountInSoldAsset).to.equal(0);
@@ -1153,6 +1152,7 @@ describe("PrimexLens", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       const position = await positionManager.getPosition(positionId);
       const pairPriceDrop = await priceOracle.pairPriceDrops(position.positionAsset, await bucket.borrowedAsset());
@@ -1192,12 +1192,23 @@ describe("PrimexLens", function () {
             positionId,
             wadMul(maxDecrease.toString(), bnWAD.add(bnWAD.div("10")).toString()).toString(),
             getEncodedChainlinkRouteViaUsd(testTokenA),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "INSUFFICIENT_DEPOSIT_SIZE");
 
       const safeDecrease = wadMul(maxDecrease.toString(), bnWAD.sub(bnWAD.div("10")).toString()).toString(); // 90%
-      await positionManager.connect(trader).decreaseDeposit(positionId, safeDecrease, getEncodedChainlinkRouteViaUsd(testTokenA), []);
+      await positionManager
+        .connect(trader)
+        .decreaseDeposit(
+          positionId,
+          safeDecrease,
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
+          [],
+        );
       const positionAfter = await positionManager.getPosition(positionId);
       expect(positionAfter.depositAmountInSoldAsset).to.equal(depositAmountA.sub(BigNumber.from(safeDecrease)));
     });
@@ -1403,6 +1414,7 @@ describe("PrimexLens", function () {
       pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
       nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
       pullOracleData: [],
+      pullOracleTypes: [],
     });
     const timestamp = (await provider.getBlock("latest")).timestamp;
 
@@ -1434,21 +1446,20 @@ describe("PrimexLens", function () {
     const multiplier2 = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB));
 
     // position 0
+    const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
     let denominator = wadMul(
       wadMul(
         wadMul(BigNumber.from(WAD).sub(securityBuffer).toString(), BigNumber.from(WAD).sub(oracleTolerableLimit).toString()),
-        BigNumber.from(WAD).sub(pairPriceDrop).toString(),
+        wadMul(BigNumber.from(WAD).sub(pairPriceDrop).toString(), BigNumber.from(WAD).sub(feeRate).toString()),
       ),
       positionAmount0.toString(),
     ).toString();
-
     let denominatorInWadDecimals = BigNumber.from(denominator).mul(multiplier2);
     let numerator = wadMul(feeBuffer.toString(), positionDebt0.toString()).toString();
     let numeratorInWadDecimals = BigNumber.from(numerator).mul(multiplier1);
 
     const liquidationPrice0 = wadDiv(numeratorInWadDecimals.toString(), denominatorInWadDecimals.toString()).toString();
     let liquidationPriceInBorroweAssetDecimals = BigNumber.from(liquidationPrice0).div(multiplier1);
-
     expect(await PrimexLens["getLiquidationPrice(address,uint256)"](positionManager.address, 0)).to.equal(
       liquidationPriceInBorroweAssetDecimals,
     );
@@ -1457,10 +1468,11 @@ describe("PrimexLens", function () {
     denominator = wadMul(
       wadMul(
         wadMul(BigNumber.from(WAD).sub(securityBuffer).toString(), BigNumber.from(WAD).sub(oracleTolerableLimit).toString()),
-        BigNumber.from(WAD).sub(pairPriceDrop).toString(),
+        wadMul(BigNumber.from(WAD).sub(pairPriceDrop).toString(), BigNumber.from(WAD).sub(feeRate).toString()),
       ),
       positionAmount1.toString(),
     ).toString();
+
     denominatorInWadDecimals = BigNumber.from(denominator).mul(multiplier2);
     numerator = wadMul(feeBuffer.toString(), positionDebt1.toString()).toString();
     numeratorInWadDecimals = BigNumber.from(numerator).mul(multiplier1);
@@ -1476,7 +1488,7 @@ describe("PrimexLens", function () {
     denominator = wadMul(
       wadMul(
         wadMul(BigNumber.from(WAD).sub(securityBuffer).toString(), BigNumber.from(WAD).sub(oracleTolerableLimit).toString()),
-        BigNumber.from(WAD).sub(pairPriceDrop).toString(),
+        wadMul(BigNumber.from(WAD).sub(pairPriceDrop).toString(), BigNumber.from(WAD).sub(feeRate).toString()),
       ),
       positionAmount2.toString(),
     ).toString();

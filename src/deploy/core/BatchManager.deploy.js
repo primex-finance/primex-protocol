@@ -8,6 +8,7 @@ module.exports = async ({ run, ethers: { getContract } }) => {
   const registry = await getContract("Registry");
   const whiteBlackList = await getContract("WhiteBlackList");
   const errorsLibrary = await getContract("Errors");
+  const tokenTransfersLibrary = await getContract("TokenTransfersLibrary");
 
   const { BatchManagerConfig } = getConfigByName("generalConfig.json");
 
@@ -24,8 +25,9 @@ module.exports = async ({ run, ethers: { getContract } }) => {
     gasPerPosition: gasPerPosition,
     gasPerBatch: gasPerBatch,
     errorsLibrary: errorsLibrary.address,
+    tokenTransfersLibrary: tokenTransfersLibrary.address,
   });
 };
 
 module.exports.tags = ["BatchManager", "Test", "PrimexCore"];
-module.exports.dependencies = ["PositionManager", "WhiteBlackList", "Errors", "Registry"];
+module.exports.dependencies = ["PositionManager", "WhiteBlackList", "Errors", "Registry", "TokenTransfersLibrary"];

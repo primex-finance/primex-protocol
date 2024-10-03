@@ -890,6 +890,7 @@ describe("Ptoken", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       await tx.wait();
@@ -994,6 +995,7 @@ describe("Ptoken", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       const blockPast = 3;
@@ -1113,6 +1115,7 @@ describe("Ptoken", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
     });
 
@@ -1442,6 +1445,7 @@ describe("Ptoken", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
     });
 

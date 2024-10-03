@@ -18,7 +18,7 @@ process.env.TEST = true;
 
 describe("PrimexPricingLibrary_unit", function () {
   let snapshotId;
-  let dex, primexPricingLibrary, primexPricingLibraryMock, testTokenA, decimalsA, testTokenB, decimalsB;
+  let dex, primexPricingLibrary, primexDNS, primexPricingLibraryMock, testTokenA, decimalsA, testTokenB, decimalsB;
   let priceOracle, dexAdapter, bucket;
   let deployer, trader;
   let ErrorsLibrary;
@@ -34,6 +34,7 @@ describe("PrimexPricingLibrary_unit", function () {
     decimalsB = await testTokenB.decimals();
 
     primexPricingLibrary = await getContract("PrimexPricingLibrary");
+    primexDNS = await getContract("PrimexDNS");
 
     [priceOracle] = await deployMockPriceOracle(deployer);
     dexAdapter = await deployMockDexAdapter(deployer);
@@ -151,20 +152,14 @@ describe("PrimexPricingLibrary_unit", function () {
   describe("getLiquidationPrice", function () {
     it("Should revert if positionAsset is zero address", async function () {
       await expect(
-        primexPricingLibraryMock.getLiquidationPrice(bucket.address, AddressZero, parseUnits("1", decimalsB), parseUnits("1", decimalsA)),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
-    });
-
-    it("Should revert if positionAsset is not allowed", async function () {
-      await bucket.mock.allowedAssets.returns(0, false);
-      await expect(
         primexPricingLibraryMock.getLiquidationPrice(
           bucket.address,
-          testTokenA.address,
+          AddressZero,
           parseUnits("1", decimalsB),
           parseUnits("1", decimalsA),
+          primexDNS.address,
         ),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "TOKEN_NOT_SUPPORTED");
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
   });
 

@@ -22,6 +22,6 @@ interface IConditionalClosingManager {
         bytes calldata _additionalParams,
         uint256 _closeAmount,
         uint256 _borowedAssetAmount,
-        bytes memory _positionSoldAssetOracleData
+        bytes calldata _positionSoldAssetOracleData
     ) external payable returns (bool);
 }

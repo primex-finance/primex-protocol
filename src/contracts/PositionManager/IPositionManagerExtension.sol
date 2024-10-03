@@ -137,8 +137,10 @@ interface IPositionManagerExtension is IPositionManagerStorageV2, IPositionManag
         uint256 _amountOutMin,
         bytes calldata _positionSoldAssetOracleData,
         bytes calldata _nativePositionAssetOracleData,
-        bytes calldata _pmxPositionAssetOracleData,
-        bytes[] calldata _pullOracleData
+        bytes calldata _nativeSoldAssetOracleData,
+        bytes calldata _pmxSoldAssetOracleData,
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
     ) external payable;
 
     /**
@@ -168,8 +170,10 @@ interface IPositionManagerExtension is IPositionManagerStorageV2, IPositionManag
     function decreaseDeposit(
         uint256 _positionId,
         uint256 _amount,
-        bytes memory _positionSoldAssetOracleData,
-        bytes[] calldata _pullOracleData
+        bytes calldata _positionSoldAssetOracleData,
+        bytes calldata _nativeSoldAssetOracleData,
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
     ) external payable;
 
     /**

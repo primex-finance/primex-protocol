@@ -5,6 +5,7 @@ require("./Bucket");
 require("./BucketExtension");
 require("./factories");
 require("./DexAdapter");
+require("./FlashLoanManager");
 require("./LimitOrderManager");
 require("./PMXToken");
 require("./PositionManager");

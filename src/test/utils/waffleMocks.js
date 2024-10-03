@@ -281,6 +281,25 @@ async function deployMockPyth(deployer) {
   await mock.mock.getPrice.returns([0, 0, 0, 0]);
   return mock;
 }
+async function deploySupraPullMock(deployer) {
+  const mock = await deployMockContract(deployer, await abi("ISupraOraclePull"));
+  await mock.mock.verifyOracleProof.returns({
+    pairs: [],
+    prices: [],
+    decimals: [],
+  });
+  return mock;
+}
+async function deploySupraStoragelMock(deployer) {
+  const mock = await deployMockContract(deployer, await abi("ISupraSValueFeed"));
+  await mock.mock.getSvalue.returns({
+    round: 0,
+    decimals: 0,
+    time: 0,
+    price: 0,
+  });
+  return mock;
+}
 
 module.exports = {
   deployMockReserve,
@@ -323,4 +342,6 @@ module.exports = {
   deployUpgradeableBeacon,
   deployMockSwapManager,
   deployMockPyth,
+  deploySupraPullMock,
+  deploySupraStoragelMock,
 };

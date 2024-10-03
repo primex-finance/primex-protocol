@@ -9,8 +9,8 @@ module.exports = async ({ run, ethers: { getContract } }) => {
 
   const dexes = await primexDNS.getAllDexes();
   for (const dex of dexes) {
-    // because the paraswap can't handle getAmountsOut/In
-    if (dex !== "paraswap") {
+    // because the paraswap and enso can't handle getAmountsOut/In
+    if (dex !== "paraswap" && dex !== "enso") {
       routers.push((await primexDNS.dexes(dex)).routerAddress);
     }
   }

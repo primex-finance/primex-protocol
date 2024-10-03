@@ -4,6 +4,7 @@ const {
   network,
   ethers: {
     provider,
+    getSigners,
     getContract,
     utils: { parseEther, parseUnits },
   },
@@ -14,29 +15,39 @@ process.env.TEST = true;
 const { addLiquidity, swapExactTokensForTokens } = require("../utils/dexOperations");
 const { BigNumber } = require("ethers");
 const { wadMul, wadDiv } = require("../utils/bnMath");
-const { MAX_TOKEN_DECIMALITY, USD, WAD } = require("../utils/constants");
+const { MAX_TOKEN_DECIMALITY, USD, WAD, UpdatePullOracle } = require("../utils/constants");
 const {
   getEncodedChainlinkRouteToUsd,
   getEncodedChainlinkRouteToToken,
   getEncodedUniswapRouteToToken,
   getEncodedPythRouteToToken,
   getEncodedPythRouteToUsd,
+  getEncodedSupraRouteToUsd,
+  getEncodedSupraRouteToToken,
 } = require("../utils/oracleUtils");
+const { deploySupraPullMock, deploySupraStoragelMock } = require("../utils/waffleMocks");
+const { ZERO_BYTES_32, ZERO_ADDRESS } = require("@aave/deploy-v3");
 
 describe("PriceOracle_integration", function () {
   let testTokenA, testTokenB, ErrorsLibrary;
   let priceOracle, mockPriceFeed;
   let uniswapPriceFeed, pyth;
-
+  let supraPullMock, supraStorageMock;
+  let deployer;
+  let treasury;
   before(async function () {
     await fixture(["Test"]);
+    [deployer] = await getSigners();
     testTokenA = await getContract("TestTokenA");
     testTokenB = await getContract("TestTokenB");
+    treasury = await getContract("Treasury");
     priceOracle = await getContract("PriceOracle");
     ErrorsLibrary = await getContract("Errors");
     uniswapPriceFeed = await getContract("UniswapPriceFeed");
     pyth = await getContract("MockPyth");
     mockPriceFeed = await getContract("PrimexAggregatorV3TestService TEST price feed");
+    supraPullMock = await deploySupraPullMock(deployer);
+    supraStorageMock = await deploySupraStoragelMock(deployer);
   });
 
   describe("Price oracle Contract tests", function () {
@@ -92,12 +103,16 @@ describe("PriceOracle_integration", function () {
   });
 
   describe("Price oracle Contract tests with UniswapPriceFeed", function () {
-    let decimalsA, decimalsB;
+    let snapshotId, decimalsA, decimalsB;
     let multiplierA, multiplierB;
+    const priceFeedID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b3";
 
     before(async function () {
       await addLiquidity({ dex: "uniswapv3", from: "lender", tokenA: testTokenA, tokenB: testTokenB });
       await swapExactTokensForTokens({ dex: "uniswapv3", amountIn: parseEther("1"), path: [testTokenA.address, testTokenB.address] });
+
+      await priceOracle.updatePythPairId([testTokenA.address, testTokenB.address], [ZERO_BYTES_32, ZERO_BYTES_32]);
+      await priceOracle.updateChainlinkPriceFeedsUsd([testTokenA.address, testTokenB.address], [ZERO_ADDRESS, ZERO_ADDRESS]);
 
       const currentTimestamp = (await provider.getBlock("latest")).timestamp + 1900;
 
@@ -121,6 +136,36 @@ describe("PriceOracle_integration", function () {
       multiplierB = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB));
     });
 
+    beforeEach(async function () {
+      snapshotId = await network.provider.request({
+        method: "evm_snapshot",
+        params: [],
+      });
+    });
+
+    afterEach(async function () {
+      await network.provider.request({
+        method: "evm_revert",
+        params: [snapshotId],
+      });
+    });
+    it("should revert when there is a direct TokenA/TokenB route via chainlink", async function () {
+      await priceOracle.updateChainlinkPriceFeedsUsd(
+        [testTokenA.address, testTokenB.address],
+        [mockPriceFeed.address, mockPriceFeed.address],
+      );
+      const oracleData = getEncodedUniswapRouteToToken(testTokenB);
+      await expect(
+        priceOracle.callStatic.getExchangeRate(testTokenA.address, testTokenB.address, oracleData),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "THERE_IS_DIRECT_ROUTE");
+    });
+    it("should revert when when there is a direct TokenA/TokenB via pyth", async function () {
+      await priceOracle.updatePythPairId([testTokenA.address, testTokenB.address], [priceFeedID, priceFeedID]);
+      const oracleData = getEncodedUniswapRouteToToken(testTokenB);
+      await expect(
+        priceOracle.callStatic.getExchangeRate(testTokenA.address, testTokenB.address, oracleData),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "THERE_IS_DIRECT_ROUTE");
+    });
     it("get correct price with UniswapPriceFeed tokenA/tokenB", async function () {
       const amountA = parseEther("2", decimalsA);
       const oracleData = getEncodedUniswapRouteToToken(testTokenB);
@@ -169,23 +214,48 @@ describe("PriceOracle_integration", function () {
     });
     it("Should not revert when pullOracleData is empty", async function () {
       expect(
-        await priceOracle.updatePullOracle([], {
+        await priceOracle.updatePullOracle([], [], {
           value: 1,
         }),
       );
     });
+    it("Should revert when function length parameters do not match", async function () {
+      await expect(
+        priceOracle.updatePullOracle([[updateData], [updateData]], [UpdatePullOracle.Pyth], {
+          value: 1,
+        }),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "PARAMS_LENGTH_MISMATCH");
+    });
 
     it("Should revert when the value is less than necessary", async function () {
       await expect(
-        priceOracle.updatePullOracle([updateData], {
+        priceOracle.updatePullOracle([[updateData]], [UpdatePullOracle.Pyth], {
           value: 0,
+        }),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "NOT_ENOUGH_MSG_VALUE");
+
+      // when we pass two arrays but there is only enough value for 1 of them
+      await expect(
+        priceOracle.updatePullOracle([[updateData], [updateData]], [UpdatePullOracle.Pyth, UpdatePullOracle.Pyth], {
+          value: 1,
         }),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "NOT_ENOUGH_MSG_VALUE");
     });
 
+    it("updatePullOracle should return the change to the treasury", async function () {
+      const sendValue = parseEther("1");
+      const ethBalanceBefore = await provider.getBalance(treasury.address);
+      await priceOracle.updatePullOracle([[updateData]], [UpdatePullOracle.Pyth], {
+        value: sendValue,
+      });
+
+      const ethBalanceAfter = await provider.getBalance(treasury.address);
+      expect(ethBalanceAfter.sub(ethBalanceBefore)).to.be.equal(sendValue.sub("1"));
+    });
+
     it("get correct price with Pyth tokenA/USD", async function () {
       const oracleData = getEncodedPythRouteToUsd();
-      await priceOracle.updatePullOracle([updateData], {
+      await priceOracle.updatePullOracle([[updateData]], [UpdatePullOracle.Pyth], {
         value: 1,
       });
 
@@ -194,11 +264,80 @@ describe("PriceOracle_integration", function () {
     });
     it("get correct price with Pyth USD/tokenA", async function () {
       const oracleData = getEncodedPythRouteToToken(testTokenA);
-      await priceOracle.updatePullOracle([updateData], {
+      await priceOracle.updatePullOracle([[updateData]], [UpdatePullOracle.Pyth], {
         value: 1,
       });
 
       const amount = await priceOracle.callStatic.getExchangeRate(USD, testTokenA.address, oracleData);
+      expect(amount).to.be.equal(wadDiv(WAD, price.mul(BigNumber.from("10").pow("18"))));
+    });
+  });
+  describe("Price oracle Contract tests with Supra", function () {
+    let price;
+    before(async function () {
+      await priceOracle.setSupraPullOracle(supraPullMock.address);
+      await priceOracle.setSupraStorageOracle(supraStorageMock.address);
+      await priceOracle.setTimeTolerance("60");
+      price = BigNumber.from("1500");
+      await priceOracle.updateSupraDataFeed([
+        {
+          tokenA: testTokenA.address,
+          tokenB: USD,
+          feedData: {
+            id: 0,
+            initialize: true,
+          },
+        },
+      ]);
+    });
+    it("Should not revert when pullOracleData is empty", async function () {
+      expect(
+        await priceOracle.updatePullOracle([], [], {
+          value: 1,
+        }),
+      );
+    });
+
+    it("get correct price with Supra tokenA/USD", async function () {
+      const oracleData = getEncodedSupraRouteToUsd();
+
+      await supraStorageMock.mock.getSvalue.returns({
+        round: (await provider.getBlock("latest")).timestamp,
+        decimals: 18,
+        time: (await provider.getBlock("latest")).timestamp,
+        price: price.mul(BigNumber.from("10").pow("18")),
+      });
+      const amount = await priceOracle.callStatic.getExchangeRate(testTokenA.address, USD, oracleData);
+      expect(amount).to.be.equal(price.mul(BigNumber.from("10").pow("18")));
+
+      // get correct price when decimals < 18
+      await supraStorageMock.mock.getSvalue.returns({
+        round: (await provider.getBlock("latest")).timestamp,
+        decimals: 8,
+        time: (await provider.getBlock("latest")).timestamp,
+        price: price.mul(BigNumber.from("10").pow("8")),
+      });
+      expect(amount).to.be.equal(price.mul(BigNumber.from("10").pow("18")));
+    });
+    it("get correct price with Supra USD/tokenA", async function () {
+      const oracleData = getEncodedSupraRouteToToken(testTokenA);
+
+      await supraStorageMock.mock.getSvalue.returns({
+        round: (await provider.getBlock("latest")).timestamp,
+        decimals: 18,
+        time: (await provider.getBlock("latest")).timestamp,
+        price: price.mul(BigNumber.from("10").pow("18")),
+      });
+      const amount = await priceOracle.callStatic.getExchangeRate(USD, testTokenA.address, oracleData);
+      expect(amount).to.be.equal(wadDiv(WAD, price.mul(BigNumber.from("10").pow("18"))));
+
+      // get correct price when decimals < 18
+      await supraStorageMock.mock.getSvalue.returns({
+        round: (await provider.getBlock("latest")).timestamp,
+        decimals: 8,
+        time: (await provider.getBlock("latest")).timestamp,
+        price: price.mul(BigNumber.from("10").pow("8")),
+      });
       expect(amount).to.be.equal(wadDiv(WAD, price.mul(BigNumber.from("10").pow("18"))));
     });
   });

@@ -137,7 +137,8 @@ library LimitOrderLibrary {
         bytes pmxPositionAssetOracleData;
         bytes positionUsdOracleData;
         bytes nativeSoldAssetOracleData;
-        bytes[] pullOracleData;
+        bytes[][] pullOracleData;
+        uint256[] pullOracleTypes;
     }
 
     struct OpenPositionByOrderVars {

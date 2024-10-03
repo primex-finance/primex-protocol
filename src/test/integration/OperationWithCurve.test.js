@@ -290,6 +290,7 @@ describe("Operation with the Curve dex_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
     });
@@ -328,6 +329,7 @@ describe("Operation with the Curve dex_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenX),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
     });
@@ -364,6 +366,7 @@ describe("Operation with the Curve dex_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
@@ -378,6 +381,7 @@ describe("Operation with the Curve dex_integration", function () {
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(testTokenB),
           getEncodedChainlinkRouteViaUsd(testTokenB),
+          [],
           [],
         );
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(0);
@@ -415,6 +419,7 @@ describe("Operation with the Curve dex_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenX),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
 
@@ -428,6 +433,7 @@ describe("Operation with the Curve dex_integration", function () {
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(testTokenX),
           getEncodedChainlinkRouteViaUsd(testTokenX),
+          [],
           [],
         );
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(0);

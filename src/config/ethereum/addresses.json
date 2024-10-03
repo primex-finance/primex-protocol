@@ -41,6 +41,8 @@
   },
   "aave": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
   "pyth": "0x4305FB66699C3B2702D4d05CF36551390A4c69C6",
+  "supraPullOracle": "0x2FA6DbFe4291136Cf272E1A3294362b6651e8517",
+  "supraStorageOracle": "0xD02cc7a670047b6b012556A88e275c685d25e0c9",
   "wrappedNativeToken": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
   "dexes": {
     "uniswap": {
@@ -94,6 +96,10 @@
     "paraswap": {
       "router": "0xDEF171Fe48CF0115B1d80b88dc8eAB59176FEe57",
       "type": "7"
+    },
+    "enso": {
+      "router": "0x80EbA3855878739F4710233A8a19d89Bdd2ffB8E",
+      "type": "8"
     }
   },
   "pricefeeds": {

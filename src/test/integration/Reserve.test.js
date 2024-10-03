@@ -83,6 +83,7 @@ async function openPosition(testTokenA, bucket, priceFeed, positionManager, dex,
     pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
     nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
     pullOracleData: [],
+    pullOracleTypes: [],
   });
   await tx.wait();
   const positionsId = await positionManager.positionsId();
@@ -115,6 +116,7 @@ async function closePosition(positionId, positionManager, dex, testTokenA, testT
       getEncodedChainlinkRouteViaUsd(testTokenA),
       getEncodedChainlinkRouteViaUsd(testTokenB),
       getEncodedChainlinkRouteViaUsd(testTokenB),
+      [],
       [],
     );
 }

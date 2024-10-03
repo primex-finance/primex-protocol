@@ -131,7 +131,7 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV3, KeeperRewardDist
         // to avoid stack too deep
         {
             uint256 l1CostWei;
-            if (paymentModel == PaymentModel.ARBITRUM) {
+            if (paymentModel != PaymentModel.DEFAULT) {
                 KeeperCallingMethod callingMethod;
                 uint256 variableLength;
                 if (_params.numberOfActions > 1) {
@@ -147,10 +147,22 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV3, KeeperRewardDist
                 variableLength += _params.routesLength < restrictions.maxRoutesLength
                     ? _params.routesLength
                     : restrictions.maxRoutesLength;
-                l1CostWei =
-                    ARB_NITRO_ORACLE.getL1BaseFeeEstimate() *
-                    GAS_FOR_BYTE *
-                    (variableLength + restrictions.baseLength + TRANSACTION_METADATA_BYTES);
+                if (paymentModel == PaymentModel.ARBITRUM) {
+                    l1CostWei =
+                        ARB_NITRO_ORACLE.getL1BaseFeeEstimate() *
+                        GAS_FOR_BYTE *
+                        (variableLength + restrictions.baseLength + TRANSACTION_METADATA_BYTES);
+                }
+                if (paymentModel == PaymentModel.OPTIMISTIC) {
+                    // Adds 68 bytes of padding to account for the fact that the input does not have a signature.
+                    uint256 l1GasUsed = GAS_FOR_BYTE *
+                        (variableLength + restrictions.baseLength + OVM_GASPRICEORACLE.overhead() + 68);
+                    l1CostWei =
+                        (OVM_GASPRICEORACLE.l1BaseFee() *
+                            l1GasUsed *
+                            OVM_GASPRICEORACLE.scalar().wmul(optimisticGasCoefficient)) /
+                        10 ** 6;
+                }
             }
 
             uint256 reward = gasAmount * gasPrice + l1CostWei + positionSizeMultiplier;
@@ -190,6 +202,20 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV3, KeeperRewardDist
             ITreasury(treasury).transferFromTreasury(_nativeAmount, NATIVE_CURRENCY, msg.sender);
             emit ClaimFees(msg.sender, NATIVE_CURRENCY, _nativeAmount);
         }
+    }
+
+    /**
+     * @inheritdoc IKeeperRewardDistributorV3
+     */
+    function setOptimisticGasCoefficient(
+        uint256 _newOptimisticGasCoefficient
+    ) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
+        _require(
+            _newOptimisticGasCoefficient > 0 && _newOptimisticGasCoefficient <= WadRayMath.WAD,
+            Errors.INCORRECT_OPTIMISM_GAS_COEFFICIENT.selector
+        );
+        optimisticGasCoefficient = _newOptimisticGasCoefficient;
+        emit OptimisticGasCoefficientChanged(_newOptimisticGasCoefficient);
     }
 
     /**
@@ -297,8 +323,8 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV3, KeeperRewardDist
     /**
      * @inheritdoc IKeeperRewardDistributorV3
      */
-    function getGasCalculationParams() external view override returns (uint256, uint256) {
-        return (oracleGasPriceTolerance, defaultMaxGasPrice);
+    function getGasCalculationParams() external view override returns (uint256, uint256, uint256, PaymentModel) {
+        return (oracleGasPriceTolerance, defaultMaxGasPrice, optimisticGasCoefficient, paymentModel);
     }
 
     /**

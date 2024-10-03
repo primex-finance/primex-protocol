@@ -7,6 +7,7 @@ task("deploy:BatchManager", "Deploy PositionManager contract", require("./batchM
   .addParam("positionLibrary", "The address of PositionLibrary library")
   .addParam("positionManager", "The address of the PositionManager")
   .addParam("priceOracle", "The address of the PriceOracle")
+  .addParam("tokenTransfersLibrary", "The address of the TokenTransfersLibrary")
   .addParam("whiteBlackList", "The address of the WhiteBlackList")
   .addParam("gasPerPosition", "The gas amount per position")
   .addParam("gasPerBatch", "The gas amount per batch")

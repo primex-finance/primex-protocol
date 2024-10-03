@@ -27,7 +27,7 @@ const {
   USD_MULTIPLIER,
 } = require("./utils/constants");
 const { wadDiv, wadMul } = require("./utils/math");
-const { calculateFeeInPositionAsset, calculateMinPositionSize, calculateFeeAmountInPmx } = require("./utils/protocolUtils");
+const { calculateFeeInPaymentAsset, calculateMinPositionSize, calculateFeeAmountInPmx } = require("./utils/protocolUtils");
 const {
   getAmountsOut,
   addLiquidity,
@@ -226,6 +226,7 @@ describe("SpotTrading", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         pullOracleData: [],
+        pullOracleTypes: [],
       };
       snapshotId = await network.provider.request({
         method: "evm_snapshot",
@@ -282,7 +283,7 @@ describe("SpotTrading", function () {
       const timestamp = (await provider.getBlock("latest")).timestamp;
 
       const position = await positionManager.getPosition(0);
-      const extraParams = defaultAbiCoder.encode(["address"], [testTokenD.address]);
+      const extraParams = defaultAbiCoder.encode(["address"], [testTokenC.address]);
       const expectedPosition = {
         id: 0,
         scaledDebtAmount: 0,
@@ -415,6 +416,7 @@ describe("SpotTrading", function () {
           pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
           pullOracleData: [],
+          pullOracleTypes: [],
         }),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "INSUFFICIENT_POSITION_SIZE");
     });
@@ -446,6 +448,7 @@ describe("SpotTrading", function () {
           pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
           pullOracleData: [],
+          pullOracleTypes: [],
         }),
       ).to.emit(positionManager, "OpenPosition");
     });
@@ -521,6 +524,7 @@ describe("SpotTrading", function () {
           pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
           pullOracleData: [],
+          pullOracleTypes: [],
         }),
       ).to.emit(positionManager, "OpenPosition");
     });
@@ -559,6 +563,7 @@ describe("SpotTrading", function () {
           pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
           pullOracleData: [],
+          pullOracleTypes: [],
         }),
       ).to.emit(positionManager, "OpenPosition");
     });
@@ -601,6 +606,7 @@ describe("SpotTrading", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       const { positionAmount } = await positionManager.getPosition(0);
@@ -649,23 +655,13 @@ describe("SpotTrading", function () {
             getEncodedChainlinkRouteViaUsd(testTokenD),
             getEncodedChainlinkRouteViaUsd(testTokenD),
             [],
+            [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO");
     });
 
     it("Should close position and transfer testTokenD from 'PositionManager' to 'Pair'", async function () {
       const { positionAmount } = await positionManager.getPosition(0);
-
-      const feeInPositionAsset = await calculateFeeInPositionAsset(
-        testTokenD.address,
-        positionAmount,
-        FeeRateType.SpotPositionClosedByTrader,
-        0,
-        false,
-        getEncodedChainlinkRouteViaUsd(testTokenD),
-      );
-
-      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
       await expect(() =>
         positionManager
           .connect(trader)
@@ -678,22 +674,22 @@ describe("SpotTrading", function () {
             getEncodedChainlinkRouteViaUsd(testTokenD),
             getEncodedChainlinkRouteViaUsd(testTokenD),
             [],
+            [],
           ),
-      ).to.changeTokenBalances(testTokenD, [positionManager, pair], [positionAmount.mul(NegativeOne), positionAmountAfterFee]);
+      ).to.changeTokenBalances(testTokenD, [positionManager, pair], [positionAmount.mul(NegativeOne), positionAmount]);
     });
 
     it("Should close position and transfer testTokenC from 'Pair' to 'traderBalanceVault'", async function () {
       const { positionAmount } = await positionManager.getPosition(0);
-      const feeInPositionAsset = await calculateFeeInPositionAsset(
-        testTokenD.address,
-        positionAmount,
+      const amountCOut = await getAmountsOut(dex, positionAmount, [testTokenD.address, testTokenC.address]);
+      const feeInPaymentAsset = await calculateFeeInPaymentAsset(
+        testTokenC.address,
+        amountCOut,
         FeeRateType.SpotPositionClosedByTrader,
         0,
         false,
-        getEncodedChainlinkRouteViaUsd(testTokenD),
+        getEncodedChainlinkRouteViaUsd(testTokenC),
       );
-      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
-      const amountCOut = await getAmountsOut(dex, positionAmountAfterFee, [testTokenD.address, testTokenC.address]);
       if (dex === "quickswapv3") {
         const balancePairBefore = await testTokenC.balanceOf(pair.address);
         const balanceTraderBalanceVaultBefore = await testTokenC.balanceOf(traderBalanceVault.address);
@@ -708,12 +704,13 @@ describe("SpotTrading", function () {
             getEncodedChainlinkRouteViaUsd(testTokenD),
             getEncodedChainlinkRouteViaUsd(testTokenD),
             [],
+            [],
           );
         const balancePairAfter = await testTokenC.balanceOf(pair.address);
-        const balanceTraderBalanceVaultAftet = await testTokenC.balanceOf(traderBalanceVault.address);
+        const balanceTraderBalanceVaultAfter = await testTokenC.balanceOf(traderBalanceVault.address);
         const delta = wadMul(amountCOut.toString(), parseEther("0.01").toString()).toString();
         expect(balancePairAfter).to.be.closeTo(balancePairBefore.sub(amountCOut), delta);
-        expect(balanceTraderBalanceVaultAftet).to.be.closeTo(balanceTraderBalanceVaultBefore.add(amountCOut), delta);
+        expect(balanceTraderBalanceVaultAfter).to.be.closeTo(balanceTraderBalanceVaultBefore.add(amountCOut).add(feeInPaymentAsset), delta);
       } else {
         await expect(() =>
           positionManager
@@ -727,8 +724,9 @@ describe("SpotTrading", function () {
               getEncodedChainlinkRouteViaUsd(testTokenD),
               getEncodedChainlinkRouteViaUsd(testTokenD),
               [],
+              [],
             ),
-        ).to.changeTokenBalances(testTokenC, [pair, traderBalanceVault], [amountCOut.mul(NegativeOne), amountCOut]);
+        ).to.changeTokenBalances(testTokenC, [pair, traderBalanceVault], [amountCOut.mul(NegativeOne), amountCOut.sub(feeInPaymentAsset)]);
       }
     });
 
@@ -744,6 +742,7 @@ describe("SpotTrading", function () {
           getEncodedChainlinkRouteViaUsd(testTokenD),
           getEncodedChainlinkRouteViaUsd(testTokenD),
           [],
+          [],
         );
 
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(0);
@@ -751,17 +750,15 @@ describe("SpotTrading", function () {
 
     it("Should close position and update available balance of trader's tokens in trader balance Vault", async function () {
       const { positionAmount } = await positionManager.getPosition(0);
-      const feeInPositionAsset = await calculateFeeInPositionAsset(
-        testTokenD.address,
-        positionAmount,
+      const amountCOut = await getAmountsOut(dex, positionAmount, [testTokenD.address, testTokenC.address]);
+      const feeInPaymentAsset = await calculateFeeInPaymentAsset(
+        testTokenC.address,
+        amountCOut,
         FeeRateType.SpotPositionClosedByTrader,
         0,
         false,
-        getEncodedChainlinkRouteViaUsd(testTokenD),
+        getEncodedChainlinkRouteViaUsd(testTokenC),
       );
-      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
-      const amountCOut = await getAmountsOut(dex, positionAmountAfterFee, [testTokenD.address, testTokenC.address]);
-
       const { availableBalance: availableABefore } = await traderBalanceVault.balances(trader.address, testTokenC.address);
 
       await positionManager
@@ -775,6 +772,7 @@ describe("SpotTrading", function () {
           getEncodedChainlinkRouteViaUsd(testTokenD),
           getEncodedChainlinkRouteViaUsd(testTokenD),
           [],
+          [],
         );
 
       const { availableBalance: availableAAfter } = await traderBalanceVault.balances(trader.address, testTokenC.address);
@@ -783,9 +781,9 @@ describe("SpotTrading", function () {
 
       if (dex === "quickswapv3") {
         const delta = wadMul(amountCOut.toString(), parseEther("0.01").toString()).toString();
-        expect(availableAAfter).to.be.closeTo(amountCOut, delta);
+        expect(availableAAfter).to.be.closeTo(amountCOut.sub(feeInPaymentAsset), delta);
       } else {
-        expect(availableAAfter).to.equal(amountCOut);
+        expect(availableAAfter).to.equal(amountCOut.sub(feeInPaymentAsset));
       }
     });
 
@@ -793,17 +791,16 @@ describe("SpotTrading", function () {
       await network.provider.send("evm_mine");
 
       const { positionAmount, depositAmountInSoldAsset } = await positionManager.getPosition(0);
-      const feeInPositionAsset = await calculateFeeInPositionAsset(
-        testTokenD.address,
-        positionAmount,
+      const amountCOut = await getAmountsOut(dex, positionAmount, [testTokenD.address, testTokenC.address]);
+      const feeInPaymentAsset = await calculateFeeInPaymentAsset(
+        testTokenC.address,
+        amountCOut,
         FeeRateType.SpotPositionClosedByTrader,
         0,
         false,
-        getEncodedChainlinkRouteViaUsd(testTokenD),
+        getEncodedChainlinkRouteViaUsd(testTokenC),
       );
-      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
-      const amountCOut = await getAmountsOut(dex, positionAmountAfterFee, [testTokenD.address, testTokenC.address]);
-      const profit = amountCOut.sub(depositAmountInSoldAsset);
+      const profit = amountCOut.sub(depositAmountInSoldAsset).sub(feeInPaymentAsset);
 
       const tx = await positionManager
         .connect(trader)
@@ -816,6 +813,7 @@ describe("SpotTrading", function () {
           getEncodedChainlinkRouteViaUsd(testTokenD),
           getEncodedChainlinkRouteViaUsd(testTokenD),
           [],
+          [],
         );
       const expectedClosePosition = {
         positionI: 0,
@@ -824,10 +822,10 @@ describe("SpotTrading", function () {
         bucketAddress: AddressZero,
         soldAsset: testTokenC.address,
         positionAsset: testTokenD.address,
-        decreasePositionAmount: positionAmountAfterFee,
+        decreasePositionAmount: positionAmount,
         profit: profit,
         positionDebt: 0,
-        amountOut: amountCOut,
+        amountOut: amountCOut.sub(feeInPaymentAsset),
         reason: CloseReason.CLOSE_BY_TRADER,
       };
 
@@ -853,6 +851,7 @@ describe("SpotTrading", function () {
             getEncodedChainlinkRouteViaUsd(testTokenD),
             getEncodedChainlinkRouteViaUsd(testTokenD),
             [],
+            [],
           ),
       );
     });
@@ -861,19 +860,20 @@ describe("SpotTrading", function () {
       await setBadOraclePrice(testTokenC, testTokenD);
       const amount = parseEther("0.1");
       expect(
-        await positionManager
-          .connect(trader)
-          .partiallyClosePosition(
-            0,
-            amount,
-            trader.address,
-            megaRoutesForClose,
-            0,
-            getEncodedChainlinkRouteViaUsd(testTokenC),
-            getEncodedChainlinkRouteViaUsd(testTokenD),
-            getEncodedChainlinkRouteViaUsd(testTokenD),
-            [],
-          ),
+        await positionManager.connect(trader).partiallyClosePosition(
+          0,
+          amount,
+          trader.address,
+          megaRoutesForClose,
+          0,
+          getEncodedChainlinkRouteViaUsd(testTokenC),
+          getEncodedChainlinkRouteViaUsd(testTokenD),
+          getEncodedChainlinkRouteViaUsd(testTokenC),
+          getEncodedChainlinkRouteViaUsd(testTokenC),
+
+          [],
+          [],
+        ),
       );
     });
 
@@ -882,16 +882,15 @@ describe("SpotTrading", function () {
       if (dex === "quickswapv3") this.skip();
       const amount = parseEther("0.1");
       const amountOutMin = 0;
-      const feeInPositionAsset = await calculateFeeInPositionAsset(
-        testTokenD.address,
-        amount,
+      const amountInBorrowed = await getAmountsOut(dex, amount, [testTokenD.address, testTokenC.address]);
+      const feeInPaymentAsset = await calculateFeeInPaymentAsset(
+        testTokenC.address,
+        amountInBorrowed,
         FeeRateType.SpotPositionClosedByTrader,
         0,
         false,
-        getEncodedChainlinkRouteViaUsd(testTokenD),
+        getEncodedChainlinkRouteViaUsd(testTokenC),
       );
-      const amountAfterFee = amount.sub(feeInPositionAsset);
-      const amountInBorrowed = await getAmountsOut(dex, amountAfterFee, [testTokenD.address, testTokenC.address]);
       const { availableBalance: availableBefore } = await traderBalanceVault.balances(trader.address, testTokenC.address);
       const positionBefore = await positionManager.getPosition(0);
 
@@ -906,13 +905,14 @@ describe("SpotTrading", function () {
             amountOutMin,
             getEncodedChainlinkRouteViaUsd(testTokenC),
             getEncodedChainlinkRouteViaUsd(testTokenD),
-            getEncodedChainlinkRouteViaUsd(testTokenD),
+            getEncodedChainlinkRouteViaUsd(testTokenC),
+            getEncodedChainlinkRouteViaUsd(testTokenC),
+            [],
             [],
           ),
-      ).to.changeTokenBalance(testTokenC, traderBalanceVault, amountInBorrowed);
-
+      ).to.changeTokenBalance(testTokenC, traderBalanceVault, amountInBorrowed.sub(feeInPaymentAsset));
       const { availableBalance: availableAfter } = await traderBalanceVault.balances(trader.address, testTokenC.address);
-      expect(availableAfter).to.equal(availableBefore.add(amountInBorrowed));
+      expect(availableAfter).to.equal(availableBefore.add(amountInBorrowed).sub(feeInPaymentAsset));
       const position = await positionManager.getPosition(0);
       expect(position.positionAmount).to.be.equal(positionBefore.positionAmount.sub(amount));
       expect(position.scaledDebtAmount).to.be.equal(0);
@@ -968,6 +968,7 @@ describe("SpotTrading", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       await setOraclePrice(testTokenC, testTokenD, BigNumber.from(price0).mul(2));
@@ -994,9 +995,10 @@ describe("SpotTrading", function () {
         positionSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
         positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: ethAddress }),
-        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
-        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        pmxSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         pullOracleData: [],
+        pullOracleTypes: [],
       };
       snapshotId = await network.provider.request({
         method: "evm_snapshot",
@@ -1012,60 +1014,47 @@ describe("SpotTrading", function () {
 
     it("Should close position by stop loss and transfer testTokenD from 'PositionManager' to 'Pair'", async function () {
       const { positionAmount } = await positionManager.getPosition(0);
-      const feeInPositionAsset = await calculateFeeInPositionAsset(
-        testTokenD.address,
-        positionAmount,
-        FeeRateType.SpotPositionClosedByKeeper,
-        0,
-        false,
-        getEncodedChainlinkRouteViaUsd(testTokenD),
-      );
-      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
-
       await expect(() =>
         positionManager.connect(liquidator).closePositionByCondition({ ...closePositionByConditionParams }),
-      ).to.changeTokenBalances(testTokenD, [positionManager, pair], [positionAmount.mul(NegativeOne), positionAmountAfterFee]);
+      ).to.changeTokenBalances(testTokenD, [positionManager, pair], [positionAmount.mul(NegativeOne), positionAmount]);
     });
 
     it("Should close position by stop loss and transfer testTokenC from 'Pair' to 'traderBalanceVault'", async function () {
       const { positionAmount } = await positionManager.getPosition(0);
-      const feeInPositionAsset = await calculateFeeInPositionAsset(
-        testTokenD.address,
-        positionAmount,
+      const amount0Out = await getAmountsOut(dex, positionAmount, [testTokenD.address, testTokenC.address]);
+      const feeInPaymentAsset = await calculateFeeInPaymentAsset(
+        testTokenC.address,
+        amount0Out,
         FeeRateType.SpotPositionClosedByKeeper,
         0,
         false,
-        getEncodedChainlinkRouteViaUsd(testTokenD),
+        getEncodedChainlinkRouteViaUsd(testTokenC),
       );
-      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
-
-      const amount0Out = await getAmountsOut(dex, positionAmountAfterFee, [testTokenD.address, testTokenC.address]);
-
       await expect(() =>
         positionManager.connect(liquidator).closePositionByCondition({ ...closePositionByConditionParams }),
-      ).to.changeTokenBalances(testTokenC, [pair, traderBalanceVault], [amount0Out.mul(NegativeOne), amount0Out]);
+      ).to.changeTokenBalances(testTokenC, [pair, traderBalanceVault], [amount0Out.mul(NegativeOne), amount0Out.sub(feeInPaymentAsset)]);
     });
 
     it("Should close position by stop loss and correctly updated balances in the vault", async function () {
       const { positionAmount } = await positionManager.getPosition(0);
-      const feeInPositionAsset = await calculateFeeInPositionAsset(
-        testTokenD.address,
-        positionAmount,
+      const amountCOut = await getAmountsOut(dex, positionAmount, [testTokenD.address, testTokenC.address]);
+      const feeInPaymentAsset = await calculateFeeInPaymentAsset(
+        testTokenC.address,
+        amountCOut,
         FeeRateType.SpotPositionClosedByKeeper,
         0,
         false,
-        getEncodedChainlinkRouteViaUsd(testTokenD),
+        getEncodedChainlinkRouteViaUsd(testTokenC),
       );
-      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
-      const amountCOut = await getAmountsOut(dex, positionAmountAfterFee, [testTokenD.address, testTokenC.address]);
+
       expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenC))).to.equal(true);
 
       await expect(() =>
         positionManager.connect(liquidator).closePositionByCondition({ ...closePositionByConditionParams }),
-      ).to.changeTokenBalance(testTokenC, traderBalanceVault, amountCOut);
+      ).to.changeTokenBalance(testTokenC, traderBalanceVault, amountCOut.sub(feeInPaymentAsset));
 
       const { availableBalance: traderBalance } = await traderBalanceVault.balances(trader.address, testTokenC.address);
-      expect(traderBalance).to.be.equal(amountCOut);
+      expect(traderBalance).to.be.equal(amountCOut.sub(feeInPaymentAsset));
     });
 
     it("Should close position by take profit and correctly updated balances in the vault", async function () {
@@ -1075,43 +1064,41 @@ describe("SpotTrading", function () {
         path: [testTokenC.address, testTokenD.address],
       });
       const { positionAmount } = await positionManager.getPosition(0);
-      const feeInPositionAsset = await calculateFeeInPositionAsset(
-        testTokenD.address,
-        positionAmount,
+
+      const amountCOut = await getAmountsOut(dex, positionAmount, [testTokenD.address, testTokenC.address]);
+      const feeInPaymentAsset = await calculateFeeInPaymentAsset(
+        testTokenC.address,
+        amountCOut,
         FeeRateType.SpotPositionClosedByKeeper,
         0,
         false,
-        getEncodedChainlinkRouteViaUsd(testTokenD),
+        getEncodedChainlinkRouteViaUsd(testTokenC),
       );
-      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
-
-      const amountCOut = await getAmountsOut(dex, positionAmountAfterFee, [testTokenD.address, testTokenC.address]);
 
       await expect(() =>
         positionManager.connect(liquidator).closePositionByCondition({ ...closePositionByConditionParams }),
-      ).to.changeTokenBalance(testTokenC, traderBalanceVault, amountCOut);
+      ).to.changeTokenBalance(testTokenC, traderBalanceVault, amountCOut.sub(feeInPaymentAsset));
 
       const { availableBalance: traderBalance } = await traderBalanceVault.balances(trader.address, testTokenC.address);
-      expect(traderBalance).to.be.equal(amountCOut);
+      expect(traderBalance).to.be.equal(amountCOut.sub(feeInPaymentAsset));
     });
 
     it("Should close position by stop loss and throw event", async function () {
       const { positionAmount } = await positionManager.getPosition(0);
-      const feeInPositionAsset = await calculateFeeInPositionAsset(
-        testTokenD.address,
-        positionAmount,
+      const amountCOut = await getAmountsOut(dex, positionAmount, [testTokenD.address, testTokenC.address]);
+      const feeInPaymentAsset = await calculateFeeInPaymentAsset(
+        testTokenC.address,
+        amountCOut,
         FeeRateType.SpotPositionClosedByKeeper,
         0,
         false,
-        getEncodedChainlinkRouteViaUsd(testTokenD),
+        getEncodedChainlinkRouteViaUsd(testTokenC),
       );
-      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
-      const amountCOut = await getAmountsOut(dex, positionAmountAfterFee, [testTokenD.address, testTokenC.address]);
 
       const tx = await positionManager.connect(liquidator).closePositionByCondition({ ...closePositionByConditionParams });
       const thReceipt = await tx.wait();
 
-      const profit = amountCOut.sub(depositAmount);
+      const profit = amountCOut.sub(depositAmount).sub(feeInPaymentAsset);
 
       const expectedEventArguments = {
         positionId: 0,
@@ -1120,10 +1107,10 @@ describe("SpotTrading", function () {
         bucketAddress: AddressZero,
         soldAsset: testTokenC.address,
         positionAsset: testTokenD.address,
-        decreasePositionAmount: positionAmountAfterFee,
+        decreasePositionAmount: positionAmount,
         profit: profit,
         positionDebt: 0,
-        amountOut: amountCOut,
+        amountOut: amountCOut.sub(feeInPaymentAsset),
         reason: CloseReason.LIMIT_CONDITION,
       };
       eventValidation("ClosePosition", thReceipt, expectedEventArguments, await getContractAt("PositionLibrary", positionManager.address));
@@ -1177,6 +1164,7 @@ describe("SpotTrading", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
     });
 
@@ -1398,6 +1386,7 @@ describe("SpotTrading", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenC))).to.be.equal(false);
     });
@@ -1427,6 +1416,7 @@ describe("SpotTrading", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       await setOraclePrice(testTokenC, testTokenD, price0.add(2));
@@ -2041,6 +2031,7 @@ describe("SpotTrading", function () {
             positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
             pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "INSUFFICIENT_POSITION_SIZE");
       });
@@ -2058,8 +2049,6 @@ describe("SpotTrading", function () {
         limitPrice,
         amountDOut,
         borrowedAmount,
-        positionAmountAfterFee,
-        feeInPositionAsset,
         defaultAdditionalParams,
         ethAddress,
         openPositionByOrderParams;
@@ -2070,15 +2059,6 @@ describe("SpotTrading", function () {
         availableBeforeAll = availableBalance;
         lockedBeforeAll = lockedBalance;
         amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
-        feeInPositionAsset = await calculateFeeInPositionAsset(
-          testTokenD.address,
-          amountDOut,
-          FeeRateType.SpotLimitOrderExecuted,
-          0,
-          false,
-          getEncodedChainlinkRouteViaUsd(testTokenD),
-        );
-        positionAmountAfterFee = amountDOut.sub(feeInPositionAsset);
         exchangeRate = BigNumber.from(wadDiv(amountDOut.toString(), depositAmount.toString()).toString());
         limitPrice = BigNumber.from(wadDiv(depositAmount.toString(), amountDOut.toString()).toString());
         const price0 = BigNumber.from(exchangeRate).div(USD_MULTIPLIER);
@@ -2136,6 +2116,7 @@ describe("SpotTrading", function () {
           positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
           pullOracleData: [],
+          pullOracleTypes: [],
         };
         snapshotId = await network.provider.request({
           method: "evm_snapshot",
@@ -2195,9 +2176,17 @@ describe("SpotTrading", function () {
       });
 
       it("Should create position by order and transfer testTokenD to 'PositionManager'", async function () {
+        const feeInPositionAsset = await calculateFeeInPaymentAsset(
+          testTokenD.address,
+          amountDOut,
+          FeeRateType.SpotLimitOrderExecuted,
+          0,
+          false,
+          getEncodedChainlinkRouteViaUsd(testTokenD),
+        );
         await expect(() =>
           limitOrderManager.connect(liquidator).openPositionByOrder({ ...openPositionByOrderParams }),
-        ).to.changeTokenBalance(testTokenD, positionManager, positionAmountAfterFee);
+        ).to.changeTokenBalance(testTokenD, positionManager, amountDOut.sub(feeInPositionAsset));
 
         expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
       });
@@ -2206,12 +2195,20 @@ describe("SpotTrading", function () {
         await limitOrderManager.connect(liquidator).openPositionByOrder({ ...openPositionByOrderParams });
 
         const positionCreatedAt = (await provider.getBlock("latest")).timestamp;
+        const feeInPositionAsset = await calculateFeeInPaymentAsset(
+          testTokenD.address,
+          amountDOut,
+          FeeRateType.SpotLimitOrderExecuted,
+          0,
+          false,
+          getEncodedChainlinkRouteViaUsd(testTokenD),
+        );
 
         expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
 
         const position = await positionManager.getPosition(0);
         expect(order.createdAt).to.lt(position.createdAt);
-        const extraParams = defaultAbiCoder.encode(["address"], [testTokenD.address]);
+        const extraParams = defaultAbiCoder.encode(["address"], [testTokenC.address]);
 
         const expectedPosition = {
           id: 0,
@@ -2220,7 +2217,7 @@ describe("SpotTrading", function () {
           depositAsset: testTokenC.address,
           depositAmount: depositAmount,
           positionAsset: testTokenD.address,
-          positionAmount: positionAmountAfterFee,
+          positionAmount: amountDOut.sub(feeInPositionAsset),
           trader: trader.address,
           openBorrowIndex: 0,
           createdAt: positionCreatedAt,
@@ -2296,15 +2293,15 @@ describe("SpotTrading", function () {
         // second order with isProtocolFeeInPmx=true
         await testTokenC.connect(trader).approve(limitOrderManager.address, depositAmount);
         const pmxDiscountMultiplier = await PrimexDNS.pmxDiscountMultiplier();
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
-          testTokenD.address,
+        const feeInPaymentAsset = await calculateFeeInPaymentAsset(
+          testTokenC.address,
           amountDOut,
           FeeRateType.SpotLimitOrderExecuted,
           0,
           false,
-          getEncodedChainlinkRouteViaUsd(testTokenD),
+          getEncodedChainlinkRouteViaUsd(testTokenC),
         );
-        const feeInPositonAssetWithDiscount = wadMul(feeInPositionAsset.toString(), pmxDiscountMultiplier.toString()).toString();
+        const feeInPositonAssetWithDiscount = wadMul(feeInPaymentAsset.toString(), pmxDiscountMultiplier.toString()).toString();
         const feeAmountInPmxForLimitOrders = await calculateFeeAmountInPmx(
           testTokenD.address,
           PMXToken.address,
@@ -2358,6 +2355,7 @@ describe("SpotTrading", function () {
             positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
             pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.changeTokenBalances(
           PMXToken,
@@ -2445,6 +2443,7 @@ describe("SpotTrading", function () {
             positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
             pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "ORDER_CAN_NOT_BE_FILLED");
       });
@@ -2468,6 +2467,7 @@ describe("SpotTrading", function () {
             positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
             pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.changeTokenBalances(testTokenC, [traderBalanceVault, pair], [depositAmount.mul(NegativeOne.toString()), depositAmount]);
 
@@ -2490,7 +2490,7 @@ describe("SpotTrading", function () {
         expect(availableBeforeD).to.equal(0);
         expect(lockedBeforeD).to.equal(0);
 
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
+        const feeInPositionAsset = await calculateFeeInPaymentAsset(
           testTokenD.address,
           amountDOut,
           FeeRateType.SwapLimitOrderExecuted,
@@ -2498,7 +2498,6 @@ describe("SpotTrading", function () {
           false,
           getEncodedChainlinkRouteViaUsd(testTokenD),
         );
-        const amountOutAfterFee = amountDOut.sub(feeInPositionAsset);
 
         const tx = await limitOrderManager.connect(liquidator).openPositionByOrder({
           orderId: orderId,
@@ -2517,24 +2516,21 @@ describe("SpotTrading", function () {
           positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
           pullOracleData: [],
+          pullOracleTypes: [],
         });
-        await expect(() => tx).to.changeTokenBalance(testTokenD, traderBalanceVault, amountOutAfterFee);
-
+        await expect(() => tx).to.changeTokenBalance(testTokenD, traderBalanceVault, amountDOut.sub(feeInPositionAsset));
         const { availableBalance: availableAfterC, lockedBalance: lockedAfterC } = await traderBalanceVault.balances(
           trader.address,
           testTokenC.address,
         );
-
         const { availableBalance: availableAfterD, lockedBalance: lockedAfterD } = await traderBalanceVault.balances(
           trader.address,
           testTokenD.address,
         );
         expect(availableAfterC).to.equal(0);
         expect(lockedAfterC).to.equal(0);
-
-        expect(availableAfterD).to.equal(amountOutAfterFee);
+        expect(availableAfterD).to.equal(amountDOut.sub(feeInPositionAsset));
         expect(lockedAfterD).to.equal(0);
-
         expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(0);
       });
 
@@ -2593,6 +2589,7 @@ describe("SpotTrading", function () {
           positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
           pullOracleData: [],
+          pullOracleTypes: [],
         });
         await expect(() => tx).to.changeTokenBalance(testTokenD, traderBalanceVault, amountDOut);
 
@@ -2634,6 +2631,7 @@ describe("SpotTrading", function () {
           positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
           pullOracleData: [],
+          pullOracleTypes: [],
         });
 
         const expectedArguments = {
@@ -2820,6 +2818,7 @@ describe("SpotTrading", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       positionId = 0;
     });
@@ -2848,7 +2847,9 @@ describe("SpotTrading", function () {
     it("Revert when decreaseDeposit for spot position", async function () {
       const depositDecrease = parseEther("1");
       await expect(
-        positionManager.connect(trader).decreaseDeposit(positionId, depositDecrease, getEncodedChainlinkRouteViaUsd(testTokenC), []),
+        positionManager
+          .connect(trader)
+          .decreaseDeposit(positionId, depositDecrease, getEncodedChainlinkRouteViaUsd(testTokenC), [], [], []),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "IS_SPOT_POSITION");
     });
   });

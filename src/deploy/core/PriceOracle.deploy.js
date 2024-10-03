@@ -6,7 +6,7 @@ module.exports = async ({ run, ethers: { getContract } }) => {
   const registry = await getContract("Registry");
   const errorsLibrary = await getContract("Errors");
   const uniswapPriceFeed = await getContract("UniswapPriceFeed");
-  const { isETHNative, assets, pyth } = getConfig();
+  const { isETHNative, assets, pyth, supraPullOracle, supraStorageOracle } = getConfig();
   const eth = isETHNative ? NATIVE_CURRENCY : assets.weth;
 
   await run("deploy:PriceOracle", {
@@ -15,6 +15,9 @@ module.exports = async ({ run, ethers: { getContract } }) => {
     eth: eth,
     uniswapPriceFeed: uniswapPriceFeed.address,
     pyth: process.env.TEST ? (await getContract("MockPyth")).address : pyth,
+    usdt: process.env.TEST ? undefined : assets.usdt,
+    supraPullOracle: !process.env.TEST ? supraPullOracle : undefined,
+    supraStorageOracle: !process.env.TEST ? supraStorageOracle : undefined,
   });
 
   if (!process.env.TEST) {
@@ -38,6 +41,6 @@ module.exports = async ({ run, ethers: { getContract } }) => {
 };
 
 module.exports.tags = ["PriceOracle", "Test", "PrimexCore"];
-const dependencies = ["Registry", "EPMXToken", "PrimexProxyAdmin", "Errors", "UniswapPriceFeed"];
+const dependencies = ["Registry", "EPMXToken", "PrimexProxyAdmin", "Errors", "UniswapPriceFeed", "Treasury"];
 if (process.env.TEST) dependencies.push("MockPyth");
 module.exports.dependencies = dependencies;

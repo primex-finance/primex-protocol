@@ -60,6 +60,7 @@ interface IKeeperRewardDistributorV3 is IKeeperRewardDistributorStorageV2, IPaus
     event AdditionalGasChanged(uint256 indexed additionalGas);
     event KeeperRewardUpdated(address indexed keeper, uint256 rewardInPmx, uint256 rewardInNativeCurrency);
     event MinPositionSizeMultiplierChanged(uint256 newMinPositionSizeMultiplier);
+    event OptimisticGasCoefficientChanged(uint256 newOptimismGasCoefficient);
 
     /**
      * @notice Initializes the KeeperRewardDistributor contract.
@@ -193,5 +194,12 @@ interface IKeeperRewardDistributorV3 is IKeeperRewardDistributorStorageV2, IPaus
      * @return oracleGasPriceTolerance The tolerance for gas price fluctuations based on the oracle.
      * @return defaultMaxGasPrice The default maximum gas price allowed.
      */
-    function getGasCalculationParams() external view returns (uint256, uint256);
+    function getGasCalculationParams() external view returns (uint256, uint256, uint256, PaymentModel);
+
+    /**
+     * @notice Sets the optimisticGasCoefficient for optimism paymentModel.
+     * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
+     * @param _newOptimisticGasCoefficient The new optimisticGasCoefficient value (in WAD).
+     */
+    function setOptimisticGasCoefficient(uint256 _newOptimisticGasCoefficient) external;
 }

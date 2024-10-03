@@ -32,6 +32,10 @@ const {
   setOraclePrice,
   reversePrice,
 } = require("../utils/oracleUtils");
+const { getConfigByName } = require("../../config/configUtils");
+const {
+  PrimexDNSconfig: { feeRates },
+} = getConfigByName("generalConfig.json");
 
 process.env.TEST = true;
 
@@ -489,21 +493,23 @@ describe("PrimexPricingLibrary_integration", function () {
         testTokenB.address,
         positionAmount,
         borrowedAmount,
+        primexDNS.address,
       );
 
       const pairPriceDrop = await priceOracle.pairPriceDrops(testTokenB.address, testTokenA.address);
       const feeBuffer = await bucket.feeBuffer();
       const securityBuffer = await positionManager.securityBuffer();
       const oracleTolerableLimit = await positionManager.getOracleTolerableLimit(testTokenB.address, testTokenA.address);
-
+      const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
       const denominator = wadMul(
         wadMul(
           wadMul(BigNumber.from(WAD).sub(securityBuffer).toString(), BigNumber.from(WAD).sub(oracleTolerableLimit).toString()),
-          BigNumber.from(WAD).sub(pairPriceDrop).toString(),
+          wadMul(BigNumber.from(WAD).sub(pairPriceDrop).toString(), BigNumber.from(WAD).sub(feeRate).toString()),
         ),
         positionAmount.toString(),
       ).toString();
       const numerator = wadMul(feeBuffer.toString(), borrowedAmount.toString()).toString();
+
       const denominatorInWadDecimals = BigNumber.from(denominator).mul(multiplierB);
       const numeratorInWadDecimals = BigNumber.from(numerator).mul(multiplierA);
 

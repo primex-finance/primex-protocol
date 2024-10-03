@@ -333,7 +333,7 @@ interface IBucketV3 is IBucketV2 {
     /**
      * @dev Calculates the max leverage according to the following formula:
      * ((1 + maintenanceBuffer) * feeBuffer) / ((1 + maintenanceBuffer) * feeBuffer - (1 - securityBuffer) *
-     * (1 - pairPriceDropBA) * (1 - oracleTolerableLimitAB) * (1 - oracleTolerableLimitBA) + protocolFeeInPositionAsset / positionSize)
+     * (1 - pairPriceDropBA) * (1 - oracleTolerableLimitAB) * (1 - oracleTolerableLimitBA) + protocolFeeInPositiontAsset / positionSize)
      * @param _asset The address of trading asset
      * @param _feeRate The ratio of protocolFeeInPositionAsset to positionSize
      * @return The maximum leverage as a uint256 value.
@@ -346,4 +346,29 @@ interface IBucketV3 is IBucketV2 {
      * @param _newBucketExtension The address of BucketExtension contract.
      */
     function setBucketExtension(address _newBucketExtension) external;
+}
+
+interface IBucketV4 is IBucketV3 {
+    /**
+     * @notice Performs a flash loan transfer of a specified amount to a receiver address.
+     * @dev Only callable by the FLASH_LOAN_MANAGER_ROLE role.
+     * @param _to The address to which the flash loan amount will be transferred.
+     * @param _amount The amount of tokens to transfer in the flash loan.
+     */
+    function performFlashLoanTransfer(address _to, uint256 _amount) external;
+
+    /**
+     * @notice Accumulates a predefined amount of asset to the bucket as a fixed, instantaneous income. Used
+     * to accumulate the flashloan fee to the bucket, and spread it between all the suppliers.
+     * @dev Only callable by the FLASH_LOAN_MANAGER_ROLE role.
+     * @param amount The amount to accumulate
+     * @param availableLiquidity The availableLiquidity before flashLoan
+     */
+    function cumulateToLiquidityIndex(uint256 amount, uint256 availableLiquidity) external;
+
+    /**
+     * @notice Updates bucket's BAR and LAR.
+     * @dev Only callable by the FLASH_LOAN_MANAGER_ROLE role.
+     */
+    function updateRates() external;
 }

@@ -1,0 +1,42 @@
+{
+  "isETHNative": false,
+  "assets": {
+    "weth": "0x9B898294ADDe27C4d8f3437d15Fb2c015d109A48",
+    "wbtc": "0x617274bBADFBCa9F241Ed87DfFA8ce7e239e116A",
+    "usdc": "0xa431594a37D8e09C76a9Fd371F975d3935FAd360",
+    "link": "0x42B57B9BF180727F5B1670594E9ba9A3Eb7Ae154",
+    "uni": "0x6e945C6A818D405236AFF8A69574a05ddB95180a",
+    "usdt": "0x7DD9c62Cb1cE55cA24f47b8B3AdBCaCe33b9bAf6"
+  },
+  "aave": "0x01ebb1B174fD361aA9fCAd4D98aD0ac2538bEb75",
+  "dexes": {
+    "uniswap": {
+      "router": "0x2A019bC249212b4D07179c6669f86eb0Bc7D9768",
+      "type": "1",
+      "factory": "0x077e9Cd870b375739C60bBC0c64B328eb0263552"
+    },
+    "sushiswap": {
+      "router": "0xac833F08B8386B145E9343C0AE52FF4df1f2c720",
+      "type": "1",
+      "factory": "0x1f60F2f7eecA274996d8E7FfdC43fe0C9B3F961D"
+    }
+  },
+  "pricefeeds": {
+    "selfDeployed": {
+      "weth-usd": "0xA23Bb3B18CA9F730D9CC6aAb556187452b31d44B",
+      "wbtc-usd": "0x5556f99B026d5E20c04dAccDAD70259a88e75890",
+      "usdc-usd": "0xcC5040C4ad23e490e7a7Ef9C601E8BD334F958aC",
+      "link-usd": "0x13aAa5c36Bb5d36bf687847520ECD1762Cfc5944",
+      "uni-usd": "0xf0FE6aD0241e164E7E1e444E63e680be2907eD87",
+      "usdt-usd": "0x3456106Fc219DdA9bCA4e4953b7c76C8Ec4EF893",
+      "native-usd": "0xA23Bb3B18CA9F730D9CC6aAb556187452b31d44B"
+    }
+  },
+  "priceDropfeeds": {
+    "selfDeployed": {
+      "weth-usdc": "0x8eca44F24481B7D9300f64F739CD54E49713DC0b",
+      "wbtc-usdc": "0x2b703E782fb88F9Be9e918AdfE66d0D690Bd5ad0",
+      "link-usdc": "0xCDEBA3B55Fb2272eA7A191719b69243138FC95d7"
+    }
+  }
+}

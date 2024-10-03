@@ -34,13 +34,10 @@ module.exports = async function (
   const generalConfig = getConfigByName("generalConfig.json");
   const addresses = getConfigByName("addresses.json");
 
-  const twapInterval = "60";
   const timeTolerance = "60";
 
   // immutable addresses
   const bigTimeLock = await getContract("BigTimelockAdmin");
-  const mediumTimeLock = await getContract("MediumTimelockAdmin");
-  // deployer = await getImpersonateSigner({address: bigTimeLock.address})
   const TokenTransfersLibrary = await getContract("TokenTransfersLibrary");
   const Registry = await getContract("Registry");
   const WhiteBlackList = await getContract("WhiteBlackList");
@@ -59,18 +56,14 @@ module.exports = async function (
   const ActivityRewardDistributor = await getContract("ActivityRewardDistributor");
   const LiquidityMiningRewardDistributor = await getContract("LiquidityMiningRewardDistributor");
   const TraderBalanceVault = await getContract("TraderBalanceVault");
+  const Treasury = await getContract("Treasury");
   let tx;
 
   const bigDelay = await bigTimeLock.getMinDelay();
-  const mediumDelay = await mediumTimeLock.getMinDelay();
+
   const predecessor = HashZero;
   const salt = HashZero;
   const argsForBigTimeLock = {
-    targets: [],
-    values: [],
-    payloads: [],
-  };
-  const argsForMediumTimeLock = {
     targets: [],
     values: [],
     payloads: [],
@@ -205,8 +198,8 @@ module.exports = async function (
       await tx.wait();
     }
   } else {
-    argsForMediumTimeLock.targets.push(KeeperRewardDistributor.address);
-    argsForMediumTimeLock.payloads.push(
+    argsForBigTimeLock.targets.push(KeeperRewardDistributor.address);
+    argsForBigTimeLock.payloads.push(
       (
         await encodeFunctionData(
           "setAdditionalGas",
@@ -217,8 +210,8 @@ module.exports = async function (
       ).payload,
     );
 
-    argsForMediumTimeLock.targets.push(KeeperRewardDistributor.address);
-    argsForMediumTimeLock.payloads.push(
+    argsForBigTimeLock.targets.push(KeeperRewardDistributor.address);
+    argsForBigTimeLock.payloads.push(
       (
         await encodeFunctionData(
           "setDefaultMaxGasPrice",
@@ -229,8 +222,8 @@ module.exports = async function (
       ).payload,
     );
 
-    argsForMediumTimeLock.targets.push(KeeperRewardDistributor.address);
-    argsForMediumTimeLock.payloads.push(
+    argsForBigTimeLock.targets.push(KeeperRewardDistributor.address);
+    argsForBigTimeLock.payloads.push(
       (
         await encodeFunctionData(
           "setOracleGasPriceTolerance",
@@ -242,8 +235,8 @@ module.exports = async function (
     );
 
     for (let i = 0; i < maxGasPerPositionParams.length; i++) {
-      argsForMediumTimeLock.targets.push(KeeperRewardDistributor.address);
-      argsForMediumTimeLock.payloads.push(
+      argsForBigTimeLock.targets.push(KeeperRewardDistributor.address);
+      argsForBigTimeLock.payloads.push(
         (
           await encodeFunctionData(
             "setMaxGasPerPosition",
@@ -256,8 +249,8 @@ module.exports = async function (
     }
 
     for (let i = 0; i < decreasingGasByReasonParams.length; i++) {
-      argsForMediumTimeLock.targets.push(KeeperRewardDistributor.address);
-      argsForMediumTimeLock.payloads.push(
+      argsForBigTimeLock.targets.push(KeeperRewardDistributor.address);
+      argsForBigTimeLock.payloads.push(
         (
           await encodeFunctionData(
             "setDecreasingGasByReason",
@@ -272,8 +265,9 @@ module.exports = async function (
 
   const UniswapPriceFeed = await run("deploy:UniswapPriceFeed", {
     registry: Registry.address,
-    twapInterval: twapInterval,
     uniswapV3Factory: addresses.dexes.uniswapv3.factory,
+    poolUpdateInterval: generalConfig.poolUpdateInterval,
+    twapInterval: generalConfig.twapInterval,
   });
 
   /**
@@ -293,8 +287,10 @@ module.exports = async function (
   const pythFeedIds = [];
 
   for (const key in pythPriceFeedsIds) {
-    tokensForPyth.push(addresses.assets[key]);
-    pythFeedIds.push(pythPriceFeedsIds[key]);
+    if (addresses.assets[key]) {
+      tokensForPyth.push(addresses.assets[key]);
+      pythFeedIds.push(pythPriceFeedsIds[key]);
+    }
   }
 
   const tokensForChainLink = [];
@@ -317,6 +313,14 @@ module.exports = async function (
     tx = await PriceOracle.setPyth(addresses.pyth);
     await tx.wait();
 
+    if (addresses.supraPullOracle) {
+      tx = await PriceOracle.setSupraPullOracle(addresses.supraPullOracle);
+      await tx.wait();
+
+      tx = await PriceOracle.setSupraStorageOracle(addresses.supraStorageOracle);
+      await tx.wait();
+    }
+
     tx = await PriceOracle.setTimeTolerance(timeTolerance);
     await tx.wait();
 
@@ -325,29 +329,40 @@ module.exports = async function (
 
     tx = await PriceOracle.updateChainlinkPriceFeedsUsd(tokensForChainLink, chainLinkPriceFeeds);
     await tx.wait();
+
+    tx = await PriceOracle.setTreasury(Treasury.address);
+    await tx.wait();
   } else {
-    argsForMediumTimeLock.targets.push(PriceOracle.address);
-    argsForMediumTimeLock.payloads.push(
+    argsForBigTimeLock.targets.push(PriceOracle.address);
+    argsForBigTimeLock.payloads.push(
       (await encodeFunctionData("updateUniv3TypeOracle", [[0], [UniswapPriceFeed.address]], "PriceOracle", PriceOracle.address)).payload,
     );
+    argsForBigTimeLock.targets.push(PriceOracle.address);
+    argsForBigTimeLock.payloads.push((await encodeFunctionData("setPyth", [addresses.pyth], "PriceOracle", PriceOracle.address)).payload);
 
-    argsForMediumTimeLock.targets.push(PriceOracle.address);
-    argsForMediumTimeLock.payloads.push(
-      (await encodeFunctionData("setPyth", [addresses.pyth], "PriceOracle", PriceOracle.address)).payload,
-    );
+    if (addresses.supraPullOracle) {
+      argsForBigTimeLock.targets.push(PriceOracle.address);
+      argsForBigTimeLock.payloads.push(
+        (await encodeFunctionData("setSupraPullOracle", [addresses.supraPullOracle], "PriceOracle", PriceOracle.address)).payload,
+      );
 
-    argsForMediumTimeLock.targets.push(PriceOracle.address);
-    argsForMediumTimeLock.payloads.push(
+      argsForBigTimeLock.targets.push(PriceOracle.address);
+      argsForBigTimeLock.payloads.push(
+        (await encodeFunctionData("setSupraStorageOracle", [addresses.supraStorageOracle], "PriceOracle", PriceOracle.address)).payload,
+      );
+    }
+    argsForBigTimeLock.targets.push(PriceOracle.address);
+    argsForBigTimeLock.payloads.push(
       (await encodeFunctionData("setTimeTolerance", [timeTolerance], "PriceOracle", PriceOracle.address)).payload,
     );
 
-    argsForMediumTimeLock.targets.push(PriceOracle.address);
-    argsForMediumTimeLock.payloads.push(
+    argsForBigTimeLock.targets.push(PriceOracle.address);
+    argsForBigTimeLock.payloads.push(
       (await encodeFunctionData("updatePythPairId", [tokensForPyth, pythFeedIds], "PriceOracle", PriceOracle.address)).payload,
     );
 
-    argsForMediumTimeLock.targets.push(PriceOracle.address);
-    argsForMediumTimeLock.payloads.push(
+    argsForBigTimeLock.targets.push(PriceOracle.address);
+    argsForBigTimeLock.payloads.push(
       (
         await encodeFunctionData(
           "updateChainlinkPriceFeedsUsd",
@@ -356,6 +371,10 @@ module.exports = async function (
           PriceOracle.address,
         )
       ).payload,
+    );
+    argsForBigTimeLock.targets.push(PriceOracle.address);
+    argsForBigTimeLock.payloads.push(
+      (await encodeFunctionData("setTreasury", [Treasury.address], "PriceOracle", PriceOracle.address)).payload,
     );
   }
 
@@ -590,8 +609,8 @@ module.exports = async function (
 
     // min fee restrictions
     for (const key in dnsConfig.minFeeRestrictions) {
-      argsForMediumTimeLock.targets.push(PrimexDNS.address);
-      argsForMediumTimeLock.payloads.push(
+      argsForBigTimeLock.targets.push(PrimexDNS.address);
+      argsForBigTimeLock.payloads.push(
         (
           await encodeFunctionData(
             "setMinFeeRestrictions",
@@ -615,6 +634,33 @@ module.exports = async function (
   }
 
   /**
+   * FlashLoanManager deploy
+   */
+
+  const flashLoanManagerConfig = generalConfig.FlashLoanManagerConfig;
+  const FlashLoanManager = await run("deploy:FlashLoanManager", {
+    registry: Registry.address,
+    primexDNS: PrimexDNS.address,
+    whiteBlackList: WhiteBlackList.address,
+    flashLoanFeeRate: parseEther(flashLoanManagerConfig.flashLoanFeeRate).toString(),
+    flashLoanProtocolRate: parseEther(flashLoanManagerConfig.flashLoanProtocolRate).toString(),
+    tokenTransfersLibrary: TokenTransfersLibrary.address,
+    notExecuteNewDeployedTasks: true,
+  });
+  addToWhiteList.push(FlashLoanManager.address);
+  const FLASH_LOAN_MANAGER_ROLE = keccak256(toUtf8Bytes("FLASH_LOAN_MANAGER_ROLE"));
+  if (executeFromDeployer) {
+    tx = await Registry.grantRole(FLASH_LOAN_MANAGER_ROLE, FlashLoanManager.address);
+    await tx.wait();
+  } else {
+    argsForBigTimeLock.targets.push(Registry.address);
+    argsForBigTimeLock.payloads.push(
+      (await encodeFunctionData("grantRole", [FLASH_LOAN_MANAGER_ROLE, FlashLoanManager.address], "PrimexRegistry", Registry.address))
+        .payload,
+    );
+  }
+
+  /**
    * Bucket upgrade
    */
   await upgradeProxyWithCheck({
@@ -627,6 +673,39 @@ module.exports = async function (
     },
     isBeacon: true,
   });
+
+  const BucketImplementation = await getContract("Bucket");
+
+  const BucketsFactoryV2Address = await deploy("BucketsFactoryV2", {
+    from: deployer,
+    args: [Registry.address, PTokensFactory.address, DebtTokensFactory.address, BucketImplementation.address],
+    log: true,
+  });
+
+  addToWhiteList.push(BucketsFactoryV2Address.address);
+
+  const BucketsFactoryV2 = await getContractAt("BucketsFactoryV2", BucketsFactoryV2Address.address);
+  tx = await BucketsFactoryV2.transferOwnership(PrimexProxyAdmin.address);
+  await tx.wait();
+
+  if (executeFromDeployer) {
+    tx = await PTokensFactory.setBucketsFactory(BucketsFactoryV2Address.address);
+    await tx.wait();
+
+    tx = await DebtTokensFactory.setBucketsFactory(BucketsFactoryV2Address.address);
+    await tx.wait();
+  } else {
+    argsForBigTimeLock.targets.push(PTokensFactory.address);
+    argsForBigTimeLock.payloads.push(
+      (await encodeFunctionData("setBucketsFactory", [BucketsFactoryV2Address.address], "PTokensFactory", PTokensFactory.address)).payload,
+    );
+
+    argsForBigTimeLock.targets.push(DebtTokensFactory.address);
+    argsForBigTimeLock.payloads.push(
+      (await encodeFunctionData("setBucketsFactory", [BucketsFactoryV2Address.address], "DebtTokensFactory", DebtTokensFactory.address))
+        .payload,
+    );
+  }
 
   // set bucket extention
   const buckets = await BucketsFactory.allBuckets();
@@ -903,8 +982,8 @@ module.exports = async function (
 
     // set dex types
     for (let i = 0; i < name.length; i++) {
-      argsForMediumTimeLock.targets.push(DexAdapter.address);
-      argsForMediumTimeLock.payloads.push(
+      argsForBigTimeLock.targets.push(DexAdapter.address);
+      argsForBigTimeLock.payloads.push(
         (await encodeFunctionData("setDexType", [routers[i], dexTypes[i]], "DexAdapter", DexAdapter.address)).payload,
       );
     }
@@ -912,8 +991,8 @@ module.exports = async function (
     // set quoters
     if (quoters) {
       for (const key in quoters) {
-        argsForMediumTimeLock.targets.push(DexAdapter.address);
-        argsForMediumTimeLock.payloads.push(
+        argsForBigTimeLock.targets.push(DexAdapter.address);
+        argsForBigTimeLock.payloads.push(
           (await encodeFunctionData("setQuoter", [routers[key], quoters[key]], "DexAdapter", DexAdapter.address)).payload,
         );
       }
@@ -994,15 +1073,6 @@ module.exports = async function (
     bigDelay.toString(),
   ];
 
-  let argsMedium = [
-    argsForMediumTimeLock.targets,
-    Array(argsForMediumTimeLock.targets.length).fill(0),
-    argsForMediumTimeLock.payloads,
-    predecessor,
-    salt,
-    mediumDelay.toString(),
-  ];
-
   const impersonateAddress = "0xBAe01E6bCE146d23E547D159096Ac929aF0a62B3"; // gnosis
   const provider = new providers.JsonRpcProvider("http://localhost:8545");
   await provider.send("hardhat_impersonateAccount", [impersonateAddress]);
@@ -1013,16 +1083,11 @@ module.exports = async function (
       try {
         argsBig = JSON.parse(fs.readFileSync("./argsForBigTimeLock.json"));
 
-        argsMedium = JSON.parse(fs.readFileSync("./argsForMediumTimeLock.json"));
-
         const nextTimestamp = (await provider.getBlock("latest")).timestamp + Number(bigDelay.toString());
 
         await network.provider.send("evm_setNextBlockTimestamp", [nextTimestamp]);
 
         tx = await bigTimeLock.connect(impersonateAccount).executeBatch(...argsBig.slice(0, argsBig.length - 1));
-        await tx.wait();
-
-        tx = await mediumTimeLock.connect(impersonateAccount).executeBatch(...argsMedium.slice(0, argsMedium.length - 1));
         await tx.wait();
 
         console.log("Executing was successful");
@@ -1032,15 +1097,9 @@ module.exports = async function (
     } else {
       fs.writeFileSync("./argsForBigTimeLock.json", JSON.stringify(argsBig, null, 2));
 
-      fs.writeFileSync("./argsForMediumTimeLock.json", JSON.stringify(argsMedium, null, 2));
-
       try {
         console.log("Scheduling...");
-
         tx = await bigTimeLock.connect(impersonateAccount).scheduleBatch(...argsBig);
-        await tx.wait();
-
-        tx = await mediumTimeLock.connect(impersonateAccount).scheduleBatch(...argsMedium);
         await tx.wait();
 
         console.log("Scheduling was successful");

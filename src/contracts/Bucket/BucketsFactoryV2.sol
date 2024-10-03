@@ -9,7 +9,7 @@ import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol"
 
 import "./../libraries/Errors.sol";
 
-import {Bucket} from "./Bucket.sol";
+import {IBucketV4} from "./Bucket.sol";
 import {BIG_TIMELOCK_ADMIN, MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN} from "../Constants.sol";
 import {IBucketsFactory} from "./IBucketsFactory.sol";
 import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
@@ -49,7 +49,7 @@ contract BucketsFactoryV2 is UpgradeableBeacon, IBucketsFactory, IERC165 {
             IERC165(_registry).supportsInterface(type(IAccessControl).interfaceId) &&
                 IERC165(address(_pTokensFactory)).supportsInterface(type(IPTokensFactory).interfaceId) &&
                 IERC165(address(_debtTokensFactory)).supportsInterface(type(IDebtTokensFactory).interfaceId) &&
-                IERC165(address(_bucketImplementation)).supportsInterface(type(IBucket).interfaceId),
+                IERC165(address(_bucketImplementation)).supportsInterface(type(IBucketV4).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
         pTokensFactory = _pTokensFactory;
@@ -150,10 +150,6 @@ contract BucketsFactoryV2 is UpgradeableBeacon, IBucketsFactory, IERC165 {
      */
 
     function upgradeTo(address _bucketImplementation) public override {
-        _require(
-            IERC165(address(_bucketImplementation)).supportsInterface(type(IBucket).interfaceId),
-            Errors.ADDRESS_NOT_SUPPORTED.selector
-        );
         super.upgradeTo(_bucketImplementation);
     }
 

@@ -63,9 +63,17 @@ contract PrimexPricingLibraryMock is IPrimexPricingLibraryMock {
         address _bucket,
         address _positionAsset,
         uint256 _positionAmount,
-        uint256 _positionDebt
+        uint256 _positionDebt,
+        address _primexDNS
     ) public view override returns (uint256) {
-        return PrimexPricingLibrary.getLiquidationPrice(_bucket, _positionAsset, _positionAmount, _positionDebt);
+        return
+            PrimexPricingLibrary.getLiquidationPrice(
+                _bucket,
+                _positionAsset,
+                _positionAmount,
+                _positionDebt,
+                _primexDNS
+            );
     }
 
     /**

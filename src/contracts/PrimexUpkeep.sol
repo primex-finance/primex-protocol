@@ -89,7 +89,8 @@ contract PrimexUpkeep is IPrimexUpkeep, Initializable {
                         pmxPositionAssetOracleData: toOpenByOrder[i].pmxPositionAssetOracleData,
                         positionUsdOracleData: toOpenByOrder[i].positionUsdOracleData,
                         nativeSoldAssetOracleData: toOpenByOrder[i].nativeSoldAssetOracleData,
-                        pullOracleData: toOpenByOrder[i].pullOracleData
+                        pullOracleData: toOpenByOrder[i].pullOracleData,
+                        pullOracleTypes: toOpenByOrder[i].pullOracleTypes
                     })
                 )
             {} catch Error(string memory revertReason) {
@@ -124,7 +125,8 @@ contract PrimexUpkeep is IPrimexUpkeep, Initializable {
                     pmxPositionAssetOracleData: toOpenByOrder[i].pmxPositionAssetOracleData,
                     positionUsdOracleData: toOpenByOrder[i].positionUsdOracleData,
                     nativeSoldAssetOracleData: toOpenByOrder[i].nativeSoldAssetOracleData,
-                    pullOracleData: toOpenByOrder[i].pullOracleData
+                    pullOracleData: toOpenByOrder[i].pullOracleData,
+                    pullOracleTypes: toOpenByOrder[i].pullOracleTypes
                 })
             );
         }
@@ -147,9 +149,10 @@ contract PrimexUpkeep is IPrimexUpkeep, Initializable {
                         positionSoldAssetOracleData: toLiquidate[i].positionSoldAssetOracleData,
                         nativePmxOracleData: toLiquidate[i].nativePmxOracleData,
                         positionNativeAssetOracleData: toLiquidate[i].positionNativeAssetOracleData,
-                        pmxPositionAssetOracleData: toLiquidate[i].pmxPositionAssetOracleData,
-                        nativePositionAssetOracleData: toLiquidate[i].nativePositionAssetOracleData,
-                        pullOracleData: toLiquidate[i].pullOracleData
+                        pmxSoldAssetOracleData: toLiquidate[i].pmxSoldAssetOracleData,
+                        nativeSoldAssetOracleData: toLiquidate[i].nativeSoldAssetOracleData,
+                        pullOracleData: toLiquidate[i].pullOracleData,
+                        pullOracleTypes: toLiquidate[i].pullOracleTypes
                     })
                 )
             {} catch Error(string memory revertReason) {
@@ -178,9 +181,10 @@ contract PrimexUpkeep is IPrimexUpkeep, Initializable {
                     positionSoldAssetOracleData: toLiquidate[i].positionSoldAssetOracleData,
                     nativePmxOracleData: toLiquidate[i].nativePmxOracleData,
                     positionNativeAssetOracleData: toLiquidate[i].positionNativeAssetOracleData,
-                    pmxPositionAssetOracleData: toLiquidate[i].pmxPositionAssetOracleData,
-                    nativePositionAssetOracleData: toLiquidate[i].nativePositionAssetOracleData,
-                    pullOracleData: toLiquidate[i].pullOracleData
+                    pmxSoldAssetOracleData: toLiquidate[i].pmxSoldAssetOracleData,
+                    nativeSoldAssetOracleData: toLiquidate[i].nativeSoldAssetOracleData,
+                    pullOracleData: toLiquidate[i].pullOracleData,
+                    pullOracleTypes: toLiquidate[i].pullOracleTypes
                 })
             );
         }

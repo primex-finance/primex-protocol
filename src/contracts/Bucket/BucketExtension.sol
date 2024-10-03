@@ -69,7 +69,8 @@ contract BucketExtension is IBucketExtension, BucketStorageV2 {
                     tokenAtokenBOracleData: new bytes(0),
                     pmxPositionAssetOracleData: new bytes(0),
                     nativePositionAssetOracleData: new bytes(0),
-                    pullOracleData: new bytes[](0)
+                    pullOracleData: new bytes[][](0),
+                    pullOracleTypes: new uint256[](0)
                 }),
                 0,
                 false

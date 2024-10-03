@@ -304,17 +304,17 @@ describe("ProxyContracts", function () {
     it("Should not initialize again from proxy", async function () {
       const oracleProxy = await getContract("PriceOracle");
 
-      await expect(oracleProxy.initialize(mockRegistry.address, NATIVE_CURRENCY)).to.be.revertedWith(
-        "Initializable: contract is already initialized",
-      );
+      await expect(
+        oracleProxy.initialize(mockRegistry.address, NATIVE_CURRENCY, mockErc20.address, mockTreasury.address),
+      ).to.be.revertedWith("Initializable: contract is already initialized");
     });
 
     it("Should not initialize again from implementation", async function () {
       const oracleImpl = await getContract("PriceOracle_Implementation");
 
-      await expect(oracleImpl.initialize(mockRegistry.address, NATIVE_CURRENCY)).to.be.revertedWith(
-        "Initializable: contract is already initialized",
-      );
+      await expect(
+        oracleImpl.initialize(mockRegistry.address, NATIVE_CURRENCY, mockErc20.address, mockTreasury.address),
+      ).to.be.revertedWith("Initializable: contract is already initialized");
     });
   });
 

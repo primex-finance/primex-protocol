@@ -10,6 +10,7 @@ import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
 import {PositionLibrary} from "../libraries/PositionLibrary.sol";
 import {LimitOrderLibrary} from "../libraries/LimitOrderLibrary.sol";
 import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
+import {TokenTransfersLibrary} from "../libraries/TokenTransfersLibrary.sol";
 import {BatchManagerStorage, IERC165Upgradeable, IPositionManagerV2, IWhiteBlackList} from "./BatchManagerStorage.sol";
 import {MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN, EMERGENCY_ADMIN} from "../Constants.sol";
 import "../libraries/Errors.sol";
@@ -99,12 +100,13 @@ contract BatchManager is IBatchManager, BatchManagerStorage {
         IBucketV3 _bucket,
         uint256[] calldata _conditionIndexes,
         PositionLibrary.CloseReason _closeReason,
-        bytes memory _positionSoldAssetOracleData,
+        bytes calldata _positionSoldAssetOracleData,
         bytes calldata _nativePmxOracleData,
-        bytes calldata _nativePositionAssetOracleData,
+        bytes calldata _nativeSoldAssetOracleData,
         bytes calldata _positionNativeAssetOracleData,
-        bytes calldata _pmxPositionAssetOracleData,
-        bytes[] calldata _pullOracleData
+        bytes calldata _pmxSoldAssetOracleData,
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
     ) external payable override nonReentrant notBlackListed whenNotPaused {
         uint256 initialGasleft = gasleft();
         _require(_ids.length > 0, Errors.THERE_MUST_BE_AT_LEAST_ONE_POSITION.selector);
@@ -123,7 +125,6 @@ contract BatchManager is IBatchManager, BatchManagerStorage {
             depositsDecrease: new uint256[](_ids.length),
             decreasingCounter: new uint256[](uint256(type(IKeeperRewardDistributorStorage.DecreasingReason).max) + 1),
             actionType: IKeeperRewardDistributorStorage.KeeperActionType.OpenByOrder, //default value
-            numberOfPositions: 0,
             oracleTolerableLimit: positionManager.getOracleTolerableLimit(_soldAsset, _positionAsset),
             securityBuffer: positionManager.securityBuffer(),
             positionManager: positionManager,
@@ -142,16 +143,17 @@ contract BatchManager is IBatchManager, BatchManagerStorage {
             returnedToTraders: new uint256[](0),
             amountToReturn: 0,
             positionAmountInBorrowedAsset: 0,
+            positionAmountInBorrowedAssetAfterFee: 0,
             normalizedVariableDebt: 0,
             permanentLoss: 0,
             shareOfBorrowedAssetAmount: new uint256[](0),
             isLiquidation: false,
-            feeInPositionAsset: new uint256[](_ids.length),
+            feeInPaymentAsset: new uint256[](_ids.length),
             feeInPmx: new uint256[](_ids.length),
-            totalFeeInPositionAsset: 0
+            totalFeeInPaymentAsset: 0
         });
 
-        vars.priceOracle.updatePullOracle{value: msg.value}(_pullOracleData);
+        vars.priceOracle.updatePullOracle{value: msg.value}(_pullOracleData, _pullOracleTypes);
         if (vars.borrowedAmountIsNotZero) {
             _require(address(_bucket.borrowedAsset()) == _soldAsset, Errors.ASSET_ADDRESS_NOT_SUPPORTED.selector);
             vars.normalizedVariableDebt = _bucket.getNormalizedVariableDebt();
@@ -159,117 +161,43 @@ contract BatchManager is IBatchManager, BatchManagerStorage {
 
         for (uint256 i; i < _ids.length; i++) {
             PositionLibrary.Position memory position;
-            //This call can be revert if the id doesn't exist
-            try positionManager.getPosition(_ids[i]) returns (PositionLibrary.Position memory _position) {
-                position = _position;
-            } catch {
-                // сounter increase depending on closeReason
-                vars.decreasingCounter[
-                    uint8(
-                        _closeReason == PositionLibrary.CloseReason.BATCH_LIQUIDATION
-                            ? IKeeperRewardDistributorStorage.DecreasingReason.NonExistentIdForLiquidation
-                            : IKeeperRewardDistributorStorage.DecreasingReason.NonExistentIdForSLOrTP
-                    )
-                ]++;
-                continue;
-            }
+            position = positionManager.getPosition(_ids[i]);
             if (!vars.borrowedAmountIsNotZero) {
                 _require(position.soldAsset == _soldAsset, Errors.SOLD_ASSET_IS_INCORRECT.selector);
             }
             _require(position.bucket == _bucket, Errors.POSITION_BUCKET_IS_INCORRECT.selector);
-            vars.ids[vars.numberOfPositions] = _ids[i];
+            vars.ids[i] = _ids[i];
             _require(position.positionAsset == _positionAsset, Errors.ASSET_ADDRESS_NOT_SUPPORTED.selector);
-            vars.positionAmounts[vars.numberOfPositions] = position.positionAmount;
-            vars.debts[vars.numberOfPositions] = vars.borrowedAmountIsNotZero
+            vars.positionAmounts[i] = position.positionAmount;
+            vars.debts[i] = vars.borrowedAmountIsNotZero
                 ? position.scaledDebtAmount.rmul(vars.normalizedVariableDebt)
                 : 0;
-            vars.depositsDecrease[vars.numberOfPositions] = position.depositAmountInSoldAsset;
-            vars.traders[vars.numberOfPositions] = position.trader;
-            vars.feeTokens[vars.numberOfPositions] = PositionLibrary.decodeFeeTokenAddress(position.extraParams);
+            vars.depositsDecrease[i] = position.depositAmountInSoldAsset;
+            vars.traders[i] = position.trader;
+            vars.feeTokens[i] = PositionLibrary.decodeFeeTokenAddress(position.extraParams);
             if (
                 _closeReason == PositionLibrary.CloseReason.BATCH_STOP_LOSS ||
                 _closeReason == PositionLibrary.CloseReason.BATCH_TAKE_PROFIT
             ) {
-                vars.closeConditions[vars.numberOfPositions] = positionManager.getCloseCondition(
-                    _ids[i],
-                    _conditionIndexes[i]
-                );
+                vars.closeConditions[i] = positionManager.getCloseCondition(_ids[i], _conditionIndexes[i]);
                 // to avoid abuse of the reward system, we will not pay the reward to
                 // the keeper if the position closes in the same block as the close conditions change
                 if (position.updatedConditionsAt == block.timestamp) {
                     vars.decreasingCounter[
                         uint8(IKeeperRewardDistributorStorage.DecreasingReason.ClosePostionInTheSameBlock)
                     ]++;
-                    vars.uncoveredAmount += vars.positionAmounts[vars.numberOfPositions];
+                    vars.uncoveredAmount += vars.positionAmounts[i];
                 }
             }
-            vars.numberOfPositions++;
+            vars.totalCloseAmount += vars.positionAmounts[i];
+            vars.totalDebt += vars.debts[i];
         }
 
         vars.adapter = payable(vars.primexDNS.dexAdapter());
 
         CloseBatchPositionsLocalData memory data;
 
-        if (_closeReason == PositionLibrary.CloseReason.BATCH_LIQUIDATION) {
-            data.feeBuffer = _bucket.feeBuffer();
-            (vars.feeInPositionAsset, vars.feeInPmx) = PrimexPricingLibrary.payProtocolFeeBatchClose(
-                PrimexPricingLibrary.ProtocolFeeParamsBatchClose({
-                    numberOfPositions: vars.numberOfPositions,
-                    feeTokens: vars.feeTokens,
-                    traders: vars.traders,
-                    positionSizes: vars.positionAmounts,
-                    positionAsset: _positionAsset,
-                    priceOracle: address(vars.priceOracle),
-                    feeRateType: IPrimexDNSStorageV3.FeeRateType.MarginPositionClosedByKeeper,
-                    traderBalanceVault: vars.traderBalanceVault,
-                    keeperRewardDistributor: address(vars.keeperRewardDistributor),
-                    primexDNS: vars.primexDNS,
-                    estimatedGasAmount: _approxGasAmount(vars.numberOfPositions),
-                    estimatedBaseLength: _calculateEstimatedBaseLength(vars.numberOfPositions),
-                    isFeeOnlyInPositionAsset: true,
-                    nativePositionAssetOracleData: _nativePositionAssetOracleData,
-                    pmxPositionAssetOracleData: _pmxPositionAssetOracleData
-                })
-            );
-            for (uint256 i; i < vars.numberOfPositions; i++) {
-                vars.positionAmounts[i] -= vars.feeInPositionAsset[i];
-            }
-
-            data.positionAmountInBorrowedAsset = PrimexPricingLibrary.getBatchOracleAmountsOut(
-                _positionAsset,
-                _soldAsset,
-                vars.positionAmounts,
-                address(vars.priceOracle),
-                _positionSoldAssetOracleData
-            );
-            for (uint256 i; i < vars.numberOfPositions; ) {
-                if (
-                    vars.debts[i] > 0 &&
-                    PositionLibrary.health(
-                        data.positionAmountInBorrowedAsset[i],
-                        vars.pairPriceDrop,
-                        vars.securityBuffer,
-                        vars.oracleTolerableLimit,
-                        vars.debts[i],
-                        data.feeBuffer
-                    ) <
-                    WadRayMath.WAD
-                ) {
-                    vars.totalFeeInPositionAsset += vars.feeInPositionAsset[i];
-                    vars.totalCloseAmount += vars.positionAmounts[i];
-                    vars.totalDebt += vars.debts[i];
-                    unchecked {
-                        i++;
-                    }
-                } else {
-                    vars.decreasingCounter[
-                        uint8(IKeeperRewardDistributorStorage.DecreasingReason.IncorrectConditionForLiquidation)
-                    ]++;
-                    _removeBatchItem(vars, i);
-                }
-            }
-            vars.actionType = IKeeperRewardDistributorStorage.KeeperActionType.Liquidation;
-        } else if (_closeReason == PositionLibrary.CloseReason.BATCH_STOP_LOSS) {
+        if (_closeReason == PositionLibrary.CloseReason.BATCH_STOP_LOSS) {
             data.exchangeRate = vars.priceOracle.getExchangeRate(
                 _positionAsset,
                 _soldAsset,
@@ -283,113 +211,25 @@ contract BatchManager is IBatchManager, BatchManagerStorage {
                 Errors.CLOSE_CONDITION_IS_NOT_CORRECT.selector
             );
             LimitOrderLibrary.Condition memory condition;
-            (vars.feeInPositionAsset, vars.feeInPmx) = PrimexPricingLibrary.payProtocolFeeBatchClose(
-                PrimexPricingLibrary.ProtocolFeeParamsBatchClose({
-                    numberOfPositions: vars.numberOfPositions,
-                    feeTokens: vars.feeTokens,
-                    traders: vars.traders,
-                    positionSizes: vars.positionAmounts,
-                    positionAsset: _positionAsset,
-                    priceOracle: address(vars.priceOracle),
-                    feeRateType: vars.borrowedAmountIsNotZero
-                        ? IPrimexDNSStorageV3.FeeRateType.MarginPositionClosedByKeeper
-                        : IPrimexDNSStorageV3.FeeRateType.SpotPositionClosedByKeeper,
-                    traderBalanceVault: vars.traderBalanceVault,
-                    keeperRewardDistributor: address(vars.keeperRewardDistributor),
-                    primexDNS: vars.primexDNS,
-                    estimatedGasAmount: _approxGasAmount(vars.numberOfPositions),
-                    estimatedBaseLength: _calculateEstimatedBaseLength(vars.numberOfPositions),
-                    isFeeOnlyInPositionAsset: false,
-                    nativePositionAssetOracleData: _nativePositionAssetOracleData,
-                    pmxPositionAssetOracleData: _pmxPositionAssetOracleData
-                })
-            );
-            for (uint256 i; i < vars.numberOfPositions; ) {
+
+            for (uint256 i; i < _ids.length; i++) {
                 condition = vars.closeConditions[i];
-                if (
+                _require(
                     condition.managerType == data.managerType &&
-                    ITakeProfitStopLossCCM(data.cm).isStopLossReached(condition.params, data.exchangeRate)
-                ) {
-                    vars.positionAmounts[i] -= vars.feeInPositionAsset[i];
-                    vars.totalFeeInPositionAsset += vars.feeInPositionAsset[i];
-                    vars.totalCloseAmount += vars.positionAmounts[i];
-                    vars.totalDebt += vars.debts[i];
-                    unchecked {
-                        i++;
-                    }
-                } else {
-                    vars.decreasingCounter[
-                        uint8(IKeeperRewardDistributorStorage.DecreasingReason.IncorrectConditionForSL)
-                    ]++;
-                    _removeBatchItem(vars, i);
-                }
+                        ITakeProfitStopLossCCM(data.cm).isStopLossReached(condition.params, data.exchangeRate),
+                    Errors.POSITION_CANNOT_BE_CLOSED_FOR_THIS_REASON.selector
+                );
             }
             vars.actionType = IKeeperRewardDistributorStorage.KeeperActionType.StopLoss;
-        } else if (_closeReason == PositionLibrary.CloseReason.BATCH_TAKE_PROFIT) {
-            (vars.feeInPositionAsset, vars.feeInPmx) = PrimexPricingLibrary.payProtocolFeeBatchClose(
-                PrimexPricingLibrary.ProtocolFeeParamsBatchClose({
-                    numberOfPositions: vars.numberOfPositions,
-                    feeTokens: vars.feeTokens,
-                    traders: vars.traders,
-                    positionSizes: vars.positionAmounts,
-                    positionAsset: _positionAsset,
-                    priceOracle: address(vars.priceOracle),
-                    feeRateType: vars.borrowedAmountIsNotZero
-                        ? IPrimexDNSStorageV3.FeeRateType.MarginPositionClosedByKeeper
-                        : IPrimexDNSStorageV3.FeeRateType.SpotPositionClosedByKeeper,
-                    traderBalanceVault: vars.traderBalanceVault,
-                    keeperRewardDistributor: address(vars.keeperRewardDistributor),
-                    primexDNS: vars.primexDNS,
-                    estimatedGasAmount: _approxGasAmount(vars.numberOfPositions),
-                    estimatedBaseLength: _calculateEstimatedBaseLength(vars.numberOfPositions),
-                    isFeeOnlyInPositionAsset: false,
-                    nativePositionAssetOracleData: _nativePositionAssetOracleData,
-                    pmxPositionAssetOracleData: _pmxPositionAssetOracleData
-                })
-            );
-            for (uint256 i; i < vars.numberOfPositions; i++) {
-                vars.positionAmounts[i] -= vars.feeInPositionAsset[i];
-                vars.totalFeeInPositionAsset += vars.feeInPositionAsset[i];
-                vars.totalCloseAmount += vars.positionAmounts[i];
-                vars.totalDebt += vars.debts[i];
-            }
-            vars.actionType = IKeeperRewardDistributorStorage.KeeperActionType.TakeProfit;
         } else if (_closeReason == PositionLibrary.CloseReason.BUCKET_DELISTED) {
             _require(_bucket.isDelisted(), Errors.POSITION_CANNOT_BE_CLOSED_FOR_THIS_REASON.selector);
-            (vars.feeInPositionAsset, vars.feeInPmx) = PrimexPricingLibrary.payProtocolFeeBatchClose(
-                PrimexPricingLibrary.ProtocolFeeParamsBatchClose({
-                    numberOfPositions: vars.numberOfPositions,
-                    feeTokens: vars.feeTokens,
-                    traders: vars.traders,
-                    positionSizes: vars.positionAmounts,
-                    positionAsset: _positionAsset,
-                    priceOracle: address(vars.priceOracle),
-                    feeRateType: vars.borrowedAmountIsNotZero
-                        ? IPrimexDNSStorageV3.FeeRateType.MarginPositionClosedByKeeper
-                        : IPrimexDNSStorageV3.FeeRateType.SpotPositionClosedByKeeper,
-                    traderBalanceVault: vars.traderBalanceVault,
-                    keeperRewardDistributor: address(vars.keeperRewardDistributor),
-                    primexDNS: vars.primexDNS,
-                    estimatedGasAmount: _approxGasAmount(vars.numberOfPositions),
-                    estimatedBaseLength: _calculateEstimatedBaseLength(vars.numberOfPositions),
-                    isFeeOnlyInPositionAsset: false,
-                    nativePositionAssetOracleData: _nativePositionAssetOracleData,
-                    pmxPositionAssetOracleData: _pmxPositionAssetOracleData
-                })
-            );
-            for (uint256 i; i < vars.numberOfPositions; i++) {
-                vars.positionAmounts[i] -= vars.feeInPositionAsset[i];
-                vars.totalFeeInPositionAsset += vars.feeInPositionAsset[i];
-                vars.totalCloseAmount += vars.positionAmounts[i];
-                vars.totalDebt += vars.debts[i];
-            }
             vars.actionType = IKeeperRewardDistributorStorage.KeeperActionType.BucketDelisted;
-        } else {
+        } else if (
+            _closeReason == PositionLibrary.CloseReason.BATCH_LIQUIDATION ||
+            _closeReason == PositionLibrary.CloseReason.BATCH_TAKE_PROFIT
+        ) {} else {
             _revert(Errors.BATCH_CANNOT_BE_CLOSED_FOR_THIS_REASON.selector);
         }
-        _require(vars.numberOfPositions > 0, Errors.NOTHING_TO_CLOSE.selector);
-
-        vars.positionManager.doTransferOut(_positionAsset, vars.primexDNS.treasury(), vars.totalFeeInPositionAsset);
         vars.positionManager.doTransferOut(_positionAsset, vars.adapter, vars.totalCloseAmount);
 
         // overwrite the previous variable from oracle
@@ -399,7 +239,7 @@ contract BatchManager is IBatchManager, BatchManagerStorage {
                 tokenB: _soldAsset,
                 amountTokenA: vars.totalCloseAmount,
                 megaRoutes: _megaRoutes,
-                receiver: vars.borrowedAmountIsNotZero ? address(_bucket) : address(vars.traderBalanceVault),
+                receiver: address(this),
                 deadline: block.timestamp
             }),
             vars.oracleTolerableLimit,
@@ -408,9 +248,63 @@ contract BatchManager is IBatchManager, BatchManagerStorage {
             true,
             _positionSoldAssetOracleData
         );
+        vars.returnedToTraders = new uint256[](_ids.length);
+        vars.shareOfBorrowedAssetAmount = new uint256[](_ids.length);
+        vars.isLiquidation = _closeReason == PositionLibrary.CloseReason.BATCH_LIQUIDATION;
+        for (uint256 i; i < _ids.length; i++) {
+            vars.shareOfBorrowedAssetAmount[i] =
+                (vars.positionAmounts[i] * vars.positionAmountInBorrowedAsset) /
+                vars.totalCloseAmount;
+        }
 
-        // We check TAKE_PROFIT condition only after swap
-        if (_closeReason == PositionLibrary.CloseReason.BATCH_TAKE_PROFIT) {
+        (vars.feeInPaymentAsset, vars.feeInPmx) = PrimexPricingLibrary.payProtocolFeeBatchClose(
+            PrimexPricingLibrary.ProtocolFeeParamsBatchClose({
+                numberOfPositions: _ids.length,
+                feeTokens: vars.feeTokens,
+                traders: vars.traders,
+                paymentAmounts: vars.shareOfBorrowedAssetAmount,
+                paymentAsset: _soldAsset,
+                priceOracle: address(vars.priceOracle),
+                feeRateType: vars.borrowedAmountIsNotZero
+                    ? IPrimexDNSStorageV3.FeeRateType.MarginPositionClosedByKeeper
+                    : IPrimexDNSStorageV3.FeeRateType.SpotPositionClosedByKeeper,
+                traderBalanceVault: vars.traderBalanceVault,
+                keeperRewardDistributor: address(vars.keeperRewardDistributor),
+                primexDNS: vars.primexDNS,
+                estimatedGasAmount: _approxGasAmount(_ids.length),
+                estimatedBaseLength: _calculateEstimatedBaseLength(_ids.length),
+                isFeeProhibitedInPmx: _closeReason == PositionLibrary.CloseReason.BATCH_LIQUIDATION,
+                nativePaymentAssetOracleData: _nativeSoldAssetOracleData,
+                pmxPaymentAssetOracleData: _pmxSoldAssetOracleData
+            })
+        );
+
+        if (_closeReason == PositionLibrary.CloseReason.BATCH_LIQUIDATION) {
+            data.feeBuffer = _bucket.feeBuffer();
+            data.positionAmountInBorrowedAsset = PrimexPricingLibrary.getBatchOracleAmountsOut(
+                _positionAsset,
+                _soldAsset,
+                vars.positionAmounts,
+                address(vars.priceOracle),
+                _positionSoldAssetOracleData
+            );
+            for (uint256 i; i < _ids.length; i++) {
+                _require(
+                    vars.debts[i] > 0 &&
+                        PositionLibrary.health(
+                            data.positionAmountInBorrowedAsset[i] - vars.feeInPaymentAsset[i],
+                            vars.pairPriceDrop,
+                            vars.securityBuffer,
+                            vars.oracleTolerableLimit,
+                            vars.debts[i],
+                            data.feeBuffer
+                        ) <
+                        WadRayMath.WAD,
+                    Errors.POSITION_CANNOT_BE_CLOSED_FOR_THIS_REASON.selector
+                );
+            }
+            vars.actionType = IKeeperRewardDistributorStorage.KeeperActionType.Liquidation;
+        } else if (_closeReason == PositionLibrary.CloseReason.BATCH_TAKE_PROFIT) {
             data.multiplierPositionAsset = 10 ** (18 - IERC20Metadata(_positionAsset).decimals());
             data.multiplierBorrowedAsset = 10 ** (18 - IERC20Metadata(_soldAsset).decimals());
             data.exchangeRate = (vars.positionAmountInBorrowedAsset * data.multiplierBorrowedAsset).wdiv(
@@ -424,7 +318,7 @@ contract BatchManager is IBatchManager, BatchManagerStorage {
                 Errors.CLOSE_CONDITION_IS_NOT_CORRECT.selector
             );
             LimitOrderLibrary.Condition memory condition;
-            for (uint256 i; i < vars.numberOfPositions; i++) {
+            for (uint256 i; i < _ids.length; i++) {
                 condition = vars.closeConditions[i];
                 _require(
                     condition.managerType == data.managerType &&
@@ -432,36 +326,51 @@ contract BatchManager is IBatchManager, BatchManagerStorage {
                     Errors.POSITION_CANNOT_BE_CLOSED_FOR_THIS_REASON.selector
                 );
             }
+            vars.actionType = IKeeperRewardDistributorStorage.KeeperActionType.TakeProfit;
         }
 
-        vars.returnedToTraders = new uint256[](vars.numberOfPositions);
-        vars.shareOfBorrowedAssetAmount = new uint256[](vars.numberOfPositions);
-        vars.isLiquidation = _closeReason == PositionLibrary.CloseReason.BATCH_LIQUIDATION;
-        for (uint256 i; i < vars.numberOfPositions; i++) {
-            vars.shareOfBorrowedAssetAmount[i] =
-                (vars.positionAmounts[i] * vars.positionAmountInBorrowedAsset) /
-                vars.totalCloseAmount;
+        for (uint256 i; i < _ids.length; i++) {
+            vars.totalFeeInPaymentAsset += vars.feeInPaymentAsset[i];
             if (vars.isLiquidation) continue;
             if (vars.shareOfBorrowedAssetAmount[i] > vars.debts[i]) {
                 unchecked {
-                    vars.returnedToTraders[i] = vars.shareOfBorrowedAssetAmount[i] - vars.debts[i];
+                    vars.returnedToTraders[i] =
+                        vars.shareOfBorrowedAssetAmount[i] -
+                        vars.debts[i] -
+                        vars.feeInPaymentAsset[i];
                 }
             } else {
                 unchecked {
-                    vars.permanentLoss += vars.debts[i] - vars.shareOfBorrowedAssetAmount[i];
+                    vars.permanentLoss +=
+                        vars.debts[i] +
+                        vars.feeInPaymentAsset[i] -
+                        vars.shareOfBorrowedAssetAmount[i];
                 }
             }
             vars.amountToReturn += vars.returnedToTraders[i];
         }
 
+        vars.positionAmountInBorrowedAssetAfterFee = vars.positionAmountInBorrowedAsset - vars.totalFeeInPaymentAsset;
+        TokenTransfersLibrary.doTransferOut({
+            token: _soldAsset,
+            to: vars.primexDNS.treasury(),
+            amount: vars.totalFeeInPaymentAsset
+        });
+
+        TokenTransfersLibrary.doTransferOut({
+            token: _soldAsset,
+            to: vars.borrowedAmountIsNotZero ? address(_bucket) : address(vars.traderBalanceVault),
+            amount: vars.positionAmountInBorrowedAsset - vars.totalFeeInPaymentAsset
+        });
+
         if (vars.isLiquidation) {
-            if (vars.positionAmountInBorrowedAsset > vars.totalDebt) {
+            if (vars.positionAmountInBorrowedAssetAfterFee > vars.totalDebt) {
                 unchecked {
-                    vars.amountToReturn = vars.positionAmountInBorrowedAsset - vars.totalDebt;
+                    vars.amountToReturn = vars.positionAmountInBorrowedAssetAfterFee - vars.totalDebt;
                 }
             } else {
                 unchecked {
-                    vars.permanentLoss = vars.totalDebt - vars.positionAmountInBorrowedAsset;
+                    vars.permanentLoss = vars.totalDebt - vars.positionAmountInBorrowedAssetAfterFee;
                 }
             }
         } else {
@@ -470,7 +379,7 @@ contract BatchManager is IBatchManager, BatchManagerStorage {
                     traders: vars.traders,
                     asset: _soldAsset,
                     amounts: vars.returnedToTraders,
-                    length: vars.numberOfPositions
+                    length: _ids.length
                 })
             );
         }
@@ -482,12 +391,12 @@ contract BatchManager is IBatchManager, BatchManagerStorage {
                 vars.isLiquidation ? vars.primexDNS.treasury() : address(vars.traderBalanceVault),
                 vars.amountToReturn,
                 vars.permanentLoss,
-                vars.numberOfPositions
+                _ids.length
             );
         }
 
-        positionManager.deletePositions(vars.ids, vars.traders, vars.numberOfPositions, vars.bucket);
-        for (uint256 i; i < vars.numberOfPositions; i++) {
+        positionManager.deletePositions(vars.ids, vars.traders, _ids.length, vars.bucket);
+        for (uint256 i; i < _ids.length; i++) {
             emit PositionLibrary.ClosePosition({
                 positionId: vars.ids[i],
                 trader: vars.traders[i],
@@ -498,17 +407,17 @@ contract BatchManager is IBatchManager, BatchManagerStorage {
                 decreasePositionAmount: vars.positionAmounts[i],
                 profit: vars.returnedToTraders[i].toInt256() - vars.depositsDecrease[i].toInt256(),
                 positionDebt: vars.debts[i],
-                amountOut: vars.shareOfBorrowedAssetAmount[i],
+                amountOut: vars.shareOfBorrowedAssetAmount[i] - vars.feeInPaymentAsset[i],
                 reason: _closeReason
             });
             emit PositionLibrary.PaidProtocolFee({
                 positionId: vars.ids[i],
                 trader: vars.traders[i],
-                positionAsset: _positionAsset,
+                paymentAsset: _soldAsset,
                 feeRateType: vars.borrowedAmountIsNotZero
                     ? IPrimexDNSStorageV3.FeeRateType.MarginPositionClosedByKeeper
                     : IPrimexDNSStorageV3.FeeRateType.SpotPositionClosedByKeeper,
-                feeInPositionAsset: vars.feeInPositionAsset[i],
+                feeInPaymentAsset: vars.feeInPaymentAsset[i],
                 feeInPmx: vars.feeInPmx[i]
             });
         }
@@ -517,9 +426,9 @@ contract BatchManager is IBatchManager, BatchManagerStorage {
                 IKeeperRewardDistributorV3.UpdateRewardParams({
                     keeper: msg.sender,
                     positionAsset: _positionAsset,
-                    positionSize: vars.totalCloseAmount + vars.totalFeeInPositionAsset - vars.uncoveredAmount,
+                    positionSize: vars.totalCloseAmount - vars.uncoveredAmount,
                     action: vars.actionType,
-                    numberOfActions: vars.numberOfPositions,
+                    numberOfActions: _ids.length,
                     gasSpent: initialGasleft - gasleft(),
                     decreasingCounter: vars.decreasingCounter,
                     routesLength: abi.encode(_megaRoutes).length,
@@ -577,27 +486,5 @@ contract BatchManager is IBatchManager, BatchManagerStorage {
             IPrimexDNSStorageV3.CallingMethod.ClosePositionByCondition
         );
         estimatedBaseLength = 64 + baseLength / _numberOfPositions;
-    }
-
-    /**
-     * @notice Removes item from array
-     * @dev The item is not deleted but swapped with the last item
-     * @param  vars  The struct containing arrays to update
-     * @param  index  The index of the item to remove
-     */
-    function _removeBatchItem(CloseBatchPositionsVars memory vars, uint256 index) internal pure {
-        //swap with the last one
-        vars.ids[index] = vars.ids[vars.numberOfPositions - 1];
-        vars.traders[index] = vars.traders[vars.numberOfPositions - 1];
-        vars.feeTokens[index] = vars.feeTokens[vars.numberOfPositions - 1];
-        vars.positionAmounts[index] = vars.positionAmounts[vars.numberOfPositions - 1];
-        vars.debts[index] = vars.debts[vars.numberOfPositions - 1];
-        vars.depositsDecrease[index] = vars.depositsDecrease[vars.numberOfPositions - 1];
-        vars.feeInPositionAsset[index] = vars.feeInPositionAsset[vars.numberOfPositions - 1];
-        vars.feeInPmx[index] = vars.feeInPmx[vars.numberOfPositions - 1];
-        //this will work like pop() for an array
-        unchecked {
-            vars.numberOfPositions--;
-        }
     }
 }

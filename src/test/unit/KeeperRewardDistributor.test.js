@@ -266,6 +266,37 @@ describe("KeeperRewardDistributor_unit", function () {
         params: [snapshotId],
       });
     });
+    it("Should revert if not MEDIUM_TIMELOCK_ADMIN call setOptimisticGasCoefficient", async function () {
+      const newOptimisticGasCoefficient = WAD;
+      await expect(
+        keeperRewardDistributor.connect(user).setOptimisticGasCoefficient(newOptimisticGasCoefficient),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
+    });
+    it("Should revert setOptimisticGasCoefficient if coefficient = 0", async function () {
+      const newOptimisticGasCoefficient = 0;
+      await expect(keeperRewardDistributor.setOptimisticGasCoefficient(newOptimisticGasCoefficient)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "INCORRECT_OPTIMISM_GAS_COEFFICIENT",
+      );
+    });
+    it("Should revert setOptimisticGasCoefficient if coefficient > 1", async function () {
+      const newOptimisticGasCoefficient = WAD.add(1);
+      await expect(keeperRewardDistributor.setOptimisticGasCoefficient(newOptimisticGasCoefficient)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "INCORRECT_OPTIMISM_GAS_COEFFICIENT",
+      );
+    });
+    it("Should set optimisticGasCoefficient", async function () {
+      const newOptimisticGasCoefficient = WAD;
+      await keeperRewardDistributor.setOptimisticGasCoefficient(newOptimisticGasCoefficient);
+      expect(await keeperRewardDistributor.optimisticGasCoefficient()).to.be.equal(newOptimisticGasCoefficient);
+    });
+    it("Should emit OptimisticGasCoefficientChanged when setOptimisticGasCoefficient is successful", async function () {
+      const newOptimisticGasCoefficient = WAD;
+      await expect(keeperRewardDistributor.setOptimisticGasCoefficient(newOptimisticGasCoefficient))
+        .to.emit(keeperRewardDistributor, "OptimisticGasCoefficientChanged")
+        .withArgs(newOptimisticGasCoefficient);
+    });
     it("Should revert if not MEDIUM_TIMELOCK_ADMIN call setMaxGasPrice", async function () {
       const defaultMaxGasPrice = 10;
       await expect(keeperRewardDistributor.connect(user).setDefaultMaxGasPrice(defaultMaxGasPrice)).to.be.revertedWithCustomError(

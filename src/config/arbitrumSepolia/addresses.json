@@ -11,6 +11,8 @@
   "wrappedNativeToken": "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73",
   "aave": "0xB8111839Eec95ead49faf4f63062647FC91990ff",
   "pyth": "0x4374e5a8b9C22271E9EB878A2AA31DE97DF15DAF",
+  "supraPullOracle": "0xBf07a08042Bf7a61680527D06aC5F54278e0c8E5",
+  "supraStorageOracle": "0x6Cd59830AAD978446e6cc7f6cc173aF7656Fb917",
   "dexes": {
     "uniswapv3": {
       "router": "0x540E87754362D88b5f898eBf6288a59BA94A590A",

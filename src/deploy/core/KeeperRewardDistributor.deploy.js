@@ -66,7 +66,7 @@ module.exports = async function ({
     errorsLibrary: errorsLibrary.address,
   });
 
-  if (paymentModel === PaymentModel.ARBITRUM) {
+  if (paymentModel === PaymentModel.ARBITRUM || paymentModel === PaymentModel.OPTIMISTIC) {
     const keeperRDcontract = await getContract("KeeperRewardDistributor");
     for (const callingMethod in KeeperCallingMethod) {
       const method = KeeperCallingMethod[callingMethod];

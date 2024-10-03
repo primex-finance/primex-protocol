@@ -115,6 +115,7 @@ describe("TraderRewardDistributor_integration", function () {
       pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
       nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
       pullOracleData: [],
+      pullOracleTypes: [],
     };
 
     expectBucketData = {
@@ -267,6 +268,7 @@ describe("TraderRewardDistributor_integration", function () {
         getEncodedChainlinkRouteViaUsd(testTokenA),
         getEncodedChainlinkRouteViaUsd(testTokenB),
         getEncodedChainlinkRouteViaUsd(testTokenB),
+        [],
         [],
       );
 

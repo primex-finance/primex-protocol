@@ -130,6 +130,10 @@
       }
     }
   },
+  "FlashLoanManagerConfig": {
+    "flashLoanFeeRate": "0.05",
+    "flashLoanProtocolRate": "0.2"
+  },
   "TreasuryConfig": {
     "setMaxSpendingLimit": [
       {

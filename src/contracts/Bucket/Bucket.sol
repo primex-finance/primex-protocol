@@ -3,20 +3,22 @@
 pragma solidity 0.8.18;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
 import {TokenTransfersLibrary} from "../libraries/TokenTransfersLibrary.sol";
 import {TokenApproveLibrary} from "../libraries/TokenApproveLibrary.sol";
 
 import "./BucketStorage.sol";
-import {VAULT_ACCESS_ROLE, PM_ROLE, BATCH_MANAGER_ROLE, MAX_ASSET_DECIMALS, SECONDS_PER_YEAR} from "../Constants.sol";
+import {VAULT_ACCESS_ROLE, PM_ROLE, FLASH_LOAN_MANAGER_ROLE, BATCH_MANAGER_ROLE, MAX_ASSET_DECIMALS, SECONDS_PER_YEAR} from "../Constants.sol";
 import {BIG_TIMELOCK_ADMIN, MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN} from "../Constants.sol";
-import {IBucket, IBucketV2, ISwapManager, IBucketV3} from "./IBucket.sol";
+import {IBucket, IBucketV2, ISwapManager, IBucketV3, IBucketV4} from "./IBucket.sol";
 import {IBucketExtension} from "./IBucketExtension.sol";
 
 /* solhint-disable max-states-count */
-contract Bucket is IBucketV3, BucketStorageV2 {
+contract Bucket is IBucketV4, BucketStorageV2 {
     using WadRayMath for uint256;
+    using SafeCast for uint256;
 
     constructor() {
         _disableInitializers();
@@ -390,6 +392,36 @@ contract Bucket is IBucketV3, BucketStorageV2 {
     }
 
     /**
+     * @inheritdoc IBucketV4
+     */
+    function performFlashLoanTransfer(address _to, uint256 _amount) external override {
+        _onlyRole(FLASH_LOAN_MANAGER_ROLE);
+        _require(LMparams.isBucketLaunched, Errors.BUCKET_IS_NOT_LAUNCHED.selector);
+        TokenTransfersLibrary.doTransferOut(address(borrowedAsset), _to, _amount);
+        _updateIndexes();
+        _updateRates();
+    }
+
+    /**
+     * @inheritdoc IBucketV4
+     */
+    function cumulateToLiquidityIndex(uint256 _amount, uint256 _availableLiquidity) external override {
+        _onlyRole(FLASH_LOAN_MANAGER_ROLE);
+        _updateIndexes();
+        uint256 totalDemand = debtToken.totalSupply();
+        uint256 totalDeposit = _availableLiquidity + totalDemand;
+        liquidityIndex = ((_amount.rdiv(totalDeposit) + WadRayMath.RAY).rmul(liquidityIndex)).toUint128();
+    }
+
+    /**
+     * @inheritdoc IBucketV4
+     */
+    function updateRates() external override {
+        _onlyRole(FLASH_LOAN_MANAGER_ROLE);
+        _updateRates();
+    }
+
+    /**
      * @inheritdoc IBucket
      */
     function batchDecreaseTradersDebt(
@@ -546,6 +578,7 @@ contract Bucket is IBucketV3, BucketStorageV2 {
     /// @notice Interface checker
     function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
         return
+            _interfaceId == type(IBucketV4).interfaceId ||
             _interfaceId == type(IBucketV3).interfaceId ||
             _interfaceId == type(IBucketV2).interfaceId ||
             _interfaceId == type(IBucket).interfaceId ||

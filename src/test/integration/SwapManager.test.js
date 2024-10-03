@@ -18,8 +18,15 @@ const { addLiquidity, checkIsDexSupported, getAmountsOut, getSingleMegaRoute } =
 const { getImpersonateSigner } = require("../utils/hardhatUtils");
 const { wadMul, wadDiv } = require("../utils/math");
 const { eventValidation } = require("../utils/eventValidation");
-const { calculateFeeInPositionAsset, calculateFeeAmountInPmx } = require("../utils/protocolUtils");
-const { FeeRateType, NATIVE_CURRENCY, MAX_TOKEN_DECIMALITY, USD_DECIMALS, USD_MULTIPLIER } = require("../utils/constants");
+const { calculateFeeInPaymentAsset, calculateFeeAmountInPmx } = require("../utils/protocolUtils");
+const {
+  FeeRateType,
+  NATIVE_CURRENCY,
+  MAX_TOKEN_DECIMALITY,
+  USD_DECIMALS,
+  USD_MULTIPLIER,
+  UpdatePullOracle,
+} = require("../utils/constants");
 const {
   setupUsdOraclesForToken,
   setupUsdOraclesForTokens,
@@ -78,7 +85,7 @@ describe("SwapManager_integration", function () {
       await setupUsdOraclesForTokens(testTokenA, await priceOracle.eth(), ttaPriceInETH);
       await setupUsdOraclesForToken(testTokenB, parseUnits("1", USD_DECIMALS));
 
-      feeInPositionAsset = await calculateFeeInPositionAsset(
+      feeInPositionAsset = await calculateFeeInPaymentAsset(
         testTokenB.address,
         amountOut,
         FeeRateType.SwapMarketOrder,
@@ -124,6 +131,7 @@ describe("SwapManager_integration", function () {
         pmxPositionAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenB),
         nativePositionAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenB),
         pullOracleData: [],
+        pullOracleTypes: [],
       };
 
       snapshotId = await network.provider.request({
@@ -262,7 +270,8 @@ describe("SwapManager_integration", function () {
         timeStamp,
         0,
       );
-      swapParams.pullOracleData = [updateDataPmx, updateDataB, updateDataNative];
+      swapParams.pullOracleData = [[updateDataPmx, updateDataB, updateDataNative]];
+      swapParams.pullOracleTypes = [UpdatePullOracle.Pyth];
       await swapManager.connect(trader).swap(swapParams, parseEther("0.001"), false, { value: 3 });
       const pricePmx = await pyth.getPrice(PMXID);
       const priceB = await pyth.getPrice(tokenBID);

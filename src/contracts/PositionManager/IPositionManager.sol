@@ -38,9 +38,10 @@ interface IPositionManagerV2 is IPositionManagerStorageV2, IPositionManagerStora
         bytes positionSoldAssetOracleData;
         bytes nativePmxOracleData;
         bytes positionNativeAssetOracleData;
-        bytes pmxPositionAssetOracleData;
-        bytes nativePositionAssetOracleData;
-        bytes[] pullOracleData;
+        bytes pmxSoldAssetOracleData;
+        bytes nativeSoldAssetOracleData;
+        bytes[][] pullOracleData;
+        uint256[] pullOracleTypes;
     }
 
     /**
@@ -113,9 +114,10 @@ interface IPositionManagerV2 is IPositionManagerStorageV2, IPositionManagerStora
         PrimexPricingLibrary.MegaRoute[] calldata _megaRoutes,
         uint256 _amountOutMin,
         bytes calldata _positionSoldAssetOracleData,
-        bytes calldata _pmxPositionAssetOracleData,
-        bytes calldata _nativePositionAssetOracleData,
-        bytes[] calldata _pullOracleData
+        bytes calldata _pmxSoldAssetOracleData,
+        bytes calldata _nativeSoldAssetOracleData,
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
     ) external payable;
 
     // /**
@@ -168,7 +170,9 @@ interface IPositionManagerV2 is IPositionManagerStorageV2, IPositionManagerStora
         uint256 _positionId,
         uint256 _amount,
         bytes calldata _positionSoldAssetOracleData,
-        bytes[] calldata _pullOracleData
+        bytes calldata _nativeSoldAssetOracleData,
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
     ) external payable;
 
     /**
@@ -201,8 +205,10 @@ interface IPositionManagerV2 is IPositionManagerStorageV2, IPositionManagerStora
         uint256 _amountOutMin,
         bytes calldata _positionSoldAssetOracleData,
         bytes calldata _nativePositionAssetOracleData,
-        bytes calldata _pmxPositionAssetOracleData,
-        bytes[] calldata _pullOracleData
+        bytes calldata _nativeSoldAssetOracleData,
+        bytes calldata _pmxSoldAssetOracleData,
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
     ) external payable;
 
     /**
@@ -282,33 +288,11 @@ interface IPositionManagerV2 is IPositionManagerStorageV2, IPositionManagerStora
     ) external view returns (LimitOrderLibrary.Condition memory);
 
     /**
-     * @notice Сhecks if the position is risky.
-     * @param _id the id of the position
-     * @return (1) True if position is risky
-     */
-    function isPositionRisky(
-        uint256 _id,
-        bytes calldata _positionSoldAssetOracleData,
-        bytes[] calldata _pullOracleData
-    ) external payable returns (bool);
-
-    /**
      * @notice Checks if a position with the given ID is delisted.
      * @param _id The ID of the position.
      * @return A boolean indicating whether the position is delisted or not.
      */
     function isDelistedPosition(uint256 _id) external view returns (bool);
-
-    /**
-     * @notice Retrieves the health value of a position.
-     * @param _id The ID of the position.
-     * @return The health value of the position in WAD format.
-     */
-    function healthPosition(
-        uint256 _id,
-        bytes calldata _positionSoldAssetOracleData,
-        bytes[] calldata _pullOracleData
-    ) external payable returns (uint256);
 }
 
 interface IPositionManager is IPositionManagerStorage, IPausable {
@@ -671,23 +655,9 @@ interface IPositionManager is IPositionManagerStorage, IPausable {
     ) external view returns (LimitOrderLibrary.Condition memory);
 
     /**
-     * @notice Сhecks if the position is risky.
-     * @param _id the id of the position
-     * @return (1) True if position is risky
-     */
-    function isPositionRisky(uint256 _id) external view returns (bool);
-
-    /**
      * @notice Checks if a position with the given ID is delisted.
      * @param _id The ID of the position.
      * @return A boolean indicating whether the position is delisted or not.
      */
     function isDelistedPosition(uint256 _id) external view returns (bool);
-
-    /**
-     * @notice Retrieves the health value of a position.
-     * @param _id The ID of the position.
-     * @return The health value of the position in WAD format.
-     */
-    function healthPosition(uint256 _id) external view returns (uint256);
 }

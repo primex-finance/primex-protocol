@@ -27,6 +27,7 @@ const {
   FeeRateType,
   USD_DECIMALS,
   USD_MULTIPLIER,
+  UpdatePullOracle,
 } = require("./utils/constants");
 const { wadDiv, wadMul, rayDiv, calculateMaxAssetLeverage } = require("./utils/math");
 const {
@@ -40,7 +41,7 @@ const {
   getMegaRoutes,
   getGas,
 } = require("./utils/dexOperations");
-const { calculateFeeInPositionAsset, calculateFeeAmountInPmx } = require("./utils/protocolUtils");
+const { calculateFeeInPaymentAsset, calculateFeeAmountInPmx } = require("./utils/protocolUtils");
 const { encodeFunctionData } = require("../tasks/utils/encodeFunctionData");
 
 const { eventValidation, parseArguments } = require("./utils/eventValidation");
@@ -1051,6 +1052,7 @@ describe("LimitOrderManager", function () {
               positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
               nativeSoldAssetOracleData: await getEncodedChainlinkRouteViaUsd(testTokenA),
               pullOracleData: [],
+              pullOracleTypes: [],
             },
             { gasPrice },
           ),
@@ -1393,7 +1395,8 @@ describe("LimitOrderManager", function () {
         pmxPositionAssetOracleData,
         positionUsdOracleData,
         nativeSoldAssetOracleData,
-        pullOracleData;
+        pullOracleData,
+        pullOracleTypes;
       let openPositionParams;
 
       before(async function () {
@@ -1407,6 +1410,7 @@ describe("LimitOrderManager", function () {
         positionUsdOracleData = getEncodedChainlinkRouteToUsd();
         nativeSoldAssetOracleData = await getEncodedChainlinkRouteViaUsd(testTokenA);
         pullOracleData = [];
+        pullOracleTypes = [];
 
         leverage = parseEther("2");
         const lenderAmount = parseUnits("50", decimalsA);
@@ -1437,6 +1441,7 @@ describe("LimitOrderManager", function () {
           testTokenB.address,
           amountBOut,
           borrowedAmount,
+          PrimexDNS.address,
         );
 
         const difference = limitPrice.sub(liquidationPrice).div(2);
@@ -1479,6 +1484,7 @@ describe("LimitOrderManager", function () {
           positionUsdOracleData,
           nativeSoldAssetOracleData,
           pullOracleData,
+          pullOracleTypes,
         };
       });
       after(async function () {
@@ -1696,7 +1702,8 @@ describe("LimitOrderManager", function () {
           timeStamp,
           0,
         );
-        openPositionParams.pullOracleData = [updateDataTokenA, updateDataTokenB, updateDataNative, updateDataPmx];
+        openPositionParams.pullOracleData = [[updateDataTokenA, updateDataTokenB, updateDataNative, updateDataPmx]];
+        openPositionParams.pullOracleTypes = [UpdatePullOracle.Pyth];
 
         await limitOrderManager.connect(liquidator).openPositionByOrder(openPositionParams, { value: 4 });
 
@@ -1721,7 +1728,7 @@ describe("LimitOrderManager", function () {
           testTokenA.address,
           testTokenB.address,
         ]);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
+        const feeInPositionAsset = await calculateFeeInPaymentAsset(
           testTokenB.address,
           amount0Out,
           FeeRateType.MarginLimitOrderExecuted,
@@ -1754,7 +1761,7 @@ describe("LimitOrderManager", function () {
         const amountAInWadDecimals = BigNumber.from(amountAIn).mul(multiplierA);
         const amountBOutWadDecimals = amountBOut.mul(multiplierB);
 
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
+        const feeInPositionAsset = await calculateFeeInPaymentAsset(
           testTokenB.address,
           amountBOut,
           FeeRateType.MarginLimitOrderExecuted,
@@ -1824,7 +1831,7 @@ describe("LimitOrderManager", function () {
           testTokenA.address,
           testTokenB.address,
         ]);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
+        const feeInPositionAsset = await calculateFeeInPaymentAsset(
           testTokenB.address,
           amount0Out,
           FeeRateType.MarginPositionClosedByKeeper,
@@ -1855,7 +1862,7 @@ describe("LimitOrderManager", function () {
           testTokenA.address,
           testTokenB.address,
         ]);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
+        const feeInPositionAsset = await calculateFeeInPaymentAsset(
           testTokenB.address,
           amount0Out,
           FeeRateType.MarginLimitOrderExecuted,
@@ -1913,7 +1920,7 @@ describe("LimitOrderManager", function () {
           testTokenA.address,
           testTokenB.address,
         ]);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
+        const feeInPositionAsset = await calculateFeeInPaymentAsset(
           testTokenB.address,
           amount0Out,
           FeeRateType.MarginLimitOrderExecuted,

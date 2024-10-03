@@ -56,7 +56,8 @@ interface IKeeperRewardDistributorStorage {
     }
     enum PaymentModel {
         DEFAULT,
-        ARBITRUM
+        ARBITRUM,
+        OPTIMISTIC
     }
 
     function priceOracle() external view returns (address);
@@ -96,4 +97,6 @@ interface IKeeperRewardDistributorStorage {
 
 interface IKeeperRewardDistributorStorageV2 is IKeeperRewardDistributorStorage {
     function minPositionSizeMultiplier() external view returns (uint256);
+
+    function optimisticGasCoefficient() external view returns (uint256);
 }

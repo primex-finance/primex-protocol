@@ -469,8 +469,10 @@ contract DexAdapter is IDexAdapter, IERC165, Initializable {
             return _swapWithAlgebraV3(_params);
         } else if (type_ == DexType.Paraswap) {
             return _swapWithParaswap(_params);
+        } else if (type_ == DexType.Enso) {
+            return _swapWithEnso(_params);
         } else {
-            _revert(Errors.UNKNOWN_DEX_TYPE.selector);
+            return _swapWithArbitraryDex(_params);
         }
     }
 
@@ -762,6 +764,46 @@ contract DexAdapter is IDexAdapter, IERC165, Initializable {
         Address.functionCallWithValue(
             _params.dexRouter,
             _params.encodedPath,
+            _params.tokenIn == NATIVE_CURRENCY ? _params.amountIn : 0
+        );
+
+        balance = IERC20(_params.tokenOut).balanceOf(_params.to) - balance;
+        _require(balance >= _params.amountOutMin, Errors.SLIPPAGE_TOLERANCE_EXCEEDED.selector);
+
+        return [_params.amountIn, balance, 0];
+    }
+
+    function _swapWithEnso(SwapParams memory _params) private returns (uint256[3] memory) {
+        uint256 balance = IERC20(_params.tokenOut).balanceOf(_params.to);
+
+        if (_params.tokenIn != NATIVE_CURRENCY) {
+            TokenApproveLibrary.doApprove(_params.tokenIn, _params.dexRouter, _params.amountIn);
+        }
+        // we just pass all payload data to the target router
+        Address.functionCallWithValue(
+            _params.dexRouter,
+            _params.encodedPath,
+            _params.tokenIn == NATIVE_CURRENCY ? _params.amountIn : 0
+        );
+
+        balance = IERC20(_params.tokenOut).balanceOf(_params.to) - balance;
+        _require(balance >= _params.amountOutMin, Errors.SLIPPAGE_TOLERANCE_EXCEEDED.selector);
+
+        return [_params.amountIn, balance, 0];
+    }
+
+    function _swapWithArbitraryDex(SwapParams memory _params) private returns (uint256[3] memory) {
+        uint256 balance = IERC20(_params.tokenOut).balanceOf(_params.to);
+
+        (address spender, bytes memory encodedPath) = abi.decode(_params.encodedPath, (address, bytes));
+
+        if (_params.tokenIn != NATIVE_CURRENCY) {
+            TokenApproveLibrary.doApprove(_params.tokenIn, spender, _params.amountIn);
+        }
+        // we just pass all payload data to the target router
+        Address.functionCallWithValue(
+            _params.dexRouter,
+            encodedPath,
             _params.tokenIn == NATIVE_CURRENCY ? _params.amountIn : 0
         );
 

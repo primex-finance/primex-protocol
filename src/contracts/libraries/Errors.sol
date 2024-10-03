@@ -166,6 +166,7 @@ library Errors {
     error SOLD_ASSET_IS_INCORRECT();
 
     // Price Oracle
+    error THERE_IS_DIRECT_ROUTE();
     error ZERO_EXCHANGE_RATE();
     error NO_PRICEFEED_FOUND();
     error NO_PRICE_DROP_FEED_FOUND();
@@ -234,7 +235,7 @@ library Errors {
     error DEPOSITED_TO_BORROWED_ROUTES_LENGTH_SHOULD_BE_0();
     error INCORRECT_CM_TYPE();
     error FEE_RATE_IN_NATIVE_IS_ZERO();
-    error MIN_PROTOCOL_FEE_IS_GREATER_THAN_POSITION_SIZE();
+    error MIN_PROTOCOL_FEE_IS_GREATER_THAN_PAYMENT_AMOUNT();
 
     // Token transfers
     error TOKEN_TRANSFER_IN_FAILED();
@@ -291,6 +292,7 @@ library Errors {
     //KeeperRewardDistributor
     error INCORRECT_PART_IN_REWARD();
     error INCORRECT_MULTIPLIER();
+    error INCORRECT_OPTIMISM_GAS_COEFFICIENT();
 
     //Treasury
     error TRANSFER_RESTRICTIONS_NOT_MET();
@@ -300,4 +302,10 @@ library Errors {
     error EXCEEDED_MAX_SPENDING_LIMITS();
     error SPENDING_LIMITS_ARE_INCORRECT();
     error SPENDER_IS_NOT_EXIST();
+
+    //FlashLoan
+    error INCONSISTENT_FLASHLOAN_PARAMS();
+    error INVALID_FLASHLOAN_EXECUTOR_RETURN();
+    error FLASH_LOAN_FEE_RATE_IS_MORE_10_PERCENT();
+    error FLASH_LOAN_PROTOCOL_RATE_IS_MORE_50_PERCENT();
 }

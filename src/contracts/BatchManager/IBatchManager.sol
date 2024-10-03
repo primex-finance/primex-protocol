@@ -26,7 +26,6 @@ interface IBatchManager is IBatchManagerStorage, IPausable {
         uint256[] depositsDecrease;
         uint256[] decreasingCounter;
         IKeeperRewardDistributorStorage.KeeperActionType actionType;
-        uint256 numberOfPositions;
         uint256 oracleTolerableLimit;
         uint256 securityBuffer;
         IPositionManagerV2 positionManager;
@@ -45,13 +44,14 @@ interface IBatchManager is IBatchManagerStorage, IPausable {
         uint256[] returnedToTraders;
         uint256 amountToReturn;
         uint256 positionAmountInBorrowedAsset;
+        uint256 positionAmountInBorrowedAssetAfterFee;
         uint256 normalizedVariableDebt;
         uint256 permanentLoss;
         uint256[] shareOfBorrowedAssetAmount;
         bool isLiquidation;
-        uint256[] feeInPositionAsset;
+        uint256[] feeInPaymentAsset;
         uint256[] feeInPmx;
-        uint256 totalFeeInPositionAsset;
+        uint256 totalFeeInPaymentAsset;
     }
 
     struct CloseBatchPositionsLocalData {
@@ -103,12 +103,13 @@ interface IBatchManager is IBatchManagerStorage, IPausable {
         IBucketV3 _bucket,
         uint256[] calldata _conditionIndexes,
         PositionLibrary.CloseReason _closeReason,
-        bytes memory _positionSoldAssetOracleData,
+        bytes calldata _positionSoldAssetOracleData,
         bytes calldata _nativePmxOracleData,
-        bytes calldata _nativePositionAssetOracleData,
+        bytes calldata _nativeSoldAssetOracleData,
         bytes calldata _positionNativeAssetOracleData,
-        bytes calldata _pmxPositionAssetOracleData,
-        bytes[] calldata _pullOracleData
+        bytes calldata _pmxSoldAssetOracleData,
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
     ) external payable;
 
     /**

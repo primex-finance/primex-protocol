@@ -22,10 +22,10 @@
     "adminWithdrawalDelayInDays": 180,
     "maxProtocolFee": "MaxUint256",
     "protocolFeeCoefficient": "0",
-    "liquidationGasAmount": "250000",
+    "liquidationGasAmount": "1661000",
     "pmxDiscountMultiplier": "0.95",
     "gasPriceBuffer": "1.05",
-    "additionalGasSpent": "100000",
+    "additionalGasSpent": "908000",
     "feeRates": {
       "MarginPositionClosedByTrader": "0.005",
       "SpotPositionClosedByTrader": "0.002",
@@ -37,27 +37,27 @@
       "SwapMarketOrder": "0.003"
     },
     "averageGasPerAction": {
-      "MarginMarketOrder": "100000",
-      "SpotMarketOrder": "100000",
-      "MarginLimitOrder": "100000",
-      "MarginLimitOrderDepositInThirdAsset": "100000",
-      "SpotLimitOrder": "100000",
-      "SwapLimitOrder": "100000"
+      "MarginMarketOrder": "1763000",
+      "SpotMarketOrder": "1272000",
+      "MarginLimitOrder": "2340000",
+      "MarginLimitOrderDepositInThirdAsset": "2648000",
+      "SpotLimitOrder": "1924000",
+      "SwapLimitOrder": "1401000"
     },
     "minFeeRestrictions": {
       "OpenPositionByOrder": {
-        "maxGasAmount": "1000000",
+        "maxGasAmount": "3000000",
         "baseLength": "1100"
       },
       "ClosePositionByCondition": {
-        "maxGasAmount": "1000000",
+        "maxGasAmount": "2000000",
         "baseLength": "650"
       }
     }
   },
   "BatchManagerConfig": {
-    "gasPerPosition": "100000",
-    "gasPerBatch": "50000"
+    "gasPerPosition": "171000",
+    "gasPerBatch": "1490000"
   },
   "SpotTradingRD": {
     "increaseAmount": "1000000",
@@ -71,7 +71,7 @@
     "pmxPartInReward": "0.05",
     "nativePartInReward": "0.95",
     "positionSizeCoefficient": "0.001",
-    "additionalGas": "150000",
+    "additionalGas": "175000",
     "defaultMaxGasPriceGwei": "200",
     "oracleGasPriceTolerance": "0.25",
     "minPositionSizeMultiplier": "1.1",
@@ -80,46 +80,50 @@
       "OpenByOrder": {
         "baseMaxGas1": 0,
         "baseMaxGas2": 0,
-        "multiplier1": 1700000,
+        "multiplier1": 1850000,
         "multiplier2": 0,
         "inflectionPoint": 0
       },
       "StopLoss": {
-        "baseMaxGas1": 850000,
+        "baseMaxGas1": 1498000,
         "baseMaxGas2": 0,
-        "multiplier1": 216000,
+        "multiplier1": 169000,
         "multiplier2": 0,
         "inflectionPoint": 0
       },
       "TakeProfit": {
-        "baseMaxGas1": 850000,
+        "baseMaxGas1": 1523000,
         "baseMaxGas2": 0,
-        "multiplier1": 216000,
+        "multiplier1": 169000,
         "multiplier2": 0,
         "inflectionPoint": 0
       },
       "Liquidation": {
-        "baseMaxGas1": 923000,
-        "baseMaxGas2": 3995000,
-        "multiplier1": 186000,
-        "multiplier2": 53000,
-        "inflectionPoint": 24
+        "baseMaxGas1": 1533000,
+        "baseMaxGas2": 0,
+        "multiplier1": 154000,
+        "multiplier2": 0,
+        "inflectionPoint": 0
       },
       "BucketDelisted": {
-        "baseMaxGas1": 850000,
+        "baseMaxGas1": 1553000,
         "baseMaxGas2": 0,
-        "multiplier1": 216000,
+        "multiplier1": 154000,
         "multiplier2": 0,
         "inflectionPoint": 0
       }
     },
     "decreasingGasByReasonParams": {
-      "NonExistentIdForLiquidation": 8172,
-      "NonExistentIdForSLOrTP": 7184,
-      "IncorrectConditionForLiquidation": 16424,
-      "IncorrectConditionForSL": 19441,
-      "ClosePostionInTheSameBlock": 199760
+      "NonExistentIdForLiquidation": 11423,
+      "NonExistentIdForSLOrTP": 10453,
+      "IncorrectConditionForLiquidation": 27765,
+      "IncorrectConditionForSL": 68521,
+      "ClosePostionInTheSameBlock": 92823
     }
+  },
+  "FlashLoanManagerConfig": {
+    "flashLoanFeeRate": "0.0005",
+    "flashLoanProtocolRate": "0.2"
   },
   "TreasuryConfig": {
     "setMaxSpendingLimit": [

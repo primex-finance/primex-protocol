@@ -35,6 +35,7 @@ const {
   calculateMaxAssetLeverage,
 } = require("./utils/math");
 const { MAX_TOKEN_DECIMALITY, WAD, FeeRateType, BAR_CALC_PARAMS_DECODE, RAY, USD_DECIMALS, USD_MULTIPLIER } = require("./utils/constants");
+const { FLASH_LOAN_MANAGER_ROLE } = require("../Constants");
 const { getPoolAddressesProvider } = require("@aave/deploy-v3");
 const {
   deployMockPToken,
@@ -104,7 +105,7 @@ describe("Bucket", function () {
   let PriceInETH;
   let BigTimelockAdmin, MediumTimelockAdmin, SmallTimelockAdmin;
   let barCalcParams, interestRateStrategy;
-  let multiplierA, multiplierB;
+  let multiplierA, multiplierB, snapshotId;
   // let multiplierA;
   before(async function () {
     await fixture(["Test"]);
@@ -190,6 +191,19 @@ describe("Bucket", function () {
     await setupUsdOraclesForTokens(testTokenY, await priceOracle.eth(), PriceInETH);
     await setupUsdOraclesForTokens(testTokenZ, await priceOracle.eth(), PriceInETH);
     await setupUsdOraclesForToken(testTokenB, parseUnits("1", USD_DECIMALS));
+  });
+  beforeEach(async function () {
+    snapshotId = await network.provider.request({
+      method: "evm_snapshot",
+      params: [],
+    });
+  });
+
+  afterEach(async function () {
+    snapshotId = await network.provider.request({
+      method: "evm_revert",
+      params: [snapshotId],
+    });
   });
 
   describe("Initialization", function () {
@@ -1998,6 +2012,7 @@ describe("Bucket", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       const BAR = await bucket.bar();
       for (let i = 0; i < 10; i++) {
@@ -2060,6 +2075,7 @@ describe("Bucket", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       const BAR = await bucket.bar();
       for (let i = 0; i < 10; i++) {
@@ -2123,6 +2139,7 @@ describe("Bucket", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       const BAR = await bucket.bar();
       for (let i = 0; i < 10; i++) {
@@ -2187,6 +2204,7 @@ describe("Bucket", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       // If the number of cycles increases,
       // the amount of P-tokens may exceed the availableLiquidity of the bucket.
@@ -2215,6 +2233,7 @@ describe("Bucket", function () {
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(testTokenB),
           getEncodedChainlinkRouteViaUsd(testTokenB),
+          [],
           [],
         );
       const pTokenSum = (await pTestTokenA.balanceOf(lender.address)).add(await pTestTokenA.balanceOf(reserve.address));
@@ -2260,6 +2279,7 @@ describe("Bucket", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       for (let i = 0; i < 10; i++) {
         await network.provider.send("evm_mine");
@@ -2274,6 +2294,7 @@ describe("Bucket", function () {
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(testTokenB),
           getEncodedChainlinkRouteViaUsd(testTokenB),
+          [],
           [],
         );
       const pTokenSum = (await pTestTokenA.balanceOf(lender.address)).add(await pTestTokenA.balanceOf(reserve.address));
@@ -2632,6 +2653,7 @@ describe("Bucket", function () {
       pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
       nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
       pullOracleData: [],
+      pullOracleTypes: [],
     });
 
     const positionsId = await positionManager.positionsId();
@@ -2663,6 +2685,7 @@ describe("Bucket", function () {
         getEncodedChainlinkRouteViaUsd(testTokenA),
         getEncodedChainlinkRouteViaUsd(testTokenB),
         getEncodedChainlinkRouteViaUsd(testTokenB),
+        [],
         [],
       );
   }
@@ -3102,6 +3125,7 @@ describe("Bucket", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       const pTestTokenAddress = await bucket.pToken();
       const pTestTokenA = await getContractAt("PToken", pTestTokenAddress);
@@ -3110,6 +3134,67 @@ describe("Bucket", function () {
         ErrorsLibrary,
         "NOT_ENOUGH_LIQUIDITY_IN_THE_BUCKET",
       );
+    });
+  });
+  describe("Flash loan operations", function () {
+    let snapshotId;
+    let deposit, amount, availableLiquidity;
+    before(async function () {
+      deposit = parseUnits("100", decimalsA);
+      amount = parseUnits("5", decimalsA);
+      availableLiquidity = deposit;
+      const dexAdapter = await getContract("DexAdapter");
+      const registryAddress = await dexAdapter.registry();
+      const registry = await getContractAt("PrimexRegistry", registryAddress);
+      const txGrantRole = await registry.grantRole(FLASH_LOAN_MANAGER_ROLE, caller.address);
+      await txGrantRole.wait();
+      await testTokenA.connect(lender).approve(bucket.address, deposit);
+      await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, deposit, true);
+    });
+    beforeEach(async function () {
+      snapshotId = await network.provider.request({
+        method: "evm_snapshot",
+        params: [],
+      });
+    });
+
+    afterEach(async function () {
+      snapshotId = await network.provider.request({
+        method: "evm_revert",
+        params: [snapshotId],
+      });
+    });
+
+    it("Should revert if not FLASH_LOAN_MANAGER_ROLE call updateRates", async function () {
+      await expect(bucket.connect(trader).updateRates()).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
+    });
+    it("Should updateRates if caller has FLASH_LOAN_MANAGER_ROLE", async function () {
+      expect(await bucket.connect(caller).updateRates());
+    });
+    it("Should revert if not FLASH_LOAN_MANAGER_ROLE call cumulateToLiquidityIndex", async function () {
+      await expect(bucket.connect(trader).cumulateToLiquidityIndex(amount, availableLiquidity)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+    it("Should cumulateToLiquidityIndex if caller has FLASH_LOAN_MANAGER_ROLE", async function () {
+      expect(await bucket.connect(caller).cumulateToLiquidityIndex(amount, availableLiquidity));
+    });
+    it("Should revert if not FLASH_LOAN_MANAGER_ROLE call performFlashLoanTransfer", async function () {
+      await expect(bucket.connect(trader).performFlashLoanTransfer(traderBalanceVault.address, 10)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+    it("Should performFlashLoanTransfer if caller has FLASH_LOAN_MANAGER_ROLE", async function () {
+      expect(await bucket.connect(caller).performFlashLoanTransfer(traderBalanceVault.address, 10));
+    });
+    it("Should cumulateToLiquidityIndex and correctly update liquidityIndex", async function () {
+      const currentLiquidityIndex = await bucket.liquidityIndex();
+      const percent = rayDiv(amount.toString(), deposit.toString()).toString();
+      const expectedLiquidityIndex = rayMul(BigNumber.from(percent).add(RAY.toString()).toString(), currentLiquidityIndex.toString());
+      await bucket.connect(caller).cumulateToLiquidityIndex(amount, availableLiquidity);
+      expect(await bucket.liquidityIndex()).to.equal(expectedLiquidityIndex);
     });
   });
 });

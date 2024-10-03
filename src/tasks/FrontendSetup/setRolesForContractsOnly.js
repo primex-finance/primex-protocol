@@ -9,6 +9,7 @@ const {
   PM_ROLE,
   LOM_ROLE,
   BATCH_MANAGER_ROLE,
+  FLASH_LOAN_MANAGER_ROLE,
 } = require("../../Constants.js");
 
 module.exports = async function ({ _ }, { ethers: { getContract } }) {
@@ -23,6 +24,7 @@ module.exports = async function ({ _ }, { ethers: { getContract } }) {
     PM_ROLE,
     LOM_ROLE,
     BATCH_MANAGER_ROLE,
+    FLASH_LOAN_MANAGER_ROLE,
   ];
 
   const txSetRolesForContractsOnly = await registry.setRolesForContractsOnly(roles);

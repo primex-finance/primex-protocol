@@ -37,6 +37,7 @@ describe("DexAdapter", function () {
   let dexAdapter, DNS, PM, registry, deployer, caller, trader, MediumTimelockAdmin, ErrorsLibrary;
   let NonStandartERC20Token, nonStandartTokenDecimal, WETH;
   let mockRegistry, mockDNS, mockErc165;
+  let snapshotId;
 
   before(async function () {
     await fixture(["Test"]);
@@ -63,6 +64,16 @@ describe("DexAdapter", function () {
     mockRegistry = await deployMockAccessControl(deployer);
     mockDNS = await deployMockPrimexDNS(deployer);
     mockErc165 = await deployMockERC165(deployer);
+    snapshotId = await network.provider.request({
+      method: "evm_snapshot",
+      params: [],
+    });
+  });
+  afterEach(async function () {
+    await network.provider.request({
+      method: "evm_revert",
+      params: [snapshotId],
+    });
   });
 
   it("Storage", async function () {
@@ -268,13 +279,34 @@ describe("DexAdapter", function () {
         "ZERO_AMOUNT_IN",
       );
     });
+    it("Should swapExactTokensForTokens() through swapWithArbitraryDex", async function () {
+      await dexAdapter.setDexType(dexRouter, 0);
+      const amountIn = parseUnits("1", decimalsA);
+      const amountOutMin = 0;
+      const path = [testTokenA.address, testTokenB.address];
+      const to = trader.address;
+      const deadline = new Date().getTime() + 600;
 
-    it("Should revert swapExactTokensForTokens() when dex unknown", async function () {
-      swapExactTokensForTokensParams.dexRouter = mockErc165.address;
-      await expect(dexAdapter.connect(caller).swapExactTokensForTokens(swapExactTokensForTokensParams)).to.be.revertedWithCustomError(
-        ErrorsLibrary,
-        "UNKNOWN_DEX_TYPE",
-      );
+      const uniswapV2Router02 = await getContractAt("UniswapV2Router02", dexRouter);
+      const encodedData = uniswapV2Router02.interface.encodeFunctionData("swapExactTokensForTokens", [
+        amountIn,
+        amountOutMin,
+        path,
+        to,
+        deadline,
+      ]);
+      const encodedPath = defaultAbiCoder.encode(["address", "bytes"], [dexRouter, encodedData]);
+      const swapExactTokensForTokensParams = {
+        encodedPath: encodedPath,
+        tokenIn: testTokenA.address,
+        tokenOut: testTokenB.address,
+        amountIn: amountIn,
+        amountOutMin: amountOutMin,
+        to: to,
+        deadline: deadline,
+        dexRouter: dexRouter,
+      };
+      expect(await dexAdapter.connect(caller).swapExactTokensForTokens(swapExactTokensForTokensParams));
     });
   });
 

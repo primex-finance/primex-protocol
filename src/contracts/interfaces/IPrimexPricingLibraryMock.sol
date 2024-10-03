@@ -35,7 +35,8 @@ interface IPrimexPricingLibraryMock {
         address _bucket,
         address _positionAsset,
         uint256 _positionAmount,
-        uint256 _positionDebt
+        uint256 _positionDebt,
+        address _primexDNS
     ) external view returns (uint256);
 
     function getLiquidationPriceByOrder(

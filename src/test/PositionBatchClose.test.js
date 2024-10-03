@@ -209,6 +209,7 @@ describe("PositionManager batch functions", function () {
       pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
       nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
       pullOracleData: [],
+      pullOracleTypes: [],
     };
 
     const swap = swapSize.mul(multiplierA);
@@ -249,6 +250,7 @@ describe("PositionManager batch functions", function () {
       pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
       nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
       pullOracleData: [],
+      pullOracleTypes: [],
     };
   });
 
@@ -265,6 +267,7 @@ describe("PositionManager batch functions", function () {
         libraries: {
           PositionLibrary: PositionLibrary.address,
           PrimexPricingLibrary: PrimexPricingLibrary.address,
+          TokenTransfersLibrary: tokenTransfersLibrary.address,
         },
       });
 
@@ -454,9 +457,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_LIQUIDATION,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "THERE_MUST_BE_AT_LEAST_ONE_POSITION");
@@ -508,9 +512,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_LIQUIDATION,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "POSITION_BUCKET_IS_INCORRECT");
@@ -530,9 +535,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_LIQUIDATION,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "SENDER_IS_BLACKLISTED");
@@ -551,9 +557,10 @@ describe("PositionManager batch functions", function () {
           CloseReason.BATCH_LIQUIDATION,
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
           [],
         ),
       ).to.be.revertedWith("Pausable: paused");
@@ -572,9 +579,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_LIQUIDATION,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "ASSET_ADDRESS_NOT_SUPPORTED");
@@ -593,9 +601,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_LIQUIDATION,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "ASSET_ADDRESS_NOT_SUPPORTED");
@@ -620,9 +629,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_LIQUIDATION,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "SOLD_ASSET_IS_INCORRECT");
@@ -641,9 +651,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_STOP_LOSS,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "PARAMS_LENGTH_MISMATCH");
@@ -675,9 +686,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_LIQUIDATION,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "DIFFERENT_PRICE_DEX_AND_ORACLE");
@@ -696,9 +708,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.CLOSE_BY_TRADER,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "BATCH_CANNOT_BE_CLOSED_FOR_THIS_REASON");
@@ -749,15 +762,21 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_LIQUIDATION,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
             { gasPrice: gasPrice },
           ),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "MIN_PROTOCOL_FEE_IS_GREATER_THAN_POSITION_SIZE");
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "MIN_PROTOCOL_FEE_IS_GREATER_THAN_PAYMENT_AMOUNT");
     });
     it("Shouldn't liquidate position until it is not risky", async function () {
+      await swapExactTokensForTokens({
+        dex: dex,
+        amountIn: parseUnits("100", decimalsA).toString(),
+        path: [testTokenA.address, testTokenB.address],
+      });
       await expect(
         batchManager
           .connect(liquidator)
@@ -771,12 +790,13 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_LIQUIDATION,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "NOTHING_TO_CLOSE");
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "POSITION_CANNOT_BE_CLOSED_FOR_THIS_REASON");
     });
     it("Should liquidate position if it's not risky but positionAsset is removed from allowedAsset of this bucket", async function () {
       const amountB = totalPositionAmount.mul(multiplierB);
@@ -784,28 +804,6 @@ describe("PositionManager batch functions", function () {
       const amountA = amount0Out.mul(multiplierA);
       const price = wadDiv(amountB.toString(), amountA.toString()).toString();
       const dexExchangeRate = BigNumber.from(price).div(USD_MULTIPLIER);
-      // to make the health > WAD
-      await setOraclePrice(testTokenA, testTokenB, dexExchangeRate.div("2"));
-      await expect(
-        batchManager
-          .connect(liquidator)
-          .closeBatchPositions(
-            [0, 1],
-            routesForClose,
-            testTokenB.address,
-            testTokenA.address,
-            bucketAddress,
-            [],
-            CloseReason.BATCH_LIQUIDATION,
-            getEncodedChainlinkRouteViaUsd(testTokenA),
-            getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
-            getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
-            [],
-          ),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "NOTHING_TO_CLOSE");
-
       await setOraclePrice(testTokenA, testTokenB, dexExchangeRate);
 
       await bucket.removeAsset(testTokenB.address);
@@ -822,9 +820,10 @@ describe("PositionManager batch functions", function () {
           CloseReason.BATCH_LIQUIDATION,
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
           [],
         );
     });
@@ -838,9 +837,8 @@ describe("PositionManager batch functions", function () {
 
       const amountB = totalPositionAmount.mul(multiplierB);
       const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
-      const feeInPositionAsset = wadMul(totalPositionAmount.toString(), feeRate.toString()).toString();
-      const totalPositionAmountAfterFee = totalPositionAmount.sub(feeInPositionAsset);
-      const amount0Out = await getAmountsOut(dex, totalPositionAmountAfterFee, [testTokenB.address, testTokenA.address]);
+      const amount0Out = await getAmountsOut(dex, totalPositionAmount, [testTokenB.address, testTokenA.address]);
+      const feeInPaymentAsset = wadMul(amount0Out.toString(), feeRate.toString()).toString();
       const amountA = amount0Out.mul(multiplierA);
       const price = wadDiv(amountB.toString(), amountA.toString()).toString();
       const dexExchangeRate = BigNumber.from(price).div(USD_MULTIPLIER);
@@ -870,9 +868,11 @@ describe("PositionManager batch functions", function () {
 
       const shareOfBorrowedAmountOut0 = positionAmount0.mul(amount0Out).div(totalPositionAmount);
       const shareOfBorrowedAmountOut1 = positionAmount1.mul(amount0Out).div(totalPositionAmount);
+      const feeInPaymentAsset0 = BigNumber.from(feeInPaymentAsset).mul(shareOfBorrowedAmountOut0).div(amount0Out);
+      const feeInPaymentAsset1 = BigNumber.from(feeInPaymentAsset).mul(shareOfBorrowedAmountOut1).div(amount0Out);
 
-      const returnedToTrader0 = shareOfBorrowedAmountOut0.sub(positionDebt0);
-      const returnedToTrader1 = shareOfBorrowedAmountOut1.sub(positionDebt1);
+      const returnedToTrader0 = shareOfBorrowedAmountOut0.sub(positionDebt0).sub(feeInPaymentAsset0);
+      const returnedToTrader1 = shareOfBorrowedAmountOut1.sub(positionDebt1).sub(feeInPaymentAsset1);
 
       const { availableBalance: balanceBefore } = await traderBalanceVault.balances(trader.address, testTokenA.address);
 
@@ -890,21 +890,30 @@ describe("PositionManager batch functions", function () {
             CloseReason.BUCKET_DELISTED,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.changeTokenBalances(
         testTokenA,
         [bucket, traderBalanceVault],
-        [amount0Out.sub(returnedToTrader0.add(returnedToTrader1)), returnedToTrader0.add(returnedToTrader1)],
+        [
+          amount0Out.sub(feeInPaymentAsset).sub(returnedToTrader0.add(returnedToTrader1)).add(1),
+          returnedToTrader0.add(returnedToTrader1).sub(1),
+        ],
       );
       const { availableBalance: balanceAfter } = await traderBalanceVault.balances(trader.address, testTokenA.address);
-      expect(balanceAfter.sub(balanceBefore)).to.equal(returnedToTrader0.add(returnedToTrader1));
+      expect(balanceAfter.sub(balanceBefore)).to.equal(returnedToTrader0.add(returnedToTrader1).sub(1));
     });
 
     it("Should revert liquidate positions by BUCKET_DELISTED reason if bucket isn't delisted", async function () {
+      await swapExactTokensForTokens({
+        dex: dex,
+        amountIn: parseUnits("100", decimalsA).toString(),
+        path: [testTokenA.address, testTokenB.address],
+      });
       await expect(
         batchManager
           .connect(liquidator)
@@ -918,9 +927,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BUCKET_DELISTED,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "POSITION_CANNOT_BE_CLOSED_FOR_THIS_REASON");
@@ -933,9 +943,6 @@ describe("PositionManager batch functions", function () {
         amountIn: parseUnits("1", decimalsB).toString(),
         path: [testTokenB.address, testTokenA.address],
       });
-      const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
-      const feeInPositionAsset = wadMul(totalPositionAmount.toString(), feeRate.toString()).toString();
-      const totalPositionAmountAfterFee = totalPositionAmount.sub(feeInPositionAsset);
       const amountB0 = positionAmount0.mul(multiplierB);
       const amountB1 = positionAmount1.mul(multiplierB);
       const amount0Out = await getAmountsOut(dex, positionAmount0, [testTokenB.address, testTokenA.address]);
@@ -976,8 +983,6 @@ describe("PositionManager batch functions", function () {
       const denominator2 = wadMul(feeBuffer.toString(), positionDebt1.toString()).toString();
       const positionState0 = wadDiv(numerator0, denominator0).toString();
       const positionState1 = wadDiv(numerator1, denominator2).toString();
-      expect(await positionManager.callStatic.healthPosition(0, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.equal(positionState0);
-      expect(await positionManager.callStatic.healthPosition(1, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.equal(positionState1);
       expect(positionState0).to.be.lt(bnWAD);
       expect(positionState1).to.be.lt(bnWAD);
 
@@ -1000,15 +1005,16 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_LIQUIDATION,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
-      ).to.changeTokenBalances(testTokenB, [positionManager, pair], [totalPositionAmount.mul(NegativeOne), totalPositionAmountAfterFee]);
+      ).to.changeTokenBalances(testTokenB, [positionManager, pair], [totalPositionAmount.mul(NegativeOne), totalPositionAmount]);
     });
 
-    it("Should skip id if position does not exist", async function () {
+    it("Should revert batchClosePosition if position does not exist", async function () {
       await swapExactTokensForTokens({
         dex: dex,
         amountIn: parseUnits("1", decimalsB).toString(),
@@ -1023,30 +1029,29 @@ describe("PositionManager batch functions", function () {
       const dexExchangeRate = BigNumber.from(price).div(USD_MULTIPLIER);
       await setOraclePrice(testTokenA, testTokenB, dexExchangeRate);
 
-      const tx = await batchManager
-        .connect(liquidator)
-        .closeBatchPositions(
-          [0, 100, 1, 200],
-          routesForClose,
-          testTokenB.address,
-          testTokenA.address,
-          bucketAddress,
-          [],
-          CloseReason.BATCH_LIQUIDATION,
-          getEncodedChainlinkRouteViaUsd(testTokenA),
-          getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
-          getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
-          [],
-        );
-
-      const txReceipt = await tx.wait();
-      const events = getDecodedEvents("ClosePosition", txReceipt, await getContractAt("PositionLibrary", batchManager.address));
-      expect(events.length).to.be.equal(2);
+      await expect(
+        batchManager
+          .connect(liquidator)
+          .closeBatchPositions(
+            [0, 100, 1, 200],
+            routesForClose,
+            testTokenB.address,
+            testTokenA.address,
+            bucketAddress,
+            [],
+            CloseReason.BATCH_LIQUIDATION,
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            getEncodedChainlinkRouteViaUsd(PMXToken),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            getEncodedChainlinkRouteViaUsd(ethAddress),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
+            [],
+          ),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "POSITION_DOES_NOT_EXIST");
     });
 
-    it("Should liquidate 2 out of 3 positions when the last one is not risky", async function () {
+    it("Should liquidate 2 out of 2 position", async function () {
       // open the third position with a small debt so that the position could not be liquidated
       const { payload } = await encodeFunctionData(
         "setOracleTolerableLimit",
@@ -1054,11 +1059,6 @@ describe("PositionManager batch functions", function () {
         "PositionManagerExtension",
       );
       await positionManager.connect(deployer).setProtocolParamsByAdmin(payload);
-      const borrowedOfNonRiskyPosition = parseUnits("0.1", decimalsA);
-      OpenPositionParams.marginParams.borrowedAmount = borrowedOfNonRiskyPosition;
-      OpenPositionParams.depositAmount = parseUnits("5", decimalsA);
-      const swapSize = OpenPositionParams.marginParams.borrowedAmount.add(OpenPositionParams.depositAmount);
-      await testTokenA.connect(trader).approve(positionManager.address, MaxUint256);
       const swap = swapSize.mul(multiplierA);
       let amountOut = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
       const amountB = amountOut.mul(multiplierB);
@@ -1066,9 +1066,7 @@ describe("PositionManager batch functions", function () {
       price = BigNumber.from(price).div(USD_MULTIPLIER);
       await setOraclePrice(testTokenA, testTokenB, price);
 
-      await positionManager.connect(trader).openPosition(OpenPositionParams);
-
-      // make 2 out of 3 positions risky
+      // make 2 out of 2 positions risky
       await swapExactTokensForTokens({
         dex: dex,
         amountIn: parseUnits("1", decimalsB).toString(),
@@ -1082,14 +1080,10 @@ describe("PositionManager batch functions", function () {
       price = BigNumber.from(price).div(USD_MULTIPLIER);
       await setOraclePrice(testTokenA, testTokenB, price);
 
-      expect(await positionManager.callStatic.isPositionRisky(0, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.be.equal(true);
-      expect(await positionManager.callStatic.isPositionRisky(1, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.be.equal(true);
-      expect(await positionManager.callStatic.isPositionRisky(2, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.be.equal(false);
-
       const tx = await batchManager
         .connect(liquidator)
         .closeBatchPositions(
-          [0, 1, 2],
+          [0, 1],
           routesForClose,
           testTokenB.address,
           testTokenA.address,
@@ -1098,103 +1092,15 @@ describe("PositionManager batch functions", function () {
           CloseReason.BATCH_LIQUIDATION,
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
           [],
         );
       const txReceipt = await tx.wait();
-      // closeTo because of the index
-      expect(await debtTokenA.balanceOf(trader.address)).to.be.closeTo(borrowedOfNonRiskyPosition, parseUnits("0.001", decimalsA));
-      expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
       const events = getDecodedEvents("ClosePosition", txReceipt, await getContractAt("PositionLibrary", batchManager.address));
       expect(events.length).to.be.equal(2);
-    });
-
-    it("Should liquidate 3 out of 4 positions when the second to last one is not risky", async function () {
-      // open the third position with a small debt so that the position could not be liquidated
-      const { payload } = await encodeFunctionData(
-        "setOracleTolerableLimit",
-        [testTokenA.address, testTokenB.address, parseEther("0.5")],
-        "PositionManagerExtension",
-      );
-      await positionManager.connect(deployer).setProtocolParamsByAdmin(payload);
-      const borrowedOfNonRiskyPosition = parseUnits("0.1", decimalsA);
-      OpenPositionParams.marginParams.borrowedAmount = borrowedOfNonRiskyPosition;
-      OpenPositionParams.depositAmount = parseUnits("5", decimalsA);
-
-      let swapSize = OpenPositionParams.marginParams.borrowedAmount.add(OpenPositionParams.depositAmount);
-      let swap = swapSize.mul(multiplierA);
-      let amountOut = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
-      let amountB = amountOut.mul(multiplierB);
-      let limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
-      let price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
-      await setOraclePrice(testTokenA, testTokenB, price);
-
-      await positionManager.connect(trader).openPosition(OpenPositionParams);
-
-      OpenPositionParams.marginParams.borrowedAmount = parseUnits("1", decimalsA);
-      OpenPositionParams.depositAmount = parseUnits("10", decimalsA);
-      swapSize = OpenPositionParams.marginParams.borrowedAmount.add(OpenPositionParams.depositAmount);
-
-      swap = swapSize.mul(multiplierA);
-      amountOut = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
-      amountB = amountOut.mul(multiplierB);
-      limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
-      price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
-      await setOraclePrice(testTokenA, testTokenB, price);
-      await positionManager.connect(trader).openPosition(OpenPositionParams);
-      // make 3 out of 4 positions risky
-      await swapExactTokensForTokens({
-        dex: dex,
-        amountIn: parseUnits("2", decimalsB).toString(),
-        path: [testTokenB.address, testTokenA.address],
-      });
-
-      const amountB0 = positionAmount0.mul(multiplierB);
-      const amount0Out = await getAmountsOut(dex, positionAmount0, [testTokenB.address, testTokenA.address]);
-      const amountA = amount0Out.mul(multiplierA);
-      price = wadDiv(amountB0.toString(), amountA.toString()).toString();
-      const dexExchangeRate = BigNumber.from(price).div(USD_MULTIPLIER);
-      await setOraclePrice(testTokenA, testTokenB, dexExchangeRate);
-
-      expect(await positionManager.callStatic.isPositionRisky(0, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.be.equal(true);
-      expect(await positionManager.callStatic.isPositionRisky(1, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.be.equal(true);
-      expect(await positionManager.callStatic.isPositionRisky(2, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.be.equal(false);
-      expect(await positionManager.callStatic.isPositionRisky(3, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.be.equal(true);
-
-      const tx = await batchManager
-        .connect(liquidator)
-        .closeBatchPositions(
-          [0, 1, 2, 3],
-          routesForClose,
-          testTokenB.address,
-          testTokenA.address,
-          bucketAddress,
-          [],
-          CloseReason.BATCH_LIQUIDATION,
-          getEncodedChainlinkRouteViaUsd(testTokenA),
-          getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
-          getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
-          [],
-        );
-      const txReceipt = await tx.wait();
-      // closeTo because of the index
-      expect(await debtTokenA.balanceOf(trader.address)).to.be.closeTo(borrowedOfNonRiskyPosition, parseUnits("0.001", decimalsA));
-      expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
-
-      const events = getDecodedEvents("ClosePosition", txReceipt, await getContractAt("PositionLibrary", batchManager.address));
-
-      const eventClosePosition0 = events[0].args;
-      const eventClosePosition1 = events[1].args;
-      const eventClosePosition2 = events[2].args;
-
-      expect(eventClosePosition0.positionId).to.equal(0);
-      expect(eventClosePosition1.positionId).to.equal(1);
-      expect(eventClosePosition2.positionId).to.equal(3);
-      expect(events.length).to.be.equal(3);
     });
 
     it("Should revert when closing a batch of several identical ids", async function () {
@@ -1246,11 +1152,6 @@ describe("PositionManager batch functions", function () {
       const dexExchangeRate = BigNumber.from(price).div(USD_MULTIPLIER);
       await setOraclePrice(testTokenA, testTokenB, dexExchangeRate);
 
-      expect(await positionManager.callStatic.isPositionRisky(0, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.be.equal(true);
-      expect(await positionManager.callStatic.isPositionRisky(1, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.be.equal(true);
-      expect(await positionManager.callStatic.isPositionRisky(2, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.be.equal(false);
-      expect(await positionManager.callStatic.isPositionRisky(3, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.be.equal(true);
-
       await expect(
         batchManager
           .connect(liquidator)
@@ -1264,9 +1165,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_LIQUIDATION,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "POSITION_DOES_NOT_EXIST");
@@ -1299,9 +1201,10 @@ describe("PositionManager batch functions", function () {
           CloseReason.BATCH_LIQUIDATION,
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
           [],
         );
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(0);
@@ -1310,9 +1213,8 @@ describe("PositionManager batch functions", function () {
     it("Should calculate permanentLossScaled after bucket's indexes update", async function () {
       const amountB = totalPositionAmount.mul(multiplierB);
       const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
-      const feeInPositionAsset = wadMul(totalPositionAmount.toString(), feeRate.toString()).toString();
-      const totalPositionAmountAfterFee = totalPositionAmount.sub(feeInPositionAsset);
-      const amount0Out = await getAmountsOut(dex, totalPositionAmountAfterFee, [testTokenB.address, testTokenA.address]);
+      const amount0Out = await getAmountsOut(dex, totalPositionAmount, [testTokenB.address, testTokenA.address]);
+      const feeInPaymentAsset = wadMul(amount0Out.toString(), feeRate.toString()).toString();
       const amountA = amount0Out.mul(multiplierA);
 
       const price = wadDiv(amountB.toString(), amountA.toString()).toString();
@@ -1328,7 +1230,6 @@ describe("PositionManager batch functions", function () {
 
       const borrowIndexBefore = await bucket.variableBorrowIndex();
       const txBlockTimestamp = lastUpdBlockTimestamp.add(100);
-      await network.provider.send("evm_setNextBlockTimestamp", [txBlockTimestamp.toNumber()]);
 
       const cumulatedVariableBorrowInterest = calculateCompoundInterest(BAR, lastUpdBlockTimestamp, txBlockTimestamp);
       const positionDebt0 = rayMul(
@@ -1341,14 +1242,17 @@ describe("PositionManager batch functions", function () {
         rayMul(cumulatedVariableBorrowInterest.toString(), borrowIndexBefore.toString()),
       ).toString();
 
-      const permanentLoss = BigNumber.from(positionDebt0).add(BigNumber.from(positionDebt1)).sub(positionAmountInBorrowedAsset); // goes to batchDecrease...
+      const permanentLoss = BigNumber.from(positionDebt0)
+        .add(BigNumber.from(positionDebt1))
+        .sub(positionAmountInBorrowedAsset)
+        .add(feeInPaymentAsset); // goes to batchDecrease...
 
       const liquidityIndexBeforeCloseBatch = await bucket.liquidityIndex();
       const permanentLossScaledUsingLiquidityIndexBefore = rayDiv(
         permanentLoss.toString(),
         liquidityIndexBeforeCloseBatch.toString(),
       ).toString();
-
+      await network.provider.send("evm_setNextBlockTimestamp", [txBlockTimestamp.toNumber()]);
       await batchManager
         .connect(liquidator)
         .closeBatchPositions(
@@ -1361,9 +1265,10 @@ describe("PositionManager batch functions", function () {
           CloseReason.BATCH_LIQUIDATION,
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
           [],
         );
 
@@ -1407,9 +1312,10 @@ describe("PositionManager batch functions", function () {
           CloseReason.BATCH_LIQUIDATION,
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
           [],
         );
 
@@ -1454,9 +1360,10 @@ describe("PositionManager batch functions", function () {
           CloseReason.BATCH_LIQUIDATION,
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
           [],
         );
       const { availableBalance: availableAfter } = await traderBalanceVault.balances(trader.address, testTokenA.address);
@@ -1489,9 +1396,10 @@ describe("PositionManager batch functions", function () {
           CloseReason.BATCH_LIQUIDATION,
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
           [],
         );
 
@@ -1510,10 +1418,7 @@ describe("PositionManager batch functions", function () {
       });
 
       const totalAmountB = totalPositionAmount.mul(multiplierB);
-      const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
-      const feeInPositionAsset = wadMul(totalPositionAmount.toString(), feeRate.toString()).toString();
-      const totalPositionAmountAfterFee = totalPositionAmount.sub(feeInPositionAsset);
-      const totalAmountOut = await getAmountsOut(dex, totalPositionAmountAfterFee, [testTokenB.address, testTokenA.address]);
+      const totalAmountOut = await getAmountsOut(dex, totalPositionAmount, [testTokenB.address, testTokenA.address]);
       const totalAmountA = totalAmountOut.mul(multiplierA);
       const totalPrice = wadDiv(totalAmountB.toString(), totalAmountA.toString()).toString();
       await setOraclePrice(testTokenA, testTokenB, BigNumber.from(totalPrice).div(USD_MULTIPLIER));
@@ -1553,9 +1458,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_LIQUIDATION,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.changeTokenBalances(testTokenA, [bucket, treasury], [BigNumber.from(positionDebt1).add(positionDebt0), amountToTreasure]);
@@ -1566,7 +1472,6 @@ describe("PositionManager batch functions", function () {
         amountIn: parseUnits("10", decimalsB).toString(),
         path: [testTokenB.address, testTokenA.address],
       });
-
       const totalAmountB = totalPositionAmount.mul(multiplierB);
       const totalAmountOut = await getAmountsOut(dex, totalPositionAmount, [testTokenB.address, testTokenA.address]);
       const totalAmountA = totalAmountOut.mul(multiplierA);
@@ -1593,9 +1498,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_STOP_LOSS,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       );
@@ -1632,9 +1538,10 @@ describe("PositionManager batch functions", function () {
           CloseReason.BATCH_STOP_LOSS,
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
           [],
         );
 
@@ -1644,7 +1551,7 @@ describe("PositionManager batch functions", function () {
       expect(oldBalance).to.be.equal(totalSupply).to.be.equal(balanceOfBeforeAfter).to.be.equal(Zero);
     });
 
-    it("Should close positions by SL and correct calculate fee amount when feeInPositionAsset > maxProtocolFee", async function () {
+    it("Should close positions by SL and correct calculate fee amount when feeInPaymentAsset > maxProtocolFee", async function () {
       await swapExactTokensForTokens({
         dex: dex,
         amountIn: parseUnits("10", decimalsB).toString(),
@@ -1658,8 +1565,8 @@ describe("PositionManager batch functions", function () {
       await setOraclePrice(testTokenA, testTokenB, BigNumber.from(totalPrice).div(USD_MULTIPLIER));
 
       const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
-      const feeInPositionAsset = wadMul(totalPositionAmount.toString(), feeRate.toString()).toString();
-      const maxProtocolFee = BigNumber.from(feeInPositionAsset).div(4);
+      const feeInPaymentAsset = wadMul(totalAmountOut.toString(), feeRate.toString()).toString();
+      const maxProtocolFee = BigNumber.from(feeInPaymentAsset).div(4);
 
       let rate = await getExchangeRateByRoutes(testTokenB, await getEncodedChainlinkRouteViaUsd(await priceOracle.eth()));
       const maxfee = wadMul(maxProtocolFee.toString(), rate.toString()).toString();
@@ -1684,15 +1591,16 @@ describe("PositionManager batch functions", function () {
           CloseReason.BATCH_STOP_LOSS,
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
           [],
         );
 
-      rate = await getExchangeRateByRoutes(testTokenB, await getEncodedChainlinkRouteViaUsd(await priceOracle.eth()));
-      const maxFeeInPositionAsset = wadDiv(maxfee.toString(), rate.toString()).toString();
-      await expect(tx).to.changeTokenBalance(testTokenB, treasury, BigNumber.from(maxFeeInPositionAsset).mul(2));
+      rate = await getExchangeRateByRoutes(testTokenA, await getEncodedChainlinkRouteViaUsd(await priceOracle.eth()));
+      const maxFeeInPaymentAsset = wadDiv(maxfee.toString(), rate.toString()).toString();
+      await expect(tx).to.changeTokenBalance(testTokenA, treasury, BigNumber.from(maxFeeInPaymentAsset).mul(2));
 
       const { oldBalance } = await activityRewardDistributor.getUserInfoFromBucket(bucketAddress, 1, trader.address);
       const totalSupply = await debtTokenA.scaledTotalSupply();
@@ -1740,9 +1648,10 @@ describe("PositionManager batch functions", function () {
           CloseReason.BATCH_STOP_LOSS,
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
           [],
         );
 
@@ -1766,10 +1675,8 @@ describe("PositionManager batch functions", function () {
       await positionManager.connect(trader).updatePositionConditions(1, closeConditions);
 
       const totalAmountB = totalPositionAmount.mul(multiplierB);
-      const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
-      const feeInPositionAsset = wadMul(totalPositionAmount.toString(), feeRate.toString()).toString();
-      const totalPositionAmountAfterFee = totalPositionAmount.sub(feeInPositionAsset);
-      const totalAmountOut = await getAmountsOut(dex, totalPositionAmountAfterFee, [testTokenB.address, testTokenA.address]);
+
+      const totalAmountOut = await getAmountsOut(dex, totalPositionAmount, [testTokenB.address, testTokenA.address]);
       const totalAmountA = totalAmountOut.mul(multiplierA);
       const totalPrice = wadDiv(totalAmountB.toString(), totalAmountA.toString()).toString();
       await setOraclePrice(testTokenA, testTokenB, BigNumber.from(totalPrice).div(USD_MULTIPLIER));
@@ -1794,10 +1701,17 @@ describe("PositionManager batch functions", function () {
         rayMul(cumulatedVariableBorrowInterest.toString(), borrowIndexBefore.toString()),
       ).toString();
 
+      const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
+      const amount0Out = await getAmountsOut(dex, totalPositionAmount, [testTokenB.address, testTokenA.address]);
+      const feeInPaymentAsset = wadMul(amount0Out.toString(), feeRate.toString()).toString();
+
       const shareOfBorrowedAmountOut0 = positionAmount0.mul(totalAmountOut).div(totalPositionAmount);
       const shareOfBorrowedAmountOut1 = positionAmount1.mul(totalAmountOut).div(totalPositionAmount);
-      const returnedToTrader0 = shareOfBorrowedAmountOut0.sub(positionDebt0);
-      const returnedToTrader1 = shareOfBorrowedAmountOut1.sub(positionDebt1);
+      const feeInPaymentAsset0 = BigNumber.from(feeInPaymentAsset).mul(shareOfBorrowedAmountOut0).div(amount0Out);
+      const feeInPaymentAsset1 = BigNumber.from(feeInPaymentAsset).mul(shareOfBorrowedAmountOut1).div(amount0Out);
+
+      const returnedToTrader0 = shareOfBorrowedAmountOut0.sub(positionDebt0).sub(feeInPaymentAsset0);
+      const returnedToTrader1 = shareOfBorrowedAmountOut1.sub(positionDebt1).sub(feeInPaymentAsset1);
 
       const { availableBalance: balanceBefore } = await traderBalanceVault.balances(trader.address, testTokenA.address);
 
@@ -1813,24 +1727,23 @@ describe("PositionManager batch functions", function () {
           CloseReason.BATCH_STOP_LOSS,
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
           [],
         );
 
       const { availableBalance: balanceAfter } = await traderBalanceVault.balances(trader.address, testTokenA.address);
-      expect(balanceAfter.sub(balanceBefore)).to.equal(returnedToTrader0.add(returnedToTrader1));
+      expect(balanceAfter.sub(balanceBefore)).to.equal(returnedToTrader0.add(returnedToTrader1).sub(1));
     });
 
-    it("Should close 2 out of 3 positions by SL when the last one can't be closed", async function () {
-      // open the third position with low stop loss so that the position could not be closed
+    it("Should close 2 positions by SL and ensuring the correct closing condition", async function () {
       const { payload } = await encodeFunctionData(
         "setOracleTolerableLimit",
         [testTokenA.address, testTokenB.address, parseEther("0.5")],
         "PositionManagerExtension",
       );
-
       await swapExactTokensForTokens({
         dex: dex,
         amountIn: parseUnits("20", decimalsB).toString(),
@@ -1844,151 +1757,27 @@ describe("PositionManager batch functions", function () {
       await setOraclePrice(testTokenA, testTokenB, BigNumber.from(totalPrice).div(USD_MULTIPLIER));
 
       await positionManager.connect(deployer).setProtocolParamsByAdmin(payload);
-      const borrowedOfNonRiskyPosition = parseUnits("0.1", decimalsA);
-      OpenPositionParams.marginParams.borrowedAmount = borrowedOfNonRiskyPosition;
-      OpenPositionParams.depositAmount = parseUnits("5", decimalsA);
-      OpenPositionParams.closeConditions = [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(0, 1))];
-      const swapSize = OpenPositionParams.marginParams.borrowedAmount.add(OpenPositionParams.depositAmount);
-      await testTokenA.connect(trader).approve(positionManager.address, MaxUint256);
-      const swap = swapSize.mul(multiplierA);
-      const amountOut = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
-      const amountB = amountOut.mul(multiplierB);
-      let price = wadDiv(amountB.toString(), swap.toString()).toString();
-      price = BigNumber.from(price).div(USD_MULTIPLIER);
-      await setOraclePrice(testTokenA, testTokenB, price);
 
-      await positionManager.connect(trader).openPosition(OpenPositionParams);
-
-      const amountB0 = positionAmount0.mul(multiplierB);
-      const amount0Out = await getAmountsOut(dex, positionAmount0, [testTokenB.address, testTokenA.address]);
-      const amountA = amount0Out.mul(multiplierA);
-      price = wadDiv(amountB0.toString(), amountA.toString()).toString();
-      const dexExchangeRate = BigNumber.from(price).div(USD_MULTIPLIER);
-      await setOraclePrice(testTokenA, testTokenB, dexExchangeRate);
       const tx = await batchManager
         .connect(liquidator)
         .closeBatchPositions(
-          [0, 1, 2],
+          [0, 1],
           routesForClose,
           testTokenB.address,
           testTokenA.address,
           bucketAddress,
-          [0, 0, 0],
+          [0, 0],
           CloseReason.BATCH_STOP_LOSS,
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           [],
-        );
-      const txReceipt = await tx.wait();
-      expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
-      const events = getDecodedEvents("ClosePosition", txReceipt, await getContractAt("PositionLibrary", batchManager.address));
-      expect(events.length).to.be.equal(2);
-    });
-
-    it("Should close 2 positions by SL and ensuring the correct closing condition is applied even when some of the positions in the array do not exist", async function () {
-      const { payload } = await encodeFunctionData(
-        "setOracleTolerableLimit",
-        [testTokenA.address, testTokenB.address, parseEther("0.5")],
-        "PositionManagerExtension",
-      );
-      await swapExactTokensForTokens({
-        dex: dex,
-        amountIn: parseUnits("20", decimalsB).toString(),
-        path: [testTokenB.address, testTokenA.address],
-      });
-
-      const totalAmountB = totalPositionAmount.mul(multiplierB);
-      const totalAmountOut = await getAmountsOut(dex, totalPositionAmount, [testTokenB.address, testTokenA.address]);
-      const totalAmountA = totalAmountOut.mul(multiplierA);
-      const totalPrice = wadDiv(totalAmountB.toString(), totalAmountA.toString()).toString();
-      await setOraclePrice(testTokenA, testTokenB, BigNumber.from(totalPrice).div(USD_MULTIPLIER));
-
-      await positionManager.connect(deployer).setProtocolParamsByAdmin(payload);
-
-      const tx = await batchManager
-        .connect(liquidator)
-        .closeBatchPositions(
-          [0, 15, 16, 17, 1],
-          routesForClose,
-          testTokenB.address,
-          testTokenA.address,
-          bucketAddress,
-          [0, 1, 2, 3, 0],
-          CloseReason.BATCH_STOP_LOSS,
-          getEncodedChainlinkRouteViaUsd(testTokenA),
-          getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
-          getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
           [],
         );
       const txReceipt = await tx.wait();
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(0);
-      const events = getDecodedEvents("ClosePosition", txReceipt, await getContractAt("PositionLibrary", batchManager.address));
-      expect(events.length).to.be.equal(2);
-    });
-
-    it("Should close 2 out of 3 positions by liqudation when the last has no debt", async function () {
-      const { payload } = await encodeFunctionData(
-        "setOracleTolerableLimit",
-        [testTokenA.address, testTokenB.address, parseEther("0.5")],
-        "PositionManagerExtension",
-      );
-      await positionManager.connect(deployer).setProtocolParamsByAdmin(payload);
-
-      OpenPositionParams.marginParams.borrowedAmount = parseUnits("0.2", decimalsA);
-      OpenPositionParams.depositAmount = parseUnits("2", decimalsA);
-      const swapSize = parseUnits("2.5", decimalsA);
-      await testTokenA.connect(trader).approve(positionManager.address, MaxUint256);
-      const swap = swapSize.mul(multiplierA);
-      const amountOut = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
-      const amountB = amountOut.mul(multiplierB);
-      let price = wadDiv(amountB.toString(), swap.toString()).toString();
-      price = BigNumber.from(price).div(USD_MULTIPLIER);
-      await setOraclePrice(testTokenA, testTokenB, price);
-
-      const positionsId = await positionManager.positionsId();
-      await positionManager.connect(trader).openPosition(OpenPositionParams);
-      // paying off the debt
-      await positionManager.connect(trader).increaseDeposit(positionsId, parseUnits("1", decimalsA), testTokenA.address, true, [], 0);
-      const scaledDebtAmount = (await positionManager.getPosition(positionsId)).scaledDebtAmount;
-      expect(scaledDebtAmount).to.be.equal(0);
-
-      await swapExactTokensForTokens({
-        dex: dex,
-        amountIn: parseUnits("2.5", decimalsB).toString(),
-        path: [testTokenB.address, testTokenA.address],
-      });
-
-      const swapSizeB = amountOut.mul(multiplierB);
-      const amountOutA = await getAmountsOut(dex, swapSizeB, [testTokenB.address, testTokenA.address]);
-      const amountA = amountOutA.mul(multiplierA);
-      price = wadDiv(amountA.toString(), swapSizeB.toString()).toString();
-      price = BigNumber.from(price).div(USD_MULTIPLIER);
-      await setOraclePrice(testTokenA, testTokenB, price);
-
-      const tx = await batchManager
-        .connect(liquidator)
-        .closeBatchPositions(
-          [0, 1, 2],
-          routesForClose,
-          testTokenB.address,
-          testTokenA.address,
-          bucketAddress,
-          [],
-          CloseReason.BATCH_LIQUIDATION,
-          getEncodedChainlinkRouteViaUsd(testTokenA),
-          getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
-          getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
-          [],
-        );
-      const txReceipt = await tx.wait();
-      expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
       const events = getDecodedEvents("ClosePosition", txReceipt, await getContractAt("PositionLibrary", batchManager.address));
       expect(events.length).to.be.equal(2);
     });
@@ -2031,12 +1820,12 @@ describe("PositionManager batch functions", function () {
       const { positionAmount: positionAmount2 } = await positionManager.getPosition(2);
       const { positionAmount: positionAmount3 } = await positionManager.getPosition(3);
       const totalPositionAmount23 = positionAmount2.add(positionAmount3);
-      const feeRate = parseEther(feeRates.SpotPositionClosedByKeeper);
-      const feeInPositionAsset = wadMul(totalPositionAmount23.toString(), feeRate.toString()).toString();
-      const totalPositionAmount23AfterFee = totalPositionAmount23.sub(feeInPositionAsset);
-      const totalAmountOut = await getAmountsOut(dex, totalPositionAmount23AfterFee, [testTokenB.address, testTokenA.address]);
+      const totalAmountOut = await getAmountsOut(dex, totalPositionAmount23, [testTokenB.address, testTokenA.address]);
       const shareOfBorrowedAmountOut2 = positionAmount2.mul(totalAmountOut).div(totalPositionAmount23);
       const shareOfBorrowedAmountOut3 = positionAmount3.mul(totalAmountOut).div(totalPositionAmount23);
+
+      const feeRate = parseEther(feeRates.SpotPositionClosedByKeeper);
+      const feeInPaymentAsset = wadMul(totalAmountOut.toString(), feeRate.toString()).toString();
 
       const totalTokenA = shareOfBorrowedAmountOut2.add(shareOfBorrowedAmountOut3);
 
@@ -2055,15 +1844,16 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_STOP_LOSS,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
-      ).to.changeTokenBalance(testTokenA, traderBalanceVault, totalAmountOut);
+      ).to.changeTokenBalance(testTokenA, traderBalanceVault, totalAmountOut.sub(feeInPaymentAsset).sub(1));
 
       const { availableBalance: balanceAfter } = await traderBalanceVault.balances(trader.address, testTokenA.address);
-      expect(balanceAfter.sub(balanceBefore)).to.equal(totalTokenA);
+      expect(balanceAfter.sub(balanceBefore).add(feeInPaymentAsset).add(1)).to.equal(totalTokenA);
     });
 
     it("Should revert spot batch close if it doesn't pass oracle check", async function () {
@@ -2102,9 +1892,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_STOP_LOSS,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "DIFFERENT_PRICE_DEX_AND_ORACLE");
@@ -2145,9 +1936,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_LIQUIDATION,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "POSITION_BUCKET_IS_INCORRECT");
@@ -2198,9 +1990,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_TAKE_PROFIT,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "POSITION_CANNOT_BE_CLOSED_FOR_THIS_REASON");
@@ -2244,16 +2037,16 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_STOP_LOSS,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "CLOSE_CONDITION_IS_NOT_CORRECT");
     });
 
     it("Should revert close by TP if first position has wrong close manager", async function () {
-      // open the third position with high take profit so that the position could not be closed
       const { payload } = await encodeFunctionData(
         "setOracleTolerableLimit",
         [testTokenA.address, testTokenB.address, parseEther("0.5")],
@@ -2284,18 +2077,19 @@ describe("PositionManager batch functions", function () {
         batchManager
           .connect(liquidator)
           .closeBatchPositions(
-            [2, 1, 0],
+            [1, 0],
             routesForClose,
             testTokenB.address,
             testTokenA.address,
             bucketAddress,
-            [0, 0, 0],
+            [0, 0],
             CloseReason.BATCH_TAKE_PROFIT,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "CLOSE_CONDITION_IS_NOT_CORRECT");
@@ -2319,15 +2113,13 @@ describe("PositionManager batch functions", function () {
         }
         const totalAmountB = totalPositionAmount.mul(multiplierB);
         const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
-        const feeInPositionAsset0 = wadMul(positionAmount0.toString(), feeRate.toString()).toString();
-        const feeInPositionAsset1 = wadMul(positionAmount1.toString(), feeRate.toString()).toString();
-        const positionAmount0AfterFee = positionAmount0.sub(feeInPositionAsset0);
-        const positionAmount1AfterFee = positionAmount1.sub(feeInPositionAsset1);
-        const totalPositionAmountAfterFee = positionAmount0AfterFee.add(positionAmount1AfterFee);
-        const totalAmountOut = await getAmountsOut(dex, totalPositionAmountAfterFee, [testTokenB.address, testTokenA.address]);
+        const totalAmountOut = await getAmountsOut(dex, totalPositionAmount, [testTokenB.address, testTokenA.address]);
 
         const amountOut0 = positionAmount0.mul(totalAmountOut).div(totalPositionAmount);
         const amountOut1 = positionAmount1.mul(totalAmountOut).div(totalPositionAmount);
+
+        const feeInPaymentAsset0 = wadMul(amountOut0.toString(), feeRate.toString()).toString();
+        const feeInPaymentAsset1 = wadMul(amountOut1.toString(), feeRate.toString()).toString();
 
         const totalAmountA = totalAmountOut.mul(multiplierA);
         totalPrice = wadDiv(totalAmountB.toString(), totalAmountA.toString()).toString();
@@ -2378,10 +2170,10 @@ describe("PositionManager batch functions", function () {
           bucketAddress: bucket.address,
           soldAsset: testTokenA.address,
           positionAsset: testTokenB.address,
-          decreasePositionAmount: positionAmount0AfterFee,
+          decreasePositionAmount: positionAmount0,
           profit: profit0,
           positionDebt: positionDebt0,
-          amountOut: amountOut0.sub(1),
+          amountOut: amountOut0.sub(feeInPaymentAsset0),
           reason: undefined,
         };
 
@@ -2392,28 +2184,28 @@ describe("PositionManager batch functions", function () {
           bucketAddress: bucket.address,
           soldAsset: testTokenA.address,
           positionAsset: testTokenB.address,
-          decreasePositionAmount: positionAmount1AfterFee,
+          decreasePositionAmount: positionAmount1,
           profit: profit1,
           positionDebt: positionDebt1,
-          amountOut: amountOut1.add(1),
+          amountOut: amountOut1.sub(feeInPaymentAsset1),
           reason: undefined,
         };
 
         expectedPaidProtocolFee0Event = {
           positionId: 0,
           trader: trader.address,
-          positionAsset: testTokenB.address,
+          paymentAsset: testTokenA.address,
           feeRateType: FeeRateType.MarginPositionClosedByKeeper,
-          feeInPositionAsset: feeInPositionAsset0,
+          feeInPaymentAsset: feeInPaymentAsset0,
           feeInPmx: 0,
         };
 
         expectedPaidProtocolFee1Event = {
           positionId: 1,
           trader: trader.address,
-          positionAsset: testTokenB.address,
+          paymentAsset: testTokenA.address,
           feeRateType: FeeRateType.MarginPositionClosedByKeeper,
-          feeInPositionAsset: feeInPositionAsset1,
+          feeInPaymentAsset: feeInPaymentAsset1,
           feeInPmx: 0,
         };
       });
@@ -2430,27 +2222,26 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_LIQUIDATION,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           );
         expectedClosePosition0Event.reason = CloseReason.BATCH_LIQUIDATION;
         expectedClosePosition1Event.reason = CloseReason.BATCH_LIQUIDATION;
-
-        eventValidation(
-          "ClosePosition",
-          await tx.wait(),
-          expectedClosePosition0Event,
-          await getContractAt("PositionLibrary", batchManager.address),
-        );
         eventValidation(
           "ClosePosition",
           await tx.wait(),
           expectedClosePosition1Event,
           await getContractAt("PositionLibrary", batchManager.address),
         );
-
+        eventValidation(
+          "ClosePosition",
+          await tx.wait(),
+          expectedClosePosition0Event,
+          await getContractAt("PositionLibrary", batchManager.address),
+        );
         eventValidation(
           "PaidProtocolFee",
           await tx.wait(),
@@ -2478,9 +2269,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_STOP_LOSS,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           );
 
@@ -2526,9 +2318,10 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_TAKE_PROFIT,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           );
 
@@ -2640,14 +2433,14 @@ describe("PositionManager batch functions", function () {
       await setOraclePrice(testTokenA, testTokenB, BigNumber.from(totalPrice).div(USD_MULTIPLIER));
 
       const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
-      const feeInPositionAsset = wadMul(totalPositionAmount.toString(), feeRate.toString()).toString();
+      const feeInPaymentAsset = wadMul(totalAmountOut.toString(), feeRate.toString()).toString();
       const pmxDiscountMultiplier = await PrimexDNS.pmxDiscountMultiplier();
-      const feeInPositonAssetWithDiscount = wadMul(feeInPositionAsset.toString(), pmxDiscountMultiplier.toString()).toString();
+      const feeInPaymentAssetWithDiscount = wadMul(feeInPaymentAsset.toString(), pmxDiscountMultiplier.toString()).toString();
 
       const feeAmountInPmx = await calculateFeeAmountInPmx(
-        testTokenB.address,
+        testTokenA.address,
         PMXToken.address,
-        feeInPositonAssetWithDiscount,
+        feeInPaymentAssetWithDiscount,
         getEncodedChainlinkRouteViaUsd(PMXToken),
       );
 
@@ -2664,12 +2457,13 @@ describe("PositionManager batch functions", function () {
             CloseReason.BATCH_STOP_LOSS,
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(PMXToken),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(ethAddress),
-            getEncodedChainlinkRouteViaUsd(testTokenB),
+            getEncodedChainlinkRouteViaUsd(testTokenA),
+            [],
             [],
           ),
-      ).to.changeTokenBalance(PMXToken, treasury, feeAmountInPmx.sub(19)); // Couldn't find why the difference is 19 wei
+      ).to.changeTokenBalance(PMXToken, treasury, feeAmountInPmx);
     });
     it("Closes positions, transfers fee to treasury in PMX and positionAsset when isProtocolFeeInPmx = true, but trader lacks PMX balance in vault", async function () {
       await swapExactTokensForTokens({
@@ -2677,16 +2471,16 @@ describe("PositionManager batch functions", function () {
         amountIn: parseUnits("10000", decimalsA).toString(),
         path: [testTokenA.address, testTokenB.address],
       });
-
+      const totalAmountOut = await getAmountsOut(dex, totalPositionAmount, [testTokenB.address, testTokenA.address]);
       const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
-      const totalFeeInPositionAsset = wadMul(totalPositionAmount.toString(), feeRate.toString()).toString();
+      const totalFeeInPaymentAsset = wadMul(totalAmountOut.toString(), feeRate.toString()).toString();
 
       const pmxDiscountMultiplier = await PrimexDNS.pmxDiscountMultiplier();
-      const feeInPositonAssetWithDiscount = wadMul(totalFeeInPositionAsset, pmxDiscountMultiplier.toString()).toString();
+      const feeInPaymentAssetWithDiscount = wadMul(totalFeeInPaymentAsset, pmxDiscountMultiplier.toString()).toString();
       const feeAmountInPmx = await calculateFeeAmountInPmx(
-        testTokenB.address,
+        testTokenA.address,
         PMXToken.address,
-        feeInPositonAssetWithDiscount,
+        feeInPaymentAssetWithDiscount,
         getEncodedChainlinkRouteViaUsd(PMXToken),
       );
 
@@ -2695,15 +2489,15 @@ describe("PositionManager batch functions", function () {
       await PMXToken.connect(trader).approve(traderBalanceVault.address, pmxTraderBalance);
       await traderBalanceVault.connect(trader).deposit(PMXToken.address, pmxTraderBalance);
 
-      const pmxTraderBalanceInPositionAsset = pmxTraderBalance.mul(totalFeeInPositionAsset).div(feeAmountInPmx);
-      const restFeeInPositionAsset = BigNumber.from(totalFeeInPositionAsset).sub(pmxTraderBalanceInPositionAsset);
+      const pmxTraderBalanceInPositionAsset = pmxTraderBalance.mul(totalFeeInPaymentAsset).div(feeAmountInPmx);
+      const restFeeInPositionAsset = BigNumber.from(totalFeeInPaymentAsset).sub(pmxTraderBalanceInPositionAsset);
 
       await PrimexDNS.deprecateBucket("bucket1");
       const delistingDeadline = (await PrimexDNS.buckets("bucket1")).delistingDeadline;
       const txBlockTimestamp = delistingDeadline.add(1);
 
       await network.provider.send("evm_setNextBlockTimestamp", [txBlockTimestamp.toNumber()]);
-      const balanceBefore = await testTokenB.balanceOf(treasury.address);
+      const balanceBefore = await testTokenA.balanceOf(treasury.address);
       const tx = await batchManager
         .connect(liquidator)
         .closeBatchPositions(
@@ -2716,12 +2510,13 @@ describe("PositionManager batch functions", function () {
           CloseReason.BUCKET_DELISTED,
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
           [],
         );
-      const balanceAfter = await testTokenB.balanceOf(treasury.address);
+      const balanceAfter = await testTokenA.balanceOf(treasury.address);
       await expect(tx).to.changeTokenBalance(PMXToken, treasury, feeAmountInPmx.div(2));
       expect(balanceAfter).to.be.closeTo(balanceBefore.add(restFeeInPositionAsset), 2);
     });
@@ -2730,6 +2525,7 @@ describe("PositionManager batch functions", function () {
     let snapshotId;
     let positionAmount0;
     let positionAmount1;
+    let totalAmountOut;
     let totalPositionAmount;
     let KeeperRDArbitrum, BigTimelockAdmin, l1GasPrice, baseLength;
     let borrowedAmount, ethAddress, primexPricingLibraryMock;
@@ -2829,6 +2625,7 @@ describe("PositionManager batch functions", function () {
       ({ positionAmount: positionAmount0 } = await positionManager.getPosition(0));
       ({ positionAmount: positionAmount1 } = await positionManager.getPosition(1));
       totalPositionAmount = positionAmount0.add(positionAmount1);
+      totalAmountOut = await getAmountsOut(dex, totalPositionAmount, [testTokenB.address, testTokenA.address]);
     });
     after(async function () {
       await network.provider.request({
@@ -2853,37 +2650,45 @@ describe("PositionManager batch functions", function () {
       });
     });
 
-    it("Should liquidate positions by BUCKET_DELISTED reason and correct calculate fee when protocoleFeeInPositionAsset < minProtocolFee", async function () {
+    it("Should liquidate positions by BUCKET_DELISTED reason and correct calculate fee when protocoleFeeInPaymentAsset < minProtocolFee", async function () {
       await swapExactTokensForTokens({
         dex: dex,
-        amountIn: parseUnits("10000", decimalsA).toString(),
+        amountIn: parseUnits("50", decimalsA).toString(),
         path: [testTokenA.address, testTokenB.address],
       });
-
       const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
-      const fee0InPositionAsset = wadMul(positionAmount0.toString(), feeRate.toString()).toString();
-
-      const rate = await getExchangeRateByRoutes(testTokenB, await getEncodedChainlinkRouteViaUsd(await priceOracle.eth()));
-      const fee0InNativeCurrency = wadMul(fee0InPositionAsset.toString(), rate.toString()).toString();
-
+      const feePaymentAsset = wadMul(totalAmountOut.toString(), feeRate.toString()).toString();
+      const feeInNativeCurrency = await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+        testTokenA.address,
+        NATIVE_CURRENCY,
+        feePaymentAsset,
+        priceOracle.address,
+        getEncodedChainlinkRouteViaUsd(NATIVE_CURRENCY),
+      );
       const numberOfPositions = 2;
       const gasPerBatch = await batchManager.gasPerBatch();
       const gasPerPosition = await batchManager.gasPerPosition();
       const estimatedGasAmount = (gasPerBatch.toNumber() / numberOfPositions + gasPerPosition.toNumber()).toString();
-      const gasPrice = BigNumber.from(fee0InNativeCurrency).div(estimatedGasAmount);
+      const gasPrice = BigNumber.from(feeInNativeCurrency).div(estimatedGasAmount);
       const estimatedBaseLength = 64 + baseLength / numberOfPositions;
       const l1CostWei = l1GasPrice * 16 * (estimatedBaseLength + 140);
 
       const minFeeInNativeAsset = BigNumber.from(estimatedGasAmount).mul(gasPrice).add(l1CostWei);
       const feeInNativeAsset = minFeeInNativeAsset.mul(2);
 
-      const feeInPositionAsset = wadDiv(feeInNativeAsset.toString(), rate.toString()).toString();
+      const feeInPaymentAsset = await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+        NATIVE_CURRENCY,
+        testTokenA.address,
+        feeInNativeAsset,
+        priceOracle.address,
+        getEncodedChainlinkRouteViaUsd(testTokenA),
+      );
 
       await PrimexDNS.deprecateBucket("bucket1");
       const delistingDeadline = (await PrimexDNS.buckets("bucket1")).delistingDeadline;
       const txBlockTimestamp = delistingDeadline.add(1);
       await network.provider.send("evm_setNextBlockTimestamp", [txBlockTimestamp.toNumber()]);
-      const balanceBefore = await testTokenB.balanceOf(treasury.address);
+      const balanceBefore = await testTokenA.balanceOf(treasury.address);
       await batchManager
         .connect(liquidator)
         .closeBatchPositions(
@@ -2896,16 +2701,17 @@ describe("PositionManager batch functions", function () {
           CloseReason.BUCKET_DELISTED,
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
           [],
           { gasPrice: gasPrice },
         );
-      const balanceAfter = await testTokenB.balanceOf(treasury.address);
-      expect(balanceAfter).to.be.closeTo(balanceBefore.add(feeInPositionAsset), 2);
+      const balanceAfter = await testTokenA.balanceOf(treasury.address);
+      expect(balanceAfter).to.be.closeTo(balanceBefore.add(feeInPaymentAsset), 2);
     });
-    it("Should close positions by SL and correct calculate fee amount when protocoleFeeInPositionAsset < minProtocolFee", async function () {
+    it("Should close positions by SL and correct calculate fee amount when protocoleFeeInPaymentAsset < minProtocolFee", async function () {
       await swapExactTokensForTokens({
         dex: dex,
         amountIn: parseUnits("50", decimalsA).toString(),
@@ -2914,11 +2720,11 @@ describe("PositionManager batch functions", function () {
 
       const totalAmountB = totalPositionAmount.mul(multiplierB);
       const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
-      const fee0InPositionAsset = wadMul(positionAmount0.toString(), feeRate.toString()).toString();
-      const fee0InNativeCurrency = await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
-        testTokenB.address,
+      const feePaymentAsset = wadMul(totalAmountOut.toString(), feeRate.toString()).toString();
+      const feeInNativeCurrency = await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+        testTokenA.address,
         NATIVE_CURRENCY,
-        fee0InPositionAsset,
+        feePaymentAsset,
         priceOracle.address,
         getEncodedChainlinkRouteViaUsd(NATIVE_CURRENCY),
       );
@@ -2926,13 +2732,12 @@ describe("PositionManager batch functions", function () {
       const gasPerBatch = await batchManager.gasPerBatch();
       const gasPerPosition = await batchManager.gasPerPosition();
       const estimatedGasAmount = (gasPerBatch.toNumber() / numberOfPositions + gasPerPosition.toNumber()).toString();
-      const gasPrice = BigNumber.from(fee0InNativeCurrency).div(estimatedGasAmount);
+      const gasPrice = BigNumber.from(feeInNativeCurrency).div(estimatedGasAmount);
       const estimatedBaseLength = 64 + baseLength / numberOfPositions;
       const l1CostWei = l1GasPrice * 16 * (estimatedBaseLength + 140);
       const minFeeInNativeAsset = BigNumber.from(estimatedGasAmount).mul(gasPrice).add(l1CostWei);
       const feeInNativeAsset = minFeeInNativeAsset.mul(2);
 
-      const totalAmountOut = await getAmountsOut(dex, totalPositionAmount, [testTokenB.address, testTokenA.address]);
       const totalAmountA = totalAmountOut.mul(multiplierA);
       const totalPrice = wadDiv(totalAmountB.toString(), totalAmountA.toString()).toString();
       await setOraclePrice(testTokenA, testTokenB, BigNumber.from(totalPrice).div(USD_MULTIPLIER));
@@ -2943,7 +2748,7 @@ describe("PositionManager batch functions", function () {
       const balanceOfBefore = await debtTokenA.scaledBalanceOf(trader.address);
 
       expect(oldBalanceBefore).to.be.equal(totalSupplyBefore).to.be.equal(balanceOfBefore);
-      const balanceBefore = await testTokenB.balanceOf(treasury.address);
+      const balanceBefore = await testTokenA.balanceOf(treasury.address);
       await batchManager
         .connect(liquidator)
         .closeBatchPositions(
@@ -2956,21 +2761,22 @@ describe("PositionManager batch functions", function () {
           CloseReason.BATCH_STOP_LOSS,
           getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(PMXToken),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
           getEncodedChainlinkRouteViaUsd(ethAddress),
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          [],
           [],
           { gasPrice: gasPrice },
         );
-      const feeInPositionAsset = await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+      const feeInPaymentAsset = await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
         NATIVE_CURRENCY,
-        testTokenB.address,
+        testTokenA.address,
         feeInNativeAsset,
         priceOracle.address,
-        getEncodedChainlinkRouteViaUsd(testTokenB),
+        getEncodedChainlinkRouteViaUsd(testTokenA),
       );
-      const balanceAfter = await testTokenB.balanceOf(treasury.address);
-      expect(balanceAfter).to.be.closeTo(balanceBefore.add(feeInPositionAsset), 2);
+      const balanceAfter = await testTokenA.balanceOf(treasury.address);
+      expect(balanceAfter).to.be.closeTo(balanceBefore.add(feeInPaymentAsset), 2);
 
       const { oldBalance } = await activityRewardDistributor.getUserInfoFromBucket(bucketAddress, 1, trader.address);
       const totalSupply = await debtTokenA.scaledTotalSupply();

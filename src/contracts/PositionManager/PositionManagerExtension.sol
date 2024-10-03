@@ -172,7 +172,7 @@ contract PositionManagerExtension is IPositionManagerExtension, PositionManagerS
         _onlyRole(LOM_ROLE);
         uint256 initialGasleft = gasleft();
         (PositionLibrary.Position memory newPosition, PositionLibrary.OpenPositionVars memory vars) = PositionLibrary
-            .createPositionByOrder(_params, priceOracle);
+            .createPositionByOrder(_params, priceOracle, primexDNS);
         PositionLibrary.OpenPositionEventData memory posEventData = _openPosition(newPosition, vars, initialGasleft);
 
         PositionLibrary.Position memory position = positions[positions.length - 1];
@@ -189,9 +189,9 @@ contract PositionManagerExtension is IPositionManagerExtension, PositionManagerS
         emit PositionLibrary.PaidProtocolFee({
             positionId: position.id,
             trader: _params.order.trader,
-            positionAsset: position.positionAsset,
+            paymentAsset: position.positionAsset,
             feeRateType: posEventData.feeRateType,
-            feeInPositionAsset: posEventData.feeInPositionAsset,
+            feeInPaymentAsset: posEventData.feeInPositionAsset,
             feeInPmx: posEventData.feeInPmx
         });
 
@@ -211,7 +211,7 @@ contract PositionManagerExtension is IPositionManagerExtension, PositionManagerS
         PositionLibrary.OpenPositionParams calldata _params
     ) external payable override nonReentrant whenNotPaused {
         _notBlackListed();
-        priceOracle.updatePullOracle{value: msg.value}(_params.pullOracleData);
+        priceOracle.updatePullOracle{value: msg.value}(_params.pullOracleData, _params.pullOracleTypes);
         (PositionLibrary.Position memory newPosition, PositionLibrary.OpenPositionVars memory vars) = PositionLibrary
             .createPosition(_params, primexDNS, priceOracle);
         PositionLibrary.OpenPositionEventData memory posEventData = _openPosition(newPosition, vars, 0);
@@ -240,15 +240,17 @@ contract PositionManagerExtension is IPositionManagerExtension, PositionManagerS
         uint256 _amountOutMin,
         bytes calldata _positionSoldAssetOracleData,
         bytes calldata _nativePositionAssetOracleData,
-        bytes calldata _pmxPositionAssetOracleData,
-        bytes[] calldata _pullOracleData
+        bytes calldata _nativeSoldAssetOracleData,
+        bytes calldata _pmxSoldAssetOracleData,
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
     ) external payable override nonReentrant {
         _notBlackListed();
         _onlyExist(_positionId);
         PositionLibrary.Position memory position = positions[positionIndexes[_positionId]];
         _require(msg.sender == position.trader, Errors.CALLER_IS_NOT_TRADER.selector);
         _require(_amount < position.positionAmount, Errors.AMOUNT_IS_MORE_THAN_POSITION_AMOUNT.selector);
-        priceOracle.updatePullOracle{value: msg.value}(_pullOracleData);
+        priceOracle.updatePullOracle{value: msg.value}(_pullOracleData, _pullOracleTypes);
         PositionLibrary.ScaledParams memory scaledParams;
         scaledParams.borrowedAmountIsNotZero = position.scaledDebtAmount != 0;
         scaledParams.decreasePercent = _amount.wdiv(position.positionAmount);
@@ -280,8 +282,8 @@ contract PositionManagerExtension is IPositionManagerExtension, PositionManagerS
                 initialGasLeft: 0,
                 keeperRewardDistributor: address(0),
                 positionSoldAssetOracleData: _positionSoldAssetOracleData,
-                pmxPositionAssetOracleData: _pmxPositionAssetOracleData,
-                nativePositionAssetOracleData: _nativePositionAssetOracleData
+                pmxSoldAssetOracleData: _pmxSoldAssetOracleData,
+                nativeSoldAssetOracleData: _nativeSoldAssetOracleData
             }),
             PositionLibrary.CloseReason.CLOSE_BY_TRADER
         );
@@ -316,14 +318,14 @@ contract PositionManagerExtension is IPositionManagerExtension, PositionManagerS
             scaledDebtAmount: position.scaledDebtAmount,
             profit: posEventData.profit,
             positionDebt: posEventData.debtAmount,
-            amountOut: posEventData.amountOut
+            amountOut: posEventData.amountOutAfterFee
         });
         emit PositionLibrary.PaidProtocolFee({
             positionId: _positionId,
             trader: msg.sender,
-            positionAsset: posEventData.positionAsset,
+            paymentAsset: posEventData.paymentAsset,
             feeRateType: posEventData.feeRateType,
-            feeInPositionAsset: posEventData.feeInPositionAsset,
+            feeInPaymentAsset: posEventData.feeInPaymentAsset,
             feeInPmx: posEventData.feeInPmx
         });
     }
@@ -335,11 +337,13 @@ contract PositionManagerExtension is IPositionManagerExtension, PositionManagerS
         uint256 _positionId,
         uint256 _amount,
         bytes calldata _positionSoldAssetOracleData,
-        bytes[] calldata _pullOracleData
+        bytes calldata _nativeSoldAssetOracleData,
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
     ) external payable override nonReentrant whenNotPaused {
         _notBlackListed();
         PositionLibrary.Position storage position = positions[positionIndexes[_positionId]];
-        priceOracle.updatePullOracle{value: msg.value}(_pullOracleData);
+        priceOracle.updatePullOracle{value: msg.value}(_pullOracleData, _pullOracleTypes);
         position.decreaseDeposit(
             PositionLibrary.DecreaseDepositParams({
                 amount: _amount,
@@ -351,7 +355,8 @@ contract PositionManagerExtension is IPositionManagerExtension, PositionManagerS
                 oracleTolerableLimit: getOracleTolerableLimit(position.positionAsset, position.soldAsset),
                 maintenanceBuffer: maintenanceBuffer,
                 keeperRewardDistributor: address(keeperRewardDistributor),
-                positionSoldAssetOracleData: _positionSoldAssetOracleData
+                positionSoldAssetOracleData: _positionSoldAssetOracleData,
+                nativeSoldAssetOracleData: _nativeSoldAssetOracleData
             })
         );
         emit DecreaseDeposit({

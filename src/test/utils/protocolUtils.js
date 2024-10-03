@@ -12,13 +12,13 @@ const {
 const { wadMul } = require("./math");
 const { NATIVE_CURRENCY, FeeRateType, WAD, CallingMethod, PaymentModel, ArbGasInfo } = require("./constants");
 
-async function calculateFeeInPositionAsset(
-  positionAsset,
-  positionSize,
+async function calculateFeeInPaymentAsset(
+  paymentAsset,
+  paymentAmount,
   feeRateType,
   gasSpent,
-  isFeeOnlyInPositionAsset,
-  nativePositionOracleData,
+  isFeeProhibitedInPmx,
+  nativePaymentOracleData,
   keeperRD,
 ) {
   try {
@@ -35,20 +35,19 @@ async function calculateFeeInPositionAsset(
 
     const protocolFeeRate = await primexDNS.protocolFeeRates(feeRateType);
     const maxProtocolFee = await primexDNS.maxProtocolFee();
-    let feeInPositionAsset = BigNumber.from(wadMul(positionSize.toString(), protocolFeeRate.toString()).toString());
-    let maxProtocolFeeInPositionAsset;
+    let feeInPaymentAsset = BigNumber.from(wadMul(paymentAmount.toString(), protocolFeeRate.toString()).toString());
+    let maxProtocolFeeInPaymentAsset;
 
     if (maxProtocolFee.toString() === MaxUint256.toString()) {
-      maxProtocolFeeInPositionAsset = maxProtocolFee;
+      maxProtocolFeeInPaymentAsset = maxProtocolFee;
     } else {
-      maxProtocolFeeInPositionAsset = await primexPricingLibrary.callStatic.getOracleAmountsOut(
+      maxProtocolFeeInPaymentAsset = await primexPricingLibrary.callStatic.getOracleAmountsOut(
         NATIVE_CURRENCY,
-        positionAsset,
+        paymentAsset,
         maxProtocolFee,
         priceOracle.address,
-        nativePositionOracleData,
+        nativePaymentOracleData,
       );
-      console.log(maxProtocolFeeInPositionAsset.toString(), "maxProtocolFeeInPositionAsset");
     }
     // The minProtocolFee is applied only if the order/position is processed by Keepers
     if (
@@ -56,37 +55,36 @@ async function calculateFeeInPositionAsset(
       feeRateType === FeeRateType.SpotPositionClosedByTrader ||
       feeRateType === FeeRateType.SwapMarketOrder
     ) {
-      feeInPositionAsset = feeInPositionAsset.lt(maxProtocolFeeInPositionAsset) ? feeInPositionAsset : maxProtocolFeeInPositionAsset;
+      feeInPaymentAsset = feeInPaymentAsset.lt(maxProtocolFeeInPaymentAsset) ? feeInPaymentAsset : maxProtocolFeeInPaymentAsset;
     } else {
-      const minProtocolFeeInPositionAsset = await calculateMinProtocolFee(
+      const minProtocolFeeInPaymentAsset = await calculateMinProtocolFee(
         gasSpent,
-        positionAsset,
+        paymentAsset,
         feeRateType,
-        isFeeOnlyInPositionAsset,
+        isFeeProhibitedInPmx,
         keeperRD,
-        nativePositionOracleData,
+        nativePaymentOracleData,
       );
-
-      if (minProtocolFeeInPositionAsset.gt(positionSize)) {
+      if (minProtocolFeeInPaymentAsset.gt(paymentAmount)) {
         throw new Error("MIN_PROTOCOL_FEE_IS_GREATER_THAN_POSITION_SIZE");
       }
-      feeInPositionAsset = feeInPositionAsset.gt(minProtocolFeeInPositionAsset) ? feeInPositionAsset : minProtocolFeeInPositionAsset;
-      feeInPositionAsset = feeInPositionAsset.lt(maxProtocolFeeInPositionAsset) ? feeInPositionAsset : maxProtocolFeeInPositionAsset;
+      feeInPaymentAsset = feeInPaymentAsset.gt(minProtocolFeeInPaymentAsset) ? feeInPaymentAsset : minProtocolFeeInPaymentAsset;
+      feeInPaymentAsset = feeInPaymentAsset.lt(maxProtocolFeeInPaymentAsset) ? feeInPaymentAsset : maxProtocolFeeInPaymentAsset;
     }
-    return BigNumber.from(feeInPositionAsset.toString());
+    return BigNumber.from(feeInPaymentAsset.toString());
   } catch (error) {
-    console.error("Error in calculateFeeInPositionAsset:", error);
+    console.error("Error in calculateFeeInPaymentAsset:", error);
     throw error;
   }
 }
 
 async function calculateMinProtocolFee(
   restrictedGasSpent,
-  positionAsset,
+  paymentAsset,
   feeRateType,
-  isFeeOnlyInPositionAsset,
+  isFeeProhibitedInPmx,
   keeperRD,
-  nativePositionOracleData,
+  nativePaymentOracleData,
 ) {
   try {
     const primexDNS = await getContract("PrimexDNS");
@@ -117,7 +115,7 @@ async function calculateMinProtocolFee(
     const l1CostWei = paymentModel === PaymentModel.ARBITRUM ? l1GasPrice * 16 * (baseLength.toNumber() + 140) : Zero;
 
     let minProtocolFeeInNativeAsset;
-    if (isFeeOnlyInPositionAsset) {
+    if (isFeeProhibitedInPmx) {
       minProtocolFeeInNativeAsset = liquidationGasAmount.mul(restrictedGasPrice).add(l1CostWei).add(protocolFeeCoefficient);
     } else {
       if (callingMethod === CallingMethod.ClosePositionByCondition) {
@@ -133,21 +131,21 @@ async function calculateMinProtocolFee(
       }
     }
 
-    const minProtocolFeeInPositionAsset = await primexPricingLibrary.callStatic.getOracleAmountsOut(
+    const minProtocolFeeInPaymentAsset = await primexPricingLibrary.callStatic.getOracleAmountsOut(
       NATIVE_CURRENCY,
-      positionAsset,
+      paymentAsset,
       minProtocolFeeInNativeAsset,
       priceOracle.address,
-      nativePositionOracleData,
+      nativePaymentOracleData,
     );
-    return minProtocolFeeInPositionAsset;
+    return minProtocolFeeInPaymentAsset;
   } catch (error) {
     console.error("Error in calculateMinProtocolFee:", error);
     throw error;
   }
 }
 
-async function calculateMinPositionSize(tradingOrderType, asset, nativePositionOracleData, keeperRD, gasPrice = 0) {
+async function calculateMinPositionSize(tradingOrderType, asset, nativePaymentOracleData, keeperRD, gasPrice = 0) {
   try {
     const primexDNS = await getContract("PrimexDNS");
     const priceOracle = await getContract("PriceOracle");
@@ -174,7 +172,7 @@ async function calculateMinPositionSize(tradingOrderType, asset, nativePositionO
 
     const [restrictedGasPrice] = await calculateRestrictedGasPrice(gasPrice, keeperRD);
     const paymentModel = (await keeperRewardDistributor.paymentModel()).toString();
-    const baseLength = await primexDNS.getArbitrumBaseLengthForTradingOrderType(tradingOrderType);
+    const baseLength = await primexDNS.getL1BaseLengthForTradingOrderType(tradingOrderType);
 
     const l1CostWei = paymentModel === PaymentModel.ARBITRUM ? l1GasPrice * 16 * (baseLength.toNumber() + 140) : Zero;
 
@@ -188,7 +186,7 @@ async function calculateMinPositionSize(tradingOrderType, asset, nativePositionO
       asset,
       minPositionSizeInNativeAsset.toString(),
       priceOracle.address,
-      nativePositionOracleData,
+      nativePaymentOracleData,
     );
     return minPositionSize;
   } catch (error) {
@@ -227,7 +225,7 @@ async function calculateRestrictedGasPrice(gasPrice = 0, keeperRD = undefined) {
   }
 }
 
-async function calculateFeeAmountInPmx(positionAsset, pmx, feeInPositonAssetWithDiscount, positionPmxOracleData) {
+async function calculateFeeAmountInPmx(paymentAsset, pmx, feeInPaymentAssetWithDiscount, paymentPmxOracleData) {
   try {
     let primexPricingLibrary = await getContract("PrimexPricingLibrary");
     const PrimexPricingLibraryMockFactory = await getContractFactory("PrimexPricingLibraryMock", {
@@ -239,13 +237,12 @@ async function calculateFeeAmountInPmx(positionAsset, pmx, feeInPositonAssetWith
     await primexPricingLibrary.deployed();
 
     const priceOracle = await getContract("PriceOracle");
-
     const feeAmountInPmx = await primexPricingLibrary.callStatic.getOracleAmountsOut(
-      positionAsset,
+      paymentAsset,
       pmx,
-      feeInPositonAssetWithDiscount.toString(),
+      feeInPaymentAssetWithDiscount.toString(),
       priceOracle.address,
-      positionPmxOracleData,
+      paymentPmxOracleData,
     );
     return feeAmountInPmx;
   } catch (error) {
@@ -255,7 +252,7 @@ async function calculateFeeAmountInPmx(positionAsset, pmx, feeInPositonAssetWith
 }
 
 module.exports = {
-  calculateFeeInPositionAsset,
+  calculateFeeInPaymentAsset,
   calculateMinProtocolFee,
   calculateMinPositionSize,
   calculateRestrictedGasPrice,

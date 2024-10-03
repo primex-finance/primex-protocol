@@ -16,10 +16,12 @@ const USD_MULTIPLIER = BigNumber.from("10").pow(18 - 8);
 
 const ETH = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const ArbGasInfo = "0x000000000000000000000000000000000000006C";
+const OVM_GASPRICEORACLE = "0x420000000000000000000000000000000000000F";
 
 const PaymentModel = Object.freeze({
   DEFAULT: "0",
   ARBITRUM: "1",
+  OPTIMISTIC: "2",
 });
 
 const CloseReason = Object.freeze({
@@ -30,6 +32,11 @@ const CloseReason = Object.freeze({
   BATCH_LIQUIDATION: 4,
   BATCH_STOP_LOSS: 5,
   BATCH_TAKE_PROFIT: 6,
+});
+
+const UpdatePullOracle = Object.freeze({
+  Pyth: 0,
+  Supra: 1,
 });
 
 const FeeRateType = Object.freeze({
@@ -61,6 +68,7 @@ const OracleType = Object.freeze({
   Pyth: 0,
   Chainlink: 1,
   Uniswapv3: 2,
+  Supra: 3,
 });
 
 const ORDER_INFO_DECODE = [
@@ -117,6 +125,7 @@ module.exports = {
   USD_MULTIPLIER,
   ETH,
   ArbGasInfo,
+  OVM_GASPRICEORACLE,
   PaymentModel,
   CloseReason,
   FeeRateType,
@@ -132,4 +141,5 @@ module.exports = {
   KeeperCallingMethod,
   CallingMethod,
   OracleType,
+  UpdatePullOracle,
 };

@@ -130,18 +130,19 @@ contract PositionManager is IPositionManagerV2, PositionManagerStorageV2 {
             initialGasleft,
             _params.positionSoldAssetOracleData,
             _params.nativePmxOracleData,
-            _params.pmxPositionAssetOracleData,
-            _params.nativePositionAssetOracleData,
+            _params.pmxSoldAssetOracleData,
+            _params.nativeSoldAssetOracleData,
             _params.positionNativeAssetOracleData,
-            _params.pullOracleData
+            _params.pullOracleData,
+            _params.pullOracleTypes
         );
 
         emit PositionLibrary.PaidProtocolFee({
             positionId: _params.id,
             trader: posEventData.trader,
-            positionAsset: posEventData.positionAsset,
+            paymentAsset: posEventData.paymentAsset,
             feeRateType: posEventData.feeRateType,
-            feeInPositionAsset: posEventData.feeInPositionAsset,
+            feeInPaymentAsset: posEventData.feeInPaymentAsset,
             feeInPmx: posEventData.feeInPmx
         });
     }
@@ -202,14 +203,18 @@ contract PositionManager is IPositionManagerV2, PositionManagerStorageV2 {
         uint256 _positionId,
         uint256 _amount,
         bytes calldata _positionSoldAssetOracleData,
-        bytes[] calldata _pullOracleData
+        bytes calldata _nativeSoldAssetOracleData,
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
     ) external payable override {
         bytes memory data = abi.encodeWithSelector(
             IPositionManagerExtension.decreaseDeposit.selector,
             _positionId,
             _amount,
             _positionSoldAssetOracleData,
-            _pullOracleData
+            _nativeSoldAssetOracleData,
+            _pullOracleData,
+            _pullOracleTypes
         );
         Address.functionDelegateCall(positionManagerExtension, data);
     }
@@ -225,8 +230,10 @@ contract PositionManager is IPositionManagerV2, PositionManagerStorageV2 {
         uint256 _amountOutMin,
         bytes calldata _positionSoldAssetOracleData,
         bytes calldata _nativePositionAssetOracleData,
-        bytes calldata _pmxPositionAssetOracleData,
-        bytes[] calldata _pullOracleData
+        bytes calldata _nativeSoldAssetOracleData,
+        bytes calldata _pmxSoldAssetOracleData,
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
     ) external payable override {
         bytes memory data = abi.encodeWithSelector(
             IPositionManagerExtension.partiallyClosePosition.selector,
@@ -237,8 +244,10 @@ contract PositionManager is IPositionManagerV2, PositionManagerStorageV2 {
             _amountOutMin,
             _positionSoldAssetOracleData,
             _nativePositionAssetOracleData,
-            _pmxPositionAssetOracleData,
-            _pullOracleData
+            _nativeSoldAssetOracleData,
+            _pmxSoldAssetOracleData,
+            _pullOracleData,
+            _pullOracleTypes
         );
         Address.functionDelegateCall(positionManagerExtension, data);
     }
@@ -322,17 +331,6 @@ contract PositionManager is IPositionManagerV2, PositionManagerStorageV2 {
     /**
      * @inheritdoc IPositionManagerV2
      */
-    function isPositionRisky(
-        uint256 _id,
-        bytes calldata _positionSoldAssetOracleData,
-        bytes[] calldata _pullOracleData
-    ) external payable override returns (bool) {
-        return healthPosition(_id, _positionSoldAssetOracleData, _pullOracleData) < WadRayMath.WAD;
-    }
-
-    /**
-     * @inheritdoc IPositionManagerV2
-     */
     function isDelistedPosition(uint256 _id) external view override returns (bool) {
         _onlyExist(_id);
         PositionLibrary.Position storage position = positions[positionIndexes[_id]];
@@ -348,9 +346,10 @@ contract PositionManager is IPositionManagerV2, PositionManagerStorageV2 {
         PrimexPricingLibrary.MegaRoute[] calldata _megaRoutes,
         uint256 _amountOutMin,
         bytes calldata _positionSoldAssetOracleData,
-        bytes calldata _pmxPositionAssetOracleData,
-        bytes calldata _nativePositionAssetOracleData,
-        bytes[] calldata _pullOracleData
+        bytes calldata _pmxSoldAssetOracleData,
+        bytes calldata _nativeSoldAssetOracleData,
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
     ) public payable override nonReentrant {
         _notBlackListed();
         LimitOrderLibrary.Condition memory condition;
@@ -365,18 +364,19 @@ contract PositionManager is IPositionManagerV2, PositionManagerStorageV2 {
             0,
             _positionSoldAssetOracleData,
             new bytes(0),
-            _pmxPositionAssetOracleData,
-            _nativePositionAssetOracleData,
+            _pmxSoldAssetOracleData,
+            _nativeSoldAssetOracleData,
             new bytes(0),
-            _pullOracleData
+            _pullOracleData,
+            _pullOracleTypes
         );
 
         emit PositionLibrary.PaidProtocolFee({
             positionId: _id,
             trader: posEventData.trader,
-            positionAsset: posEventData.positionAsset,
+            paymentAsset: posEventData.paymentAsset,
             feeRateType: posEventData.feeRateType,
-            feeInPositionAsset: posEventData.feeInPositionAsset,
+            feeInPaymentAsset: posEventData.feeInPaymentAsset,
             feeInPmx: posEventData.feeInPmx
         });
     }
@@ -387,27 +387,6 @@ contract PositionManager is IPositionManagerV2, PositionManagerStorageV2 {
     function getOracleTolerableLimit(address assetA, address assetB) public view override returns (uint256) {
         uint256 oracleTolerableLimit = oracleTolerableLimits[assetA][assetB];
         return oracleTolerableLimit > 0 ? oracleTolerableLimit : defaultOracleTolerableLimit;
-    }
-
-    /**
-     * @inheritdoc IPositionManagerV2
-     */
-    function healthPosition(
-        uint256 _id,
-        bytes calldata _positionSoldAssetOracleData,
-        bytes[] calldata _pullOracleData
-    ) public payable override returns (uint256) {
-        _onlyExist(_id);
-        priceOracle.updatePullOracle{value: msg.value}(_pullOracleData);
-        PositionLibrary.Position storage position = positions[positionIndexes[_id]];
-        return
-            position.health(
-                priceOracle,
-                priceOracle.getPairPriceDrop(position.positionAsset, position.soldAsset),
-                securityBuffer,
-                getOracleTolerableLimit(position.positionAsset, position.soldAsset),
-                _positionSoldAssetOracleData
-            );
     }
 
     /**
@@ -497,14 +476,15 @@ contract PositionManager is IPositionManagerV2, PositionManagerStorageV2 {
         uint256 _initialGasLeft,
         bytes calldata _positionSoldAssetOracleData,
         bytes memory _nativePmxOracleData,
-        bytes calldata _pmxPositionAssetOracleData,
-        bytes calldata _nativePositionAssetOracleData,
+        bytes calldata _pmxSoldAssetOracleData,
+        bytes calldata _nativeSoldAssetOracleData,
         bytes memory _positionNativeAssetOracleData,
-        bytes[] calldata _pullOracleData
+        bytes[][] calldata _pullOracleData,
+        uint256[] calldata _pullOracleTypes
     ) internal returns (PositionLibrary.ClosePositionEventData memory) {
         _onlyExist(_id);
         _require(_depositReceiver != address(0), Errors.ADDRESS_NOT_SUPPORTED.selector);
-        priceOracle.updatePullOracle{value: msg.value}(_pullOracleData);
+        priceOracle.updatePullOracle{value: msg.value}(_pullOracleData, _pullOracleTypes);
         ClosePositionVars memory vars;
         vars.position = positions[positionIndexes[_id]];
         vars.borrowedAmountIsNotZero = vars.position.scaledDebtAmount > 0;
@@ -539,8 +519,8 @@ contract PositionManager is IPositionManagerV2, PositionManagerStorageV2 {
             initialGasLeft: _initialGasLeft,
             keeperRewardDistributor: address(keeperRewardDistributor),
             positionSoldAssetOracleData: _positionSoldAssetOracleData,
-            pmxPositionAssetOracleData: _pmxPositionAssetOracleData,
-            nativePositionAssetOracleData: _nativePositionAssetOracleData
+            pmxSoldAssetOracleData: _pmxSoldAssetOracleData,
+            nativeSoldAssetOracleData: _nativeSoldAssetOracleData
         });
         PositionLibrary.ClosePositionEventData memory posEventData = vars.position.closePosition(_params, _closeReason);
 
@@ -555,8 +535,7 @@ contract PositionManager is IPositionManagerV2, PositionManagerStorageV2 {
                 IKeeperRewardDistributorV3.UpdateRewardParams({
                     keeper: _depositReceiver,
                     positionAsset: vars.position.positionAsset,
-                    // Updating the keeperRewards from the full position size, before subtracting the fee
-                    positionSize: vars.position.positionAmount + posEventData.feeInPositionAsset,
+                    positionSize: vars.position.positionAmount,
                     action: posEventData.actionType,
                     numberOfActions: 1,
                     gasSpent: _initialGasLeft - gasleft(),

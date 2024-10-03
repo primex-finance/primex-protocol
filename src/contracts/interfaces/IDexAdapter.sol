@@ -21,7 +21,8 @@ interface IDexAdapter {
         Balancer, // 4
         AlgebraV3, // 5
         Meshswap, // 6
-        Paraswap //7
+        Paraswap, //7
+        Enso //8
     }
 
     /*

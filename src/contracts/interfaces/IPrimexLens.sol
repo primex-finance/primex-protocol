@@ -8,6 +8,7 @@ import {LimitOrderLibrary} from "../libraries/LimitOrderLibrary.sol";
 
 import {IPositionManagerV2} from "../PositionManager/IPositionManager.sol";
 import {IBucketV3} from "../Bucket/IBucket.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
 import {IInterestRateStrategy} from "./IInterestRateStrategy.sol";
 import {ILiquidityMiningRewardDistributor} from "../LiquidityMiningRewardDistributor/ILiquidityMiningRewardDistributor.sol";
 import {IPrimexDNSStorageV3} from "../PrimexDNS/PrimexDNS.sol";

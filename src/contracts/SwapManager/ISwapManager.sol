@@ -50,7 +50,8 @@ interface ISwapManager is IPausable {
         bytes tokenAtokenBOracleData;
         bytes pmxPositionAssetOracleData;
         bytes nativePositionAssetOracleData;
-        bytes[] pullOracleData;
+        bytes[][] pullOracleData;
+        uint256[] pullOracleTypes;
     }
 
     /**

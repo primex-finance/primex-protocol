@@ -94,6 +94,10 @@ function getEncodedPythRouteToUsd() {
   return defaultAbiCoder.encode(decodeParams, [[[USD, OracleType.Pyth, []]]]);
 }
 
+function getEncodedSupraRouteToUsd() {
+  return defaultAbiCoder.encode(decodeParams, [[[USD, OracleType.Supra, []]]]);
+}
+
 function getEncodedChainlinkRouteToToken(tokenB) {
   return defaultAbiCoder.encode(decodeParams, [[[tokenB.address, OracleType.Chainlink, []]]]);
 }
@@ -104,6 +108,9 @@ function getEncodedUniswapRouteToToken(tokenB) {
 
 function getEncodedPythRouteToToken(tokenB) {
   return defaultAbiCoder.encode(decodeParams, [[[tokenB.address, OracleType.Pyth, []]]]);
+}
+function getEncodedSupraRouteToToken(tokenB) {
+  return defaultAbiCoder.encode(decodeParams, [[[tokenB.address, OracleType.Supra, []]]]);
 }
 
 async function setOraclePrice(tokenA, tokenB, price) {
@@ -189,4 +196,6 @@ module.exports = {
   getEncodedChainlinkRouteViaUsd,
   getEncodedChainlinkRouteToUsd,
   setBadOraclePrice,
+  getEncodedSupraRouteToUsd,
+  getEncodedSupraRouteToToken,
 };

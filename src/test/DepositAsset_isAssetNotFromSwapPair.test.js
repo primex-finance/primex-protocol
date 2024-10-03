@@ -43,7 +43,7 @@ const {
   getSingleMegaRoute,
 } = require("./utils/dexOperations");
 const { eventValidation, parseArguments } = require("./utils/eventValidation");
-const { calculateFeeInPositionAsset, calculateFeeAmountInPmx } = require("./utils/protocolUtils");
+const { calculateFeeInPaymentAsset, calculateFeeAmountInPmx } = require("./utils/protocolUtils");
 const {
   setupUsdOraclesForTokens,
   getEncodedChainlinkRouteViaUsd,
@@ -236,6 +236,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
           pullOracleData: [],
+          pullOracleTypes: [],
         };
         snapshotId = await network.provider.request({
           method: "evm_snapshot",
@@ -691,7 +692,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
         const position1 = await positionManager.getPosition(0);
 
         const timestamp = (await provider.getBlock("latest")).timestamp;
-        const extraParams = defaultAbiCoder.encode(["address"], [testTokenB.address]);
+        const extraParams = defaultAbiCoder.encode(["address"], [testTokenA.address]);
 
         const position = {
           id: 0,
@@ -840,6 +841,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
           pullOracleData: [],
+          pullOracleTypes: [],
         };
         snapshotId = await network.provider.request({
           method: "evm_snapshot",
@@ -1260,6 +1262,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
           pullOracleData: [],
+          pullOracleTypes: [],
         });
 
         const amountAOut = await getAmountsOut(dex1, positionAmount.toString(), [testTokenB.address, testTokenA.address]);
@@ -1321,6 +1324,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
               getEncodedChainlinkRouteViaUsd(testTokenB),
               getEncodedChainlinkRouteViaUsd(testTokenB),
               [],
+              [],
             ),
         ).to.be.reverted;
       });
@@ -1340,22 +1344,33 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
               getEncodedChainlinkRouteViaUsd(testTokenB),
               getEncodedChainlinkRouteViaUsd(testTokenB),
               [],
+              [],
             ),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "DIFFERENT_PRICE_DEX_AND_ORACLE");
       });
 
       it("Should close position and transfer testTokenB from 'PositionManager' to 'Pair'", async function () {
         const { positionAmount } = await positionManager.getPosition(0);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
-          testTokenB.address,
-          positionAmount,
-          FeeRateType.MarginPositionClosedByTrader,
-          0,
-          false,
-          getEncodedChainlinkRouteViaUsd(testTokenB),
-        );
+        await expect(() =>
+          positionManager
+            .connect(trader)
+            .closePosition(
+              0,
+              trader.address,
+              routesForClose,
+              0,
+              getEncodedChainlinkRouteViaUsd(testTokenA),
+              getEncodedChainlinkRouteViaUsd(testTokenB),
+              getEncodedChainlinkRouteViaUsd(testTokenB),
+              [],
+              [],
+            ),
+        ).to.changeTokenBalances(testTokenB, [positionManager, pair], [positionAmount.mul(NegativeOne), positionAmount]);
+      });
+      it("Should close position and transfer testTokenA rest of trader deposit from 'Pair'", async function () {
+        const { positionAmount } = await positionManager.getPosition(0);
 
-        const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
+        const amountAOut = await getAmountsOut(dex1, positionAmount.toString(), [testTokenB.address, testTokenA.address]);
 
         await expect(() =>
           positionManager
@@ -1369,35 +1384,6 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
               getEncodedChainlinkRouteViaUsd(testTokenB),
               getEncodedChainlinkRouteViaUsd(testTokenB),
               [],
-            ),
-        ).to.changeTokenBalances(testTokenB, [positionManager, pair], [positionAmount.mul(NegativeOne), positionAmountAfterFee]);
-      });
-      it("Should close position and transfer testTokenA rest of trader deposit from 'Pair'", async function () {
-        const { positionAmount } = await positionManager.getPosition(0);
-
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
-          testTokenB.address,
-          positionAmount,
-          FeeRateType.MarginPositionClosedByTrader,
-          0,
-          false,
-          getEncodedChainlinkRouteViaUsd(testTokenB),
-        );
-
-        const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
-        const amountAOut = await getAmountsOut(dex1, positionAmountAfterFee.toString(), [testTokenB.address, testTokenA.address]);
-
-        await expect(() =>
-          positionManager
-            .connect(trader)
-            .closePosition(
-              0,
-              trader.address,
-              routesForClose,
-              0,
-              getEncodedChainlinkRouteViaUsd(testTokenA),
-              getEncodedChainlinkRouteViaUsd(testTokenB),
-              getEncodedChainlinkRouteViaUsd(testTokenB),
               [],
             ),
         ).to.changeTokenBalance(testTokenA, pair, amountAOut.mul(NegativeOne));
@@ -1414,6 +1400,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(testTokenB),
             getEncodedChainlinkRouteViaUsd(testTokenB),
+            [],
             [],
           );
 
@@ -1434,6 +1421,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(testTokenB),
             getEncodedChainlinkRouteViaUsd(testTokenB),
+            [],
             [],
           );
 
@@ -1457,6 +1445,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(testTokenB),
             getEncodedChainlinkRouteViaUsd(testTokenB),
+            [],
             [],
           );
 
@@ -1482,6 +1471,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             getEncodedChainlinkRouteViaUsd(testTokenA),
             getEncodedChainlinkRouteViaUsd(testTokenB),
             getEncodedChainlinkRouteViaUsd(testTokenB),
+            [],
             [],
           );
 
@@ -1517,6 +1507,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
               getEncodedChainlinkRouteViaUsd(testTokenB),
               getEncodedChainlinkRouteViaUsd(testTokenB),
               [],
+              [],
             ),
         ).to.changeTokenBalance(testTokenA, bucket, positionDebt.toFixed());
       });
@@ -1536,17 +1527,15 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           rayMul(cumulatedVariableBorrowInterest.toString(), borrowIndexBefore.toString()),
         );
         const { positionAmount } = await positionManager.getPosition(0);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
-          testTokenB.address,
-          positionAmount,
+        const amountAOut = await getAmountsOut(dex1, positionAmount.toString(), [testTokenB.address, testTokenA.address]);
+        const feeInPaymentAsset = await calculateFeeInPaymentAsset(
+          testTokenA.address,
+          amountAOut,
           FeeRateType.MarginPositionClosedByTrader,
           0,
           false,
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
         );
-
-        const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
-        const amountAOut = await getAmountsOut(dex1, positionAmountAfterFee.toString(), [testTokenB.address, testTokenA.address]);
         await network.provider.send("evm_setNextBlockTimestamp", [txBlockTimestamp.toNumber()]);
 
         await expect(() =>
@@ -1561,8 +1550,9 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
               getEncodedChainlinkRouteViaUsd(testTokenB),
               getEncodedChainlinkRouteViaUsd(testTokenB),
               [],
+              [],
             ),
-        ).to.changeTokenBalance(testTokenA, traderBalanceVault, amountAOut.sub(positionDebt.toString()));
+        ).to.changeTokenBalance(testTokenA, traderBalanceVault, amountAOut.sub(positionDebt.toString()).sub(feeInPaymentAsset));
 
         expect(await testTokenB.balanceOf(positionManager.address)).to.equal(0);
       });
@@ -1588,17 +1578,15 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           rayMul(cumulatedVariableBorrowInterest.toString(), borrowIndexBefore.toString()),
         );
         const { positionAmount } = await positionManager.getPosition(0);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
-          testTokenB.address,
-          positionAmount,
+        const amountAOut = await getAmountsOut(dex1, positionAmount, [testTokenB.address, testTokenA.address]);
+        const feeInPaymentAsset = await calculateFeeInPaymentAsset(
+          testTokenA.address,
+          amountAOut,
           FeeRateType.MarginPositionClosedByTrader,
           0,
           false,
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
         );
-
-        const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
-        const amountAOut = await getAmountsOut(dex1, positionAmountAfterFee, [testTokenB.address, testTokenA.address]);
         await network.provider.send("evm_setNextBlockTimestamp", [txBlockTimestamp.toNumber()]);
 
         await expect(() =>
@@ -1613,12 +1601,13 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
               getEncodedChainlinkRouteViaUsd(testTokenB),
               getEncodedChainlinkRouteViaUsd(testTokenB),
               [],
+              [],
             ),
-        ).to.changeTokenBalance(testTokenA, traderBalanceVault, amountAOut.sub(positionDebt.toString()));
+        ).to.changeTokenBalance(testTokenA, traderBalanceVault, amountAOut.sub(positionDebt.toString()).sub(feeInPaymentAsset));
 
         const { availableBalance, lockedBalance } = await traderBalanceVault.balances(trader.address, testTokenA.address);
 
-        expect(amountAOut.sub(BigNumber.from(positionDebt.toString()))).to.equal(availableBalance);
+        expect(amountAOut.sub(BigNumber.from(positionDebt.toString())).sub(feeInPaymentAsset)).to.equal(availableBalance);
         expect(0).to.equal(lockedBalance);
 
         expect(await testTokenA.balanceOf(positionManager.address)).to.equal(0);
@@ -1659,6 +1648,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
               getEncodedChainlinkRouteViaUsd(testTokenB),
               getEncodedChainlinkRouteViaUsd(testTokenB),
               [],
+              [],
             ),
         ).to.changeTokenBalance(testTokenA, bucket, positionDebt.toString());
       });
@@ -1678,17 +1668,16 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           rayMul(cumulatedVariableBorrowInterest.toString(), borrowIndexBefore.toString()),
         );
         const { positionAmount } = await positionManager.getPosition(0);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
-          testTokenB.address,
-          positionAmount,
+
+        const amountAOut = await getAmountsOut(dex1, positionAmount, [testTokenB.address, testTokenA.address]);
+        const feeInPaymentAsset = await calculateFeeInPaymentAsset(
+          testTokenA.address,
+          amountAOut,
           FeeRateType.MarginPositionClosedByTrader,
           0,
           false,
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
         );
-
-        const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
-        const amountAOut = await getAmountsOut(dex1, positionAmountAfterFee, [testTokenB.address, testTokenA.address]);
 
         const { availableBalance: availableBeforeA } = await traderBalanceVault.balances(trader.address, testTokenA.address);
         await network.provider.send("evm_setNextBlockTimestamp", [txBlockTimestamp.toNumber()]);
@@ -1704,11 +1693,12 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             getEncodedChainlinkRouteViaUsd(testTokenB),
             getEncodedChainlinkRouteViaUsd(testTokenB),
             [],
+            [],
           );
 
         const { availableBalance: availableAfterA } = await traderBalanceVault.balances(trader.address, testTokenA.address);
         expect(availableBeforeA).to.equal(0);
-        expect(availableAfterA).to.equal(amountAOut.sub(positionDebt.toString()));
+        expect(availableAfterA).to.equal(amountAOut.sub(positionDebt.toString()).sub(feeInPaymentAsset));
       });
 
       it("Should close position and throw event", async function () {
@@ -1726,17 +1716,16 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           rayMul(cumulatedVariableBorrowInterest.toString(), borrowIndexBefore.toString()),
         );
         const { positionAmount } = await positionManager.getPosition(0);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
-          testTokenB.address,
-          positionAmount,
+
+        const amountAOut = await getAmountsOut(dex1, positionAmount, [testTokenB.address, testTokenA.address]);
+        const feeInPaymentAsset = await calculateFeeInPaymentAsset(
+          testTokenA.address,
+          amountAOut,
           FeeRateType.MarginPositionClosedByTrader,
           0,
           false,
-          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenA),
         );
-
-        const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
-        const amountAOut = await getAmountsOut(dex1, positionAmountAfterFee, [testTokenB.address, testTokenA.address]);
 
         const profitInA = amountAOut.sub(positionDebt.toString());
         await network.provider.send("evm_setNextBlockTimestamp", [txBlockTimestamp.toNumber()]);
@@ -1752,6 +1741,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             getEncodedChainlinkRouteViaUsd(testTokenB),
             getEncodedChainlinkRouteViaUsd(testTokenB),
             [],
+            [],
           );
         const expectedClosePosition = {
           positionI: 0,
@@ -1760,10 +1750,10 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           bucketAddress: bucket.address,
           soldAsset: testTokenA.address,
           positionAsset: testTokenB.address,
-          decreasePositionAmount: positionAmountAfterFee,
-          profit: profitInA.sub(depositInBorrowedAmount),
+          decreasePositionAmount: positionAmount,
+          profit: profitInA.sub(depositInBorrowedAmount).sub(feeInPaymentAsset),
           positionDebt: positionDebt,
-          amountOut: amountAOut,
+          amountOut: amountAOut.sub(feeInPaymentAsset),
           reason: CloseReason.CLOSE_BY_TRADER,
         };
 
@@ -1836,6 +1826,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
           pullOracleData: [],
+          pullOracleTypes: [],
         });
 
         if (dex1 === "curve") {
@@ -1865,9 +1856,10 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           positionSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
           nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
           positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
-          pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
-          nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+          pmxSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
           pullOracleData: [],
+          pullOracleTypes: [],
         };
         snapshotId = await network.provider.request({
           method: "evm_snapshot",
@@ -1921,15 +1913,6 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
 
       it("Should liquidate risky position and transfer testTokenB from 'PositionManager' to 'Pair' when health position is equal to ~ 0.91wad", async function () {
         const { positionAmount } = await positionManager.getPosition(0);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
-          testTokenB.address,
-          positionAmount,
-          FeeRateType.MarginPositionClosedByKeeper,
-          0,
-          false,
-          getEncodedChainlinkRouteViaUsd(testTokenB),
-        );
-        const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
         const bnWAD = BigNumber.from(WAD.toString());
         await swapExactTokensForTokens({
           dex: dex1,
@@ -1967,25 +1950,15 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
 
         const denominator = wadMul(feeBuffer.toString(), positionDebt.toString()).toString();
         const positionState = wadDiv(numerator, denominator).toString();
-        expect(await positionManager.callStatic.healthPosition(0, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.equal(positionState);
         expect(BigNumber.from(positionState)).to.be.lt(WAD);
 
         await expect(() =>
           positionManager.connect(liquidator).closePositionByCondition({ ...closePositionByConditionParams }),
-        ).to.changeTokenBalances(testTokenB, [positionManager, pair], [positionAmount.mul(NegativeOne), positionAmountAfterFee]);
+        ).to.changeTokenBalances(testTokenB, [positionManager, pair], [positionAmount.mul(NegativeOne), positionAmount]);
       });
 
       it("Should liquidate risky position and transfer testTokenB from 'PositionManager' to 'Pair' when health position is equal to ~ 0.99wad", async function () {
         const { positionAmount } = await positionManager.getPosition(0);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
-          testTokenB.address,
-          positionAmount,
-          FeeRateType.MarginPositionClosedByKeeper,
-          0,
-          false,
-          getEncodedChainlinkRouteViaUsd(testTokenB),
-        );
-        const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
         const bnWAD = BigNumber.from(WAD.toString());
 
         await swapExactTokensForTokens({
@@ -1994,7 +1967,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           path: [testTokenB.address, testTokenA.address],
         });
 
-        const positionAssetCurrentPrice = await getAmountsOut(dex1, positionAmountAfterFee, [testTokenB.address, testTokenA.address]);
+        const positionAssetCurrentPrice = await getAmountsOut(dex1, positionAmount, [testTokenB.address, testTokenA.address]);
         const positionAmountInWadDecimals = positionAmount.mul(multiplierB);
         const positionAssetCurrentPriceInWadDecimals = positionAssetCurrentPrice.mul(multiplierA);
 
@@ -2022,25 +1995,15 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
         ).toString();
         const denominator = wadMul(feeBuffer.toString(), positionDebt.toString()).toString();
         const positionState = wadDiv(numerator, denominator).toString();
-        expect(await positionManager.callStatic.healthPosition(0, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.equal(positionState);
         expect(BigNumber.from(positionState)).to.be.lt(WAD);
 
         await expect(() =>
           positionManager.connect(liquidator).closePositionByCondition({ ...closePositionByConditionParams }),
-        ).to.changeTokenBalances(testTokenB, [positionManager, pair], [positionAmount.mul(NegativeOne), positionAmountAfterFee]);
+        ).to.changeTokenBalances(testTokenB, [positionManager, pair], [positionAmount.mul(NegativeOne), positionAmount]);
       });
 
       it("Should liquidate risky position and transfer testTokenA from 'Pair'", async function () {
         const { positionAmount } = await positionManager.getPosition(0);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
-          testTokenB.address,
-          positionAmount,
-          FeeRateType.MarginPositionClosedByKeeper,
-          0,
-          false,
-          getEncodedChainlinkRouteViaUsd(testTokenB),
-        );
-        const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
         const bnWAD = BigNumber.from(WAD.toString());
 
         await swapExactTokensForTokens({
@@ -2049,7 +2012,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           path: [testTokenB.address, testTokenA.address],
         });
 
-        const positionAssetCurrentPrice = await getAmountsOut(dex1, positionAmountAfterFee, [testTokenB.address, testTokenA.address]);
+        const positionAssetCurrentPrice = await getAmountsOut(dex1, positionAmount, [testTokenB.address, testTokenA.address]);
         const positionAmountInWadDecimals = positionAmount.mul(multiplierB);
         const positionAssetCurrentPriceInWadDecimals = positionAssetCurrentPrice.mul(multiplierA);
         const rate = wadDiv(positionAmountInWadDecimals.toString(), positionAssetCurrentPriceInWadDecimals.toString()).toString();
@@ -2077,10 +2040,9 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
         const denominator = wadMul(feeBuffer.toString(), positionDebt.toString()).toString();
         const positionState = wadDiv(numerator, denominator).toString();
 
-        expect(await positionManager.callStatic.healthPosition(0, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.equal(positionState);
         expect(BigNumber.from(positionState)).to.be.lt(WAD);
 
-        const amountAOut = await getAmountsOut(dex1, positionAmountAfterFee.toString(), [testTokenB.address, testTokenA.address]);
+        const amountAOut = await getAmountsOut(dex1, positionAmount.toString(), [testTokenB.address, testTokenA.address]);
         await expect(() =>
           positionManager.connect(liquidator).closePositionByCondition({ ...closePositionByConditionParams }),
         ).to.changeTokenBalance(testTokenA, pair, amountAOut.mul(NegativeOne));
@@ -2189,17 +2151,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
         }
 
         const { positionAmount } = await positionManager.getPosition(0);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
-          testTokenB.address,
-          positionAmount,
-          FeeRateType.MarginPositionClosedByKeeper,
-          0,
-          false,
-          getEncodedChainlinkRouteViaUsd(testTokenB),
-        );
-        const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
-
-        const positionAssetCurrentPrice = await getAmountsOut(dex1, positionAmountAfterFee, [testTokenB.address, testTokenA.address]);
+        const positionAssetCurrentPrice = await getAmountsOut(dex1, positionAmount, [testTokenB.address, testTokenA.address]);
         const positionAmountInWadDecimals = positionAmount.mul(multiplierB);
         const positionAssetCurrentPriceInWadDecimals = positionAssetCurrentPrice.mul(multiplierA);
         const rate = wadDiv(positionAmountInWadDecimals.toString(), positionAssetCurrentPriceInWadDecimals.toString()).toString();
@@ -2212,6 +2164,15 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
         const borrowIndexBefore = await bucket.variableBorrowIndex();
         const txBlockTimestamp = lastUpdBlockTimestamp.add(100);
 
+        const feeInPaymentAsset = await calculateFeeInPaymentAsset(
+          testTokenA.address,
+          positionAssetCurrentPrice,
+          FeeRateType.MarginPositionClosedByKeeper,
+          0,
+          false,
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+        );
+
         const cumulatedVariableBorrowInterest = calculateCompoundInterest(BAR, lastUpdBlockTimestamp, txBlockTimestamp);
         const positionDebt = rayMul(
           scaledDebtBalance.toString(),
@@ -2222,7 +2183,6 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
         depositInBorrowedAmount = BigNumber.from(wadMul(depositAmountX.toString(), priceFromOracle.toString()).toString());
 
         const tx = await positionManager.connect(liquidator).closePositionByCondition({ ...closePositionByConditionParams });
-
         const expectedClosePosition = {
           positionI: 0,
           trader: trader.address,
@@ -2230,10 +2190,10 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           bucketAddress: bucket.address,
           soldAsset: testTokenA.address,
           positionAsset: testTokenB.address,
-          decreasePositionAmount: positionAmountAfterFee,
+          decreasePositionAmount: positionAmount,
           profit: depositInBorrowedAmount.mul(NegativeOne),
           positionDebt: positionDebt,
-          amountOut: positionAssetCurrentPrice,
+          amountOut: positionAssetCurrentPrice.sub(feeInPaymentAsset),
           reason: CloseReason.RISKY_POSITION,
         };
 
@@ -2247,15 +2207,6 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
 
       it("Should liquidate risky position and transfer rest of trader deposit to treasury", async function () {
         const { positionAmount } = await positionManager.getPosition(0);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
-          testTokenB.address,
-          positionAmount,
-          FeeRateType.MarginPositionClosedByKeeper,
-          0,
-          false,
-          getEncodedChainlinkRouteViaUsd(testTokenB),
-        );
-        const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
         const bnWAD = BigNumber.from(WAD.toString());
         await swapExactTokensForTokens({
           dex: dex1,
@@ -2263,7 +2214,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           path: [testTokenB.address, testTokenA.address],
         });
 
-        const positionAssetCurrentPrice = await getAmountsOut(dex1, positionAmountAfterFee, [testTokenB.address, testTokenA.address]);
+        const positionAssetCurrentPrice = await getAmountsOut(dex1, positionAmount, [testTokenB.address, testTokenA.address]);
         const positionAmountInWadDecimals = positionAmount.mul(multiplierB);
         const positionAssetCurrentPriceInWadDecimals = positionAssetCurrentPrice.mul(multiplierA);
         const rate = wadDiv(positionAmountInWadDecimals.toString(), positionAssetCurrentPriceInWadDecimals.toString()).toString();
@@ -2303,7 +2254,6 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
 
         const returnedToTrader = positionAssetCurrentPrice.sub(positionDebt.toString());
 
-        expect(await positionManager.callStatic.healthPosition(0, getEncodedChainlinkRouteViaUsd(testTokenA), [])).to.equal(positionState);
         expect(BigNumber.from(positionState)).to.be.lt(WAD);
         await network.provider.send("evm_setNextBlockTimestamp", [txBlockTimestamp.toNumber()]);
 
@@ -2416,6 +2366,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
           pullOracleData: [],
+          pullOracleTypes: [],
         });
       });
 
@@ -2596,6 +2547,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
             pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "DIFFERENT_PRICE_DEX_AND_ORACLE");
       });
@@ -2629,6 +2581,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
             pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "DIFFERENT_PRICE_DEX_AND_ORACLE");
       });
@@ -2673,6 +2626,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
             pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO");
       });
@@ -2714,6 +2668,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
             pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO");
       });
@@ -2739,6 +2694,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
             pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "DIFFERENT_PRICE_DEX_AND_ORACLE");
       });
@@ -2771,6 +2727,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
             pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "DIFFERENT_PRICE_DEX_AND_ORACLE");
       });
@@ -2799,6 +2756,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
             pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.changeTokenBalance(
           testTokenA,
@@ -2840,6 +2798,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
             pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.changeTokenBalance(
           testTokenA,
@@ -2889,6 +2848,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
           pullOracleData: [],
+          pullOracleTypes: [],
         });
       });
 
@@ -2914,6 +2874,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
             pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.changeTokenBalances(
           testTokenA,
@@ -2938,7 +2899,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
         );
         const depositAmountInBDecimals = await getAmountsOut(dex1, depositAmountX, [testTokenX.address, testTokenB.address]);
         const positionAmount = amount0Out.add(depositAmountInBDecimals);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
+        const feeInPositionAsset = await calculateFeeInPaymentAsset(
           testTokenB.address,
           positionAmount,
           FeeRateType.MarginLimitOrderExecuted,
@@ -2965,6 +2926,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
           pullOracleData: [],
+          pullOracleTypes: [],
         });
         const borrowIndex = await bucket.variableBorrowIndex();
         expect(await positionManager.getTraderPositionsLength(trader.address)).to.be.equal(1);
@@ -2996,7 +2958,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
         );
         const depositAmountInBDecimals = await getAmountsOut(dex1, depositAmountX, [testTokenX.address, testTokenB.address]);
         const positionAmount = amount0Out.add(depositAmountInBDecimals);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
+        const feeInPaymentAsset = await calculateFeeInPaymentAsset(
           testTokenB.address,
           positionAmount,
           FeeRateType.MarginLimitOrderExecuted,
@@ -3004,7 +2966,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           false,
           getEncodedChainlinkRouteViaUsd(testTokenB),
         );
-        const amountOutAfterFee = positionAmount.sub(feeInPositionAsset);
+        const amountOutAfterFee = positionAmount.sub(feeInPaymentAsset);
 
         await limitOrderManager.connect(liquidator).openPositionByOrder({
           orderId: orderId,
@@ -3023,6 +2985,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
           pullOracleData: [],
+          pullOracleTypes: [],
         });
         const borrowIndex = await bucket.variableBorrowIndex();
         expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
@@ -3053,7 +3016,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
         );
         const depositAmountInBDecimals = await getAmountsOut(dex1, depositAmountX, [testTokenX.address, testTokenB.address]);
         const positionAmount = amount0Out.add(depositAmountInBDecimals);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
+        const feeInPaymentAsset = await calculateFeeInPaymentAsset(
           testTokenB.address,
           positionAmount,
           FeeRateType.MarginLimitOrderExecuted,
@@ -3080,8 +3043,9 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
             pullOracleData: [],
+            pullOracleTypes: [],
           }),
-        ).to.changeTokenBalances(testTokenB, [traderBalanceVault, Treasury], [0, feeInPositionAsset]);
+        ).to.changeTokenBalances(testTokenB, [traderBalanceVault, Treasury], [0, feeInPaymentAsset]);
 
         const { lockedBalance: lockedBalanceTraderBafter } = await traderBalanceVault.balances(trader.address, testTokenX.address);
         const { lockedBalance: lockedBalanceTraderAafter } = await traderBalanceVault.balances(trader.address, testTokenA.address);
@@ -3101,7 +3065,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
         );
         const depositAmountInBDecimals = await getAmountsOut(dex1, depositAmountX, [testTokenX.address, testTokenB.address]);
         const positionAmount = amount0Out.add(depositAmountInBDecimals);
-        const feeInPositionAsset = await calculateFeeInPositionAsset(
+        const feeInPaymentAsset = await calculateFeeInPaymentAsset(
           testTokenB.address,
           positionAmount,
           FeeRateType.MarginLimitOrderExecuted,
@@ -3110,11 +3074,11 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           getEncodedChainlinkRouteViaUsd(testTokenB),
         );
         const pmxDiscountMultiplier = await PrimexDNS.pmxDiscountMultiplier();
-        const feeInPositonAssetWithDiscount = wadMul(feeInPositionAsset.toString(), pmxDiscountMultiplier.toString()).toString();
+        const feeInPaymentAssetWithDiscount = wadMul(feeInPaymentAsset.toString(), pmxDiscountMultiplier.toString()).toString();
         const feeAmountInPmx = await calculateFeeAmountInPmx(
           testTokenB.address,
           PMXToken.address,
-          feeInPositonAssetWithDiscount,
+          feeInPaymentAssetWithDiscount,
           getEncodedChainlinkRouteViaUsd(PMXToken),
         );
 
@@ -3136,6 +3100,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
             positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
             nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
             pullOracleData: [],
+            pullOracleTypes: [],
           }),
         ).to.changeTokenBalances(
           PMXToken,
@@ -3167,6 +3132,7 @@ describe("DepositAsset_isAssetNotFromSwapPair", function () {
           positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
           pullOracleData: [],
+          pullOracleTypes: [],
         });
         const { lockedBalance: lockedAfter } = await traderBalanceVault.balances(trader.address, testTokenA.address);
         expect(lockedBefore).to.equal(lockedAfter);

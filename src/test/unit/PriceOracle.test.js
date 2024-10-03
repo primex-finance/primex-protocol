@@ -20,6 +20,9 @@ const {
   deployMockUniswapPriceFeed,
   deployMockAggregatorV3Interface,
   deployMockPyth,
+  deploySupraPullMock,
+  deploySupraStoragelMock,
+  deployMockTreasury,
 } = require("../utils/waffleMocks");
 const { getEncodedRoutes } = require("../utils/oracleUtils");
 
@@ -35,7 +38,7 @@ process.env.TEST = true;
 
 describe("PriceOracle_unit", function () {
   let priceOracle, priceOracleFactory;
-  let mockRegistry, mockPriceFeed, mockPriceDropFeed, mockUniswapPriceFeed, mockPyth;
+  let mockRegistry, mockPriceFeed, mockPriceDropFeed, mockUniswapPriceFeed, mockTreasury, mockPyth, supraPullMock, supraStorageMock;
   let EmergencyAdmin, SmallTimelockAdmin;
   let tokenA, tokenB;
   let deployer, caller;
@@ -56,12 +59,17 @@ describe("PriceOracle_unit", function () {
     mockPriceDropFeed = await deployMockAggregatorV3Interface(deployer);
     mockUniswapPriceFeed = await deployMockUniswapPriceFeed(deployer);
     mockPyth = await deployMockPyth(deployer);
+    supraPullMock = await deploySupraPullMock(deployer);
+    supraStorageMock = await deploySupraStoragelMock(deployer);
+    mockTreasury = await deployMockTreasury(deployer);
   });
 
   beforeEach(async function () {
     priceOracle = await getContract("PriceOracle");
     await priceOracle.updateUniv3TypeOracle([0], [mockUniswapPriceFeed.address]);
     await priceOracle.setPyth(mockPyth.address);
+    await priceOracle.setSupraPullOracle(supraPullMock.address);
+    await priceOracle.setSupraStorageOracle(supraStorageMock.address);
     await priceOracle.setTimeTolerance("60");
     snapshotId = await network.provider.request({
       method: "evm_snapshot",
@@ -82,7 +90,9 @@ describe("PriceOracle_unit", function () {
     it("Should revert if registry does not support IAccessControl interface", async function () {
       await mockRegistry.mock.supportsInterface.returns(false);
       await expect(
-        upgrades.deployProxy(priceOracleFactory, [mockRegistry.address, NATIVE_CURRENCY], { unsafeAllow: ["constructor", "delegatecall"] }),
+        upgrades.deployProxy(priceOracleFactory, [mockRegistry.address, NATIVE_CURRENCY, tokenA.address, mockTreasury.address], {
+          unsafeAllow: ["constructor", "delegatecall"],
+        }),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
   });
@@ -139,6 +149,43 @@ describe("PriceOracle_unit", function () {
       expect(await priceOracle.pyth()).to.be.equal(tokenA.address);
     });
   });
+  describe("setTreasury", function () {
+    it("Should revert if not BIG_TIMELOCK_ADMIN call setTreasury", async function () {
+      await expect(priceOracle.connect(caller).setTreasury(mockTreasury.address)).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
+    });
+    it("Should revert if registry does not support ITreasury interface", async function () {
+      await mockTreasury.mock.supportsInterface.returns(false);
+      await expect(priceOracle.setTreasury(mockTreasury.address)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
+    });
+    it("Should successfully setTreasury", async function () {
+      expect(await priceOracle.setTreasury(mockTreasury.address));
+      expect(await priceOracle.treasury()).to.be.equal(mockTreasury.address);
+    });
+  });
+  describe("setSupraPullOracle", function () {
+    it("Should revert if not BIG_TIMELOCK_ADMIN call setSupraPullOracle", async function () {
+      await expect(priceOracle.connect(caller).setSupraPullOracle(supraPullMock.address)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+    it("Should successfully setSupraPullOracle", async function () {
+      expect(await priceOracle.setSupraPullOracle(supraPullMock.address));
+      expect(await priceOracle.supraPullOracle()).to.be.equal(supraPullMock.address);
+    });
+  });
+  describe("setSupraStorageOracle", function () {
+    it("Should revert if not BIG_TIMELOCK_ADMIN call setSupraStorageOracle", async function () {
+      await expect(priceOracle.connect(caller).setSupraStorageOracle(supraStorageMock.address)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+    it("Should successfully setSupraPullOracle", async function () {
+      expect(await priceOracle.setSupraStorageOracle(supraStorageMock.address));
+      expect(await priceOracle.supraStorageOracle()).to.be.equal(supraStorageMock.address);
+    });
+  });
   describe("setTimeTolerance", function () {
     it("Should revert if not MEDIUM_TIMELOCK_ADMIN call setTimeTolerance", async function () {
       await expect(priceOracle.connect(caller).setTimeTolerance("10")).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
@@ -182,6 +229,40 @@ describe("PriceOracle_unit", function () {
     it("Should successfully updatePythPairId", async function () {
       expect(await priceOracle.updatePythPairId([tokenA.address], [NOT_ZERO_BYTES]));
       expect(await priceOracle.pythPairIds(tokenA.address)).to.be.equal(NOT_ZERO_BYTES);
+    });
+  });
+  describe("updateSupraDataFeed", function () {
+    it("Should revert if not SMALL_TIMELOCK_ADMIN call updateSupraDataFeed", async function () {
+      await expect(
+        priceOracle.connect(caller).updateSupraDataFeed([
+          {
+            tokenA: tokenA.address,
+            tokenB: tokenB.address,
+            feedData: {
+              id: 0,
+              initialize: true,
+            },
+          },
+        ]),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
+    });
+    it("Should successfully updateSupraDataFeed", async function () {
+      expect(
+        await priceOracle.updateSupraDataFeed([
+          {
+            tokenA: tokenA.address,
+            tokenB: tokenB.address,
+            feedData: {
+              id: 0,
+              initialize: true,
+            },
+          },
+        ]),
+      );
+      console.log(await priceOracle.supraDataFeedID(tokenA.address, tokenB.address));
+      const feedData = await priceOracle.supraDataFeedID(tokenA.address, tokenB.address);
+      expect(feedData.id).to.be.equal(0);
+      expect(feedData.initialize).to.be.equal(true);
     });
   });
   describe("updateUniv3TypeOracle", function () {
@@ -534,14 +615,52 @@ describe("PriceOracle_unit", function () {
         );
       });
     });
+    describe("getExchangeRate when oracle is Supra", function () {
+      it("Should revert when the oracle route is the Supra and there is no a price feed for the tokens", async function () {
+        const oracleData = getEncodedRoutes([[tokenB.address, OracleType.Supra, "0x"]]);
+        await expect(priceOracle.getExchangeRate(tokenA.address, tokenB.address, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "NO_PRICEFEED_FOUND",
+        );
+      });
+      it("Should revert when the publishTime exceeds the time tolerance ", async function () {
+        const oracleData = getEncodedRoutes([[tokenB.address, OracleType.Supra, "0x"]]);
+        await priceOracle.updateSupraDataFeed([
+          {
+            tokenA: tokenA.address,
+            tokenB: tokenB.address,
+            feedData: {
+              id: 0,
+              initialize: true,
+            },
+          },
+        ]);
+        const price = BigNumber.from("2500");
+        // price is negative
+        await supraStorageMock.mock.getSvalue.returns({
+          round: (await provider.getBlock("latest")).timestamp,
+          decimals: 18,
+          time: (await provider.getBlock("latest")).timestamp - 70,
+          price: price.mul(BigNumber.from("10").pow("18")),
+        });
+        await expect(priceOracle.callStatic.getExchangeRate(tokenA.address, tokenB.address, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "PUBLISH_TIME_EXCEEDS_THRESHOLD_TIME",
+        );
+      });
+    });
   });
 
   describe("updatePriceDropFeed()", function () {
     it("Should revert if msg.sender is not granted with a role MEDIUM_TIMELOCK_ADMIN", async function () {
       await mockRegistry.mock.hasRole.withArgs(MEDIUM_TIMELOCK_ADMIN, deployer.address).returns(false);
-      priceOracle = await upgrades.deployProxy(priceOracleFactory, [mockRegistry.address, NATIVE_CURRENCY], {
-        unsafeAllow: ["constructor", "delegatecall"],
-      });
+      priceOracle = await upgrades.deployProxy(
+        priceOracleFactory,
+        [mockRegistry.address, NATIVE_CURRENCY, tokenA.address, mockTreasury.address],
+        {
+          unsafeAllow: ["constructor", "delegatecall"],
+        },
+      );
       await expect(
         priceOracle.updatePriceDropFeed(tokenA.address, tokenB.address, mockPriceDropFeed.address),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
@@ -568,9 +687,13 @@ describe("PriceOracle_unit", function () {
   describe("updatePriceDropFeeds()", function () {
     it("Should revert if msg.sender is not granted with a role MEDIUM_TIMELOCK_ADMIN", async function () {
       await mockRegistry.mock.hasRole.withArgs(MEDIUM_TIMELOCK_ADMIN, deployer.address).returns(false);
-      priceOracle = await upgrades.deployProxy(priceOracleFactory, [mockRegistry.address, NATIVE_CURRENCY], {
-        unsafeAllow: ["constructor", "delegatecall"],
-      });
+      priceOracle = await upgrades.deployProxy(
+        priceOracleFactory,
+        [mockRegistry.address, NATIVE_CURRENCY, tokenA.address, mockTreasury.address],
+        {
+          unsafeAllow: ["constructor", "delegatecall"],
+        },
+      );
       await expect(
         priceOracle.updatePriceDropFeeds([[tokenA.address, tokenB.address, mockPriceDropFeed.address]]),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");

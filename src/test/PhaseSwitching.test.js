@@ -114,6 +114,7 @@ describe("PhaseSwitching", function () {
       pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
       nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
       pullOracleData: [],
+      pullOracleTypes: [],
     };
 
     const swap = swapSize.mul(multiplierA);
@@ -138,8 +139,11 @@ describe("PhaseSwitching", function () {
         depositToBorrowedRoutes: [],
         depositInThirdAssetMegaRoutes: [],
       };
+      const singleUpdateFeeInWei = 1;
+      const updateFeeAmount = singleUpdateFeeInWei * OpenPositionParams.pullOracleData.length;
+
       const params = { ...OpenPositionParams, marginParams };
-      await positionManager.connect(trader).openPosition(params, { value: parseEther("1") });
+      await positionManager.connect(trader).openPosition(params, { value: updateFeeAmount });
       const [reward] = await spotTradingRewardDistributor.calculateReward(trader.address);
       expect(reward).to.equal(0);
     });
@@ -175,7 +179,9 @@ describe("PhaseSwitching", function () {
       const price0 = wadDiv(amountB, swap);
       price = price0.div(USD_MULTIPLIER);
       await setOraclePrice(testTokenA, testTokenB, price);
-      await positionManager.connect(trader).openPosition(OpenPositionParams, { value: parseEther("1") });
+      const singleUpdateFeeInWei = 1;
+      const updateFeeAmount = singleUpdateFeeInWei * OpenPositionParams.pullOracleData.length;
+      await positionManager.connect(trader).openPosition(OpenPositionParams, { value: updateFeeAmount });
       const traderInfo = await activityRewardDistributor.getUserInfoFromBucket(bucket.address, Role.TRADER, trader.address);
       expect(traderInfo.fixedReward).to.equal(0);
     });
@@ -227,13 +233,15 @@ describe("PhaseSwitching", function () {
         depositInThirdAssetMegaRoutes: [],
       };
       const params = { ...OpenPositionParams, marginParams: marginParams };
-      await positionManager.connect(trader).openPosition(params, { value: parseEther("1") });
+      const singleUpdateFeeInWei = 1;
+      const updateFeeAmount = singleUpdateFeeInWei * OpenPositionParams.pullOracleData.length;
+      await positionManager.connect(trader).openPosition(params, { value: updateFeeAmount });
 
       const delay = await spotTradingRewardDistributor.periodDuration();
       const nextTimestamp = delay.add((await provider.getBlock("latest")).timestamp);
       await network.provider.send("evm_setNextBlockTimestamp", [nextTimestamp.toNumber()]);
 
-      await positionManager.connect(trader).openPosition(params, { value: parseEther("1") });
+      await positionManager.connect(trader).openPosition(params, { value: updateFeeAmount });
 
       const [reward] = await spotTradingRewardDistributor.calculateReward(trader.address);
       expect(reward).to.be.gt(0);
@@ -301,7 +309,9 @@ describe("PhaseSwitching", function () {
       const price0 = wadDiv(amountB, swap);
       price = price0.div(USD_MULTIPLIER);
       await setOraclePrice(testTokenA, testTokenB, price);
-      await positionManager.connect(trader).openPosition(OpenPositionParams, { value: parseEther("1") });
+      const singleUpdateFeeInWei = 1;
+      const updateFeeAmount = singleUpdateFeeInWei * OpenPositionParams.pullOracleData.length;
+      await positionManager.connect(trader).openPosition(OpenPositionParams, { value: updateFeeAmount });
       await network.provider.send("evm_mine");
       const reward = await activityRewardDistributor.getClaimableReward([[bucket.address, Role.TRADER]], trader.address);
       expect(reward).to.be.gt(0);

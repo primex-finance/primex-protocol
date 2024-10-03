@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
-import {IPriceOracleStorage, IPriceOracleStorageV2} from "./IPriceOracleStorage.sol";
+import {IPriceOracleStorage, IPriceOracleStorageV3} from "./IPriceOracleStorage.sol";
 
-interface IPriceOracleV2 is IPriceOracleStorageV2 {
+interface IPriceOracleV2 is IPriceOracleStorageV3 {
     event ChainlinkPriceFeedUpdated(address indexed token, address indexed priceFeed);
     event PairPriceDropChanged(address indexed assetA, address indexed assetB, uint256 pairPriceDrop);
     event PriceFeedUpdated(address indexed assetA, address indexed assetB, address indexed priceFeed);
@@ -13,6 +13,7 @@ interface IPriceOracleV2 is IPriceOracleStorageV2 {
     event PythPairIdUpdated(address indexed token, bytes32 indexed priceFeedId);
     event Univ3OracleUpdated(uint256 indexed oracleType, address indexed oracle);
     event TimeToleranceUpdated(uint256 timeTolerance);
+    event SupraDataFeedUpdated(address indexed tokenA, address indexed tokenB, uint256 id);
 
     event Univ3TrustedPairUpdated(
         uint256 indexed oracleType,
@@ -26,6 +27,17 @@ interface IPriceOracleV2 is IPriceOracleStorageV2 {
         address tokenA;
         address tokenB;
         bool isTrusted;
+    }
+
+    enum UpdatePullOracle {
+        Pyth,
+        Supra
+    }
+
+    struct UpdateSupraDataFeedParams {
+        address tokenA;
+        address tokenB;
+        SupraDataFeedId feedData;
     }
 
     /**
@@ -42,8 +54,10 @@ interface IPriceOracleV2 is IPriceOracleStorageV2 {
     /**
      * @param _registry The address of PrimexRegistry contract
      * @param _eth Weth address if eth isn't native token of network. Otherwise set to zero address.
+     * @param _usdt Address of the USDT token
+     * @param _treasury Address of the Treasury
      */
-    function initialize(address _registry, address _eth) external;
+    function initialize(address _registry, address _eth, address _usdt, address _treasury) external;
 
     /**
      * @notice Function to set (change) the pair priceDrop of the trading assets
@@ -131,13 +145,25 @@ interface IPriceOracleV2 is IPriceOracleStorageV2 {
 
     function updatePythPairId(address[] calldata _tokens, bytes32[] calldata _priceFeedIds) external;
 
+    function updateSupraDataFeed(UpdateSupraDataFeedParams[] calldata _params) external;
+
     function updateUniv3TypeOracle(uint256[] calldata _oracleTypes, address[] calldata _oracles) external;
 
     function updateUniv3TrustedPair(UpdateUniv3TrustedPairParams[] calldata _updateParams) external;
 
     function setPyth(address _pyth) external;
 
-    function updatePullOracle(bytes[] calldata _pullOracleData) external payable;
+    function setSupraPullOracle(address _supraPullOracle) external;
+
+    function setSupraStorageOracle(address _supraStorageOracle) external;
+
+    /**
+     * @notice Updates pull oracle data for passed oracle types
+     * @param _data An array of update data for passed oracles
+     * @param _pullOracleTypes An array of oracle types  (Must conform to the UpdatePullOracle struct)
+     */
+
+    function updatePullOracle(bytes[][] calldata _data, uint256[] calldata _pullOracleTypes) external payable;
 
     /**
      * @notice Sets the time tolerance
@@ -146,6 +172,16 @@ interface IPriceOracleV2 is IPriceOracleStorageV2 {
      */
 
     function setTimeTolerance(uint256 _timeTolerance) external;
+
+    /**
+     * @notice Sets the usdt address
+     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @param _usdt the address of the USDT
+     */
+
+    function setUSDT(address _usdt) external;
+
+    function setTreasury(address _treasury) external;
 }
 
 interface IPriceOracle is IPriceOracleStorage {

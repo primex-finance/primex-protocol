@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 import {IPyth} from "@pythnetwork/pyth-sdk-solidity/IPyth.sol";
+import {ISupraOraclePull} from "../interfaces/ISupraOraclePull.sol";
+import {ISupraSValueFeed} from "../interfaces/ISupraSValueFeed.sol";
 
 interface IPriceOracleStorage {
     function registry() external view returns (address);
@@ -17,7 +19,8 @@ interface IPriceOracleStorageV2 is IPriceOracleStorage {
     enum OracleType {
         Pyth,
         Chainlink,
-        Uniswapv3
+        Uniswapv3,
+        Supra
     }
 
     struct OracleRoute {
@@ -37,4 +40,21 @@ interface IPriceOracleStorageV2 is IPriceOracleStorage {
     function univ3TypeOracles(uint256) external view returns (address);
 
     function univ3TrustedPairs(uint256, address, address) external view returns (bool);
+}
+
+interface IPriceOracleStorageV3 is IPriceOracleStorageV2 {
+    struct SupraDataFeedId {
+        uint256 id;
+        bool initialize;
+    }
+
+    function supraPullOracle() external view returns (ISupraOraclePull);
+
+    function supraStorageOracle() external view returns (ISupraSValueFeed);
+
+    function supraDataFeedID(address, address) external view returns (uint256, bool);
+
+    function usdt() external view returns (address);
+
+    function treasury() external view returns (address);
 }

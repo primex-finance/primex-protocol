@@ -159,6 +159,7 @@ describe("InterestRateStrategy_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       const uRatio = new BN(rayDiv(borrow.toString(), deposit.toString()));
@@ -210,6 +211,7 @@ describe("InterestRateStrategy_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       const uRatio = new BN(rayDiv(borrow.toString(), deposit.toString()));
@@ -261,6 +263,7 @@ describe("InterestRateStrategy_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       const uRatio = new BN(rayDiv(borrow.toString(), deposit.toString()));
@@ -312,6 +315,7 @@ describe("InterestRateStrategy_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       const uRatio = new BN(rayDiv(borrow.toString(), deposit.toString()));
@@ -363,6 +367,7 @@ describe("InterestRateStrategy_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       const barCalcParams = await interestRateStrategy.getBarCalculationParams(bucket.address);
@@ -439,6 +444,7 @@ describe("InterestRateStrategy_integration", function () {
           pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
           pullOracleData: [],
+          pullOracleTypes: [],
         }),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "BAR_OVERFLOW");
     });
@@ -483,6 +489,7 @@ describe("InterestRateStrategy_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       const uRatio = new BN(rayDiv(borrow.toString(), deposit.toString()));
@@ -535,6 +542,7 @@ describe("InterestRateStrategy_integration", function () {
           pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
           nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
           pullOracleData: [],
+          pullOracleTypes: [],
         });
         const uRatio = new BN(rayDiv(borrow.toString(), deposit.toString()));
         const barCalcParams = await interestRateStrategy.getBarCalculationParams(bucket.address);
@@ -583,6 +591,7 @@ describe("InterestRateStrategy_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       let uRatio = new BN(rayDiv(borrow.toString(), deposit.toString()));
@@ -627,6 +636,7 @@ describe("InterestRateStrategy_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       const debtTokenAddress = await bucket.debtToken();

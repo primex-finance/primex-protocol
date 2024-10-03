@@ -246,6 +246,7 @@ describe("SpotTradingRewardDistributor_integration", function () {
         positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       const { positionAmount } = await positionManager.getPosition(0);
       let positionSizeInUsd = wadMul(positionAmount.toString(), parseEther("1").toString()).toString();
@@ -285,6 +286,7 @@ describe("SpotTradingRewardDistributor_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       const { positionAmount } = await positionManager.getPosition(0);
 
@@ -311,6 +313,7 @@ describe("SpotTradingRewardDistributor_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       const { positionAmount: positionSizeTrader } = await positionManager.getPosition(1);
 
@@ -365,6 +368,7 @@ describe("SpotTradingRewardDistributor_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
 
       const periodInfo = await spotTradingRewardDistributor.periods(0);

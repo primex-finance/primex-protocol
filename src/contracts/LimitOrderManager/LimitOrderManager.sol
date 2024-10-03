@@ -180,7 +180,7 @@ contract LimitOrderManager is ILimitOrderManagerV2, LimitOrderManagerStorage {
         LimitOrderLibrary.OpenPositionParams calldata _params
     ) external payable override orderExists(_params.orderId) nonReentrant notBlackListed whenNotPaused {
         uint256 initialGasleft = gasleft();
-        pm.priceOracle().updatePullOracle{value: msg.value}(_params.pullOracleData);
+        pm.priceOracle().updatePullOracle{value: msg.value}(_params.pullOracleData, _params.pullOracleTypes);
         _require(
             _params.conditionIndex < openConditions[_params.orderId].length,
             Errors.CONDITION_INDEX_IS_OUT_OF_BOUNDS.selector

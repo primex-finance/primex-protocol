@@ -256,11 +256,9 @@ interface IPrimexDNSV3 is IPrimexDNSStorageV3 {
     ) external view returns (uint256, uint256, uint256, uint256, uint256);
 
     /**
-     * @notice Retrieves baseLength for Arbitrum payment model depending from tradingOrderType
+     * @notice Retrieves baseLength for L2 chain payment model depending from tradingOrderType
      */
-    function getArbitrumBaseLengthForTradingOrderType(
-        TradingOrderType _tradingOrderType
-    ) external view returns (uint256);
+    function getL1BaseLengthForTradingOrderType(TradingOrderType _tradingOrderType) external view returns (uint256);
 }
 
 interface IPrimexDNS is IPrimexDNSStorage {

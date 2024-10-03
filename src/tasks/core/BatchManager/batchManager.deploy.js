@@ -10,6 +10,7 @@ module.exports = async function (
     gasPerPosition,
     gasPerBatch,
     whiteBlackList,
+    tokenTransfersLibrary,
     errorsLibrary,
     notExecuteNewDeployedTasks,
   },
@@ -47,6 +48,7 @@ module.exports = async function (
       PrimexPricingLibrary: primexPricingLibrary,
       PositionLibrary: positionLibrary,
       Errors: errorsLibrary,
+      TokenTransfersLibrary: tokenTransfersLibrary,
     },
   });
 

@@ -228,6 +228,7 @@ describe("TakeProfitStopLossCCM_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenA))).to.be.equal(false);
     });
@@ -256,6 +257,7 @@ describe("TakeProfitStopLossCCM_integration", function () {
         pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
         nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
         pullOracleData: [],
+        pullOracleTypes: [],
       });
       // when stopLossPrice == exchangeRate
       expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenA))).to.be.equal(true);

@@ -8,14 +8,17 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
 import {IUniswapPriceFeed} from "../UniswapPriceFeed/IUniswapPriceFeed.sol";
+import {TokenTransfersLibrary} from "../libraries/TokenTransfersLibrary.sol";
 
 import "./PriceOracleStorage.sol";
 import "../libraries/Errors.sol";
 
 import {BIG_TIMELOCK_ADMIN, MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN, NATIVE_CURRENCY, EMERGENCY_ADMIN, USD} from "../Constants.sol";
 import {IPriceOracleV2} from "./IPriceOracle.sol";
+import {ISupraSValueFeed} from "../interfaces/ISupraSValueFeed.sol";
+import {ITreasury} from "../Treasury/ITreasury.sol";
 
-contract PriceOracle is IPriceOracleV2, PriceOracleStorageV2 {
+contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
     using WadRayMath for uint256;
 
     constructor() {
@@ -34,18 +37,41 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV2 {
     /**
      * @inheritdoc IPriceOracleV2
      */
-    function initialize(address _registry, address _eth) external override initializer {
+    function initialize(
+        address _registry,
+        address _eth,
+        address _usdt,
+        address _treasury
+    ) external override initializer {
         _require(
             IERC165Upgradeable(_registry).supportsInterface(type(IAccessControl).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
         registry = _registry;
         eth = _eth;
+        usdt = _usdt;
+        _setTreasury(_treasury);
         __ERC165_init();
+    }
+
+    function setTreasury(address _treasury) external override onlyRole(BIG_TIMELOCK_ADMIN) {
+        _setTreasury(_treasury);
     }
 
     function setPyth(address _pyth) external override onlyRole(BIG_TIMELOCK_ADMIN) {
         pyth = IPyth(_pyth);
+    }
+
+    function setUSDT(address _usdt) external override onlyRole(BIG_TIMELOCK_ADMIN) {
+        usdt = _usdt;
+    }
+
+    function setSupraPullOracle(address _supraPullOracle) external override onlyRole(BIG_TIMELOCK_ADMIN) {
+        supraPullOracle = ISupraOraclePull(_supraPullOracle);
+    }
+
+    function setSupraStorageOracle(address _supraStorageOracle) external override onlyRole(BIG_TIMELOCK_ADMIN) {
+        supraStorageOracle = ISupraSValueFeed(_supraStorageOracle);
     }
 
     /**
@@ -127,11 +153,35 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV2 {
         }
     }
 
-    function updatePullOracle(bytes[] calldata _pullOracleData) external payable override {
-        if (_pullOracleData.length > 0) {
-            uint256 updateFee = pyth.getUpdateFee(_pullOracleData);
-            _require(updateFee <= msg.value, Errors.NOT_ENOUGH_MSG_VALUE.selector);
-            pyth.updatePriceFeeds{value: updateFee}(_pullOracleData);
+    function updateSupraDataFeed(
+        UpdateSupraDataFeedParams[] calldata _params
+    ) external override onlyRole(SMALL_TIMELOCK_ADMIN) {
+        for (uint256 i; i < _params.length; i++) {
+            supraDataFeedID[_params[i].tokenA][_params[i].tokenB] = _params[i].feedData;
+            emit SupraDataFeedUpdated(_params[i].tokenA, _params[i].tokenB, _params[i].feedData.id);
+        }
+    }
+
+    /**
+     * @inheritdoc IPriceOracleV2
+     */
+
+    function updatePullOracle(bytes[][] calldata _data, uint256[] calldata _oracleTypes) external payable override {
+        _require(_data.length == _oracleTypes.length, Errors.PARAMS_LENGTH_MISMATCH.selector);
+        uint256 remainingValue = msg.value;
+        for (uint256 i; i < _oracleTypes.length; i++) {
+            if (_oracleTypes[i] == uint256(UpdatePullOracle.Pyth)) {
+                uint256 updateFee = pyth.getUpdateFee(_data[i]);
+                _require(updateFee <= remainingValue, Errors.NOT_ENOUGH_MSG_VALUE.selector);
+                remainingValue -= updateFee;
+                pyth.updatePriceFeeds{value: updateFee}(_data[i]);
+                continue;
+            } else if (_oracleTypes[i] == uint256(UpdatePullOracle.Supra)) {
+                supraPullOracle.verifyOracleProof(_data[i][0]);
+            }
+        }
+        if (remainingValue > 0) {
+            TokenTransfersLibrary.doTransferOutETH(treasury, remainingValue);
         }
     }
 
@@ -186,8 +236,16 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV2 {
 
         address tokenFrom = assetA;
         uint256 price = WadRayMath.WAD;
+        bool uniWasChecked;
 
         for (uint256 i; i < oracleRoutes.length; i++) {
+            if (oracleRoutes[i].oracleType == OracleType.Uniswapv3 && !uniWasChecked) {
+                // try to find a direct route between the assetA and the assetB, if there is one, then revert it
+                if (_checkTokenToUsd(assetA) && _checkTokenToUsd(assetB))
+                    _revert(Errors.THERE_IS_DIRECT_ROUTE.selector);
+                // cache var in case there are two uniswap routes in the oracleData
+                uniWasChecked = true;
+            }
             price = price.wmul(_getExchangeRate(tokenFrom, oracleRoutes[i]));
             tokenFrom = oracleRoutes[i].tokenTo;
         }
@@ -207,6 +265,25 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV2 {
             );
             // price in WAD format and invert if necessary
             return assetAIsUsd ? WadRayMath.WAD.wdiv(_convertPythPriceToWad(price)) : _convertPythPriceToWad(price);
+        }
+        if (_oracleRoute.oracleType == OracleType.Supra) {
+            SupraDataFeedId memory feedId = supraDataFeedID[_assetA][_oracleRoute.tokenTo];
+            ISupraSValueFeed.priceFeed memory feedData;
+            uint256 exchangeRate;
+            if (feedId.initialize) {
+                feedData = supraStorageOracle.getSvalue(feedId.id);
+                exchangeRate = feedData.price * 10 ** (18 - feedData.decimals);
+            } else {
+                feedId = supraDataFeedID[_oracleRoute.tokenTo][_assetA];
+                _require(feedId.initialize, Errors.NO_PRICEFEED_FOUND.selector);
+                feedData = supraStorageOracle.getSvalue(feedId.id);
+                exchangeRate = WadRayMath.WAD.wdiv(feedData.price * 10 ** (18 - feedData.decimals));
+            }
+            _require(
+                feedData.time >= block.timestamp - timeTolerance,
+                Errors.PUBLISH_TIME_EXCEEDS_THRESHOLD_TIME.selector
+            );
+            return exchangeRate;
         }
         if (_oracleRoute.oracleType == OracleType.Chainlink) {
             if (!assetAIsUsd) _require(_oracleRoute.tokenTo == USD, Errors.INCORRECT_CHAINLINK_ROUTE.selector);
@@ -317,5 +394,33 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV2 {
         _require(assetA != assetB, Errors.IDENTICAL_TOKEN_ADDRESSES.selector);
         oraclePriceDropFeeds[assetA][assetB] = priceDropFeed;
         emit PriceDropFeedUpdated(assetA, assetB, priceDropFeed);
+    }
+
+    /**
+     * @dev Checks, whether a token-to-usd pair exists for the oracles Pyth, CL, and Supra.
+     */
+    function _checkTokenToUsd(address _token) internal view returns (bool) {
+        // check pyth
+        if (pythPairIds[_token] != bytes32(0)) return true;
+
+        // check CL
+        if (chainlinkPriceFeedsUsd[_token] != address(0)) return true;
+
+        // check Supra USD
+        SupraDataFeedId storage feedUsd = supraDataFeedID[_token][USD];
+        if (feedUsd.initialize) return true;
+
+        // check Supra USDT
+        SupraDataFeedId storage feedUSDT = supraDataFeedID[_token][usdt];
+        if (feedUSDT.initialize) return true;
+        return false;
+    }
+
+    function _setTreasury(address _treasury) internal {
+        _require(
+            IERC165Upgradeable(_treasury).supportsInterface(type(ITreasury).interfaceId),
+            Errors.ADDRESS_NOT_SUPPORTED.selector
+        );
+        treasury = _treasury;
     }
 }

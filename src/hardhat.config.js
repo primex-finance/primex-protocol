@@ -272,6 +272,12 @@ module.exports = {
       timeout: 60000,
       gasPrice: 30e9,
     },
+    berachainArtio: {
+      url: "https://artio.rpc.berachain.com/",
+      chainId: 80085,
+      accounts: accounts,
+      timeout: 60000,
+    },
   },
   external: {
     contracts: [
