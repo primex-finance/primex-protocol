@@ -1,9 +1,10 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
 import {IERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
 
 import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
@@ -11,15 +12,17 @@ import {TokenTransfersLibrary} from "../libraries/TokenTransfersLibrary.sol";
 
 import "../Constants.sol";
 import "./PositionManagerStorage.sol";
-import {IPositionManager} from "./IPositionManager.sol";
+import {IPositionManagerV2} from "./IPositionManager.sol";
+import {IPositionManagerExtension} from "./IPositionManagerExtension.sol";
 import {IConditionalClosingManager} from "../interfaces/IConditionalClosingManager.sol";
-import {ISpotTradingRewardDistributor} from "../SpotTradingRewardDistributor/ISpotTradingRewardDistributor.sol";
-import {IBucket} from "../Bucket/IBucket.sol";
+import {IPriceOracleStorageV2} from "../PriceOracle/IPriceOracleStorage.sol";
+import {ISpotTradingRewardDistributorV2} from "../SpotTradingRewardDistributor/ISpotTradingRewardDistributor.sol";
+import {IBucketV3} from "../Bucket/IBucket.sol";
 import {IPausable} from "../interfaces/IPausable.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
 import {IKeeperRewardDistributorStorage} from "../KeeperRewardDistributor/IKeeperRewardDistributorStorage.sol";
 
-contract PositionManager is IPositionManager, PositionManagerStorage {
+contract PositionManager is IPositionManagerV2, PositionManagerStorageV2 {
     using WadRayMath for uint256;
     using PositionLibrary for PositionLibrary.Position;
 
@@ -28,7 +31,7 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function initialize(
         address _registry,
@@ -36,56 +39,49 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
         address payable _traderBalanceVault,
         address _priceOracle,
         address _keeperRewardDistributor,
-        address _whiteBlackList
+        address _whiteBlackList,
+        address _positionManagerExtension
     ) external override initializer {
         _require(
             IERC165Upgradeable(_registry).supportsInterface(type(IAccessControl).interfaceId) &&
-                IERC165Upgradeable(_primexDNS).supportsInterface(type(IPrimexDNS).interfaceId) &&
+                IERC165Upgradeable(_primexDNS).supportsInterface(type(IPrimexDNSV3).interfaceId) &&
                 IERC165Upgradeable(_traderBalanceVault).supportsInterface(type(ITraderBalanceVault).interfaceId) &&
-                IERC165Upgradeable(_priceOracle).supportsInterface(type(IPriceOracle).interfaceId) &&
+                IERC165Upgradeable(_priceOracle).supportsInterface(type(IPriceOracleV2).interfaceId) &&
                 IERC165Upgradeable(_keeperRewardDistributor).supportsInterface(
-                    type(IKeeperRewardDistributor).interfaceId
+                    type(IKeeperRewardDistributorV3).interfaceId
                 ) &&
                 IERC165Upgradeable(_whiteBlackList).supportsInterface(type(IWhiteBlackList).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
         registry = IAccessControl(_registry);
-        primexDNS = IPrimexDNS(_primexDNS);
+        primexDNS = IPrimexDNSV3(_primexDNS);
         traderBalanceVault = ITraderBalanceVault(_traderBalanceVault);
-        priceOracle = IPriceOracle(_priceOracle);
-        keeperRewardDistributor = IKeeperRewardDistributor(_keeperRewardDistributor);
+        priceOracle = IPriceOracleV2(_priceOracle);
+        keeperRewardDistributor = IKeeperRewardDistributorV3(_keeperRewardDistributor);
         whiteBlackList = IWhiteBlackList(_whiteBlackList);
+        _setPositionManagerExtension(_positionManagerExtension);
         __Pausable_init();
         __ReentrancyGuard_init();
         __ERC165_init();
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
-    function setMaxPositionSize(
-        address _token0,
-        address _token1,
-        uint256 _amountInToken0,
-        uint256 _amountInToken1
-    ) external override {
-        _onlyRole(MEDIUM_TIMELOCK_ADMIN);
-        PositionLibrary.setMaxPositionSize(maxPositionSize, _token0, _token1, _amountInToken0, _amountInToken1);
-        emit SetMaxPositionSize(_token0, _token1, _amountInToken0, _amountInToken1);
+    function setPositionManagerExtension(address _newPositionManagerExtension) external override {
+        _onlyRole(BIG_TIMELOCK_ADMIN);
+        _setPositionManagerExtension(_newPositionManagerExtension);
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
-    function setDefaultOracleTolerableLimit(uint256 _percent) external override {
-        _onlyRole(MEDIUM_TIMELOCK_ADMIN);
-        _require(_percent <= WadRayMath.WAD, Errors.INVALID_PERCENT_NUMBER.selector);
-        defaultOracleTolerableLimit = _percent;
-        emit SetDefaultOracleTolerableLimit(_percent);
+    function setProtocolParamsByAdmin(bytes calldata _data) external override {
+        Address.functionDelegateCall(positionManagerExtension, _data);
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function doTransferOut(address _token, address _to, uint256 _amount) external override {
         _onlyRole(BATCH_MANAGER_ROLE);
@@ -93,187 +89,87 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
     }
 
     /**
-     * @inheritdoc IPositionManager
-     */
-    function setSecurityBuffer(uint256 _newSecurityBuffer) external override {
-        _onlyRole(MEDIUM_TIMELOCK_ADMIN);
-        _require(_newSecurityBuffer < WadRayMath.WAD, Errors.INVALID_SECURITY_BUFFER.selector);
-        securityBuffer = _newSecurityBuffer;
-        emit SecurityBufferChanged(_newSecurityBuffer);
-    }
-
-    /**
-     * @inheritdoc IPositionManager
-     */
-    function setMaintenanceBuffer(uint256 _newMaintenanceBuffer) external override {
-        _onlyRole(MEDIUM_TIMELOCK_ADMIN);
-        _require(
-            _newMaintenanceBuffer > 0 && _newMaintenanceBuffer < WadRayMath.WAD,
-            Errors.INVALID_MAINTENANCE_BUFFER.selector
-        );
-        maintenanceBuffer = _newMaintenanceBuffer;
-        emit MaintenanceBufferChanged(_newMaintenanceBuffer);
-    }
-
-    /**
-     * @inheritdoc IPositionManager
-     */
-    function setOracleTolerableLimit(address _assetA, address _assetB, uint256 _percent) external override {
-        _onlyRole(BIG_TIMELOCK_ADMIN);
-        PositionLibrary.setOracleTolerableLimit(oracleTolerableLimits, _assetA, _assetB, _percent);
-        emit SetOracleTolerableLimit(_assetA, _assetB, _percent);
-    }
-
-    /**
-     * @inheritdoc IPositionManager
-     */
-    function setOracleTolerableLimitMultiplier(uint256 newMultiplier) external override {
-        _onlyRole(MEDIUM_TIMELOCK_ADMIN);
-        _require(
-            newMultiplier >= WadRayMath.WAD && newMultiplier < 10 * WadRayMath.WAD,
-            Errors.WRONG_TRUSTED_MULTIPLIER.selector
-        );
-
-        oracleTolerableLimitMultiplier = newMultiplier;
-        emit OracleTolerableLimitMultiplierChanged(newMultiplier);
-    }
-
-    /**
-     * @inheritdoc IPositionManager
-     */
-    function setMinPositionSize(uint256 _minPositionSize, address _minPositionAsset) external override {
-        _onlyRole(MEDIUM_TIMELOCK_ADMIN);
-        minPositionSize = _minPositionSize;
-        minPositionAsset = _minPositionAsset;
-        emit MinPositionSizeAndAssetChanged(_minPositionSize, _minPositionAsset);
-    }
-
-    /**
-     * @inheritdoc IPositionManager
-     */
-    function setKeeperRewardDistributor(IKeeperRewardDistributor _keeperRewardDistributor) external override {
-        _onlyRole(BIG_TIMELOCK_ADMIN);
-        _require(
-            IERC165Upgradeable(address(_keeperRewardDistributor)).supportsInterface(
-                type(IKeeperRewardDistributor).interfaceId
-            ),
-            Errors.ADDRESS_NOT_SUPPORTED.selector
-        );
-        keeperRewardDistributor = _keeperRewardDistributor;
-        emit KeeperRewardDistributorChanged(address(_keeperRewardDistributor));
-    }
-
-    /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function openPositionByOrder(
         LimitOrderLibrary.OpenPositionByOrderParams calldata _params
-    ) external override whenNotPaused returns (uint256, uint256, uint256, uint256) {
-        _onlyRole(LOM_ROLE);
-        (PositionLibrary.Position memory newPosition, PositionLibrary.OpenPositionVars memory vars) = PositionLibrary
-            .createPositionByOrder(_params, priceOracle);
-        PositionLibrary.OpenPositionEventData memory posEventData = _openPosition(newPosition, vars);
-
-        PositionLibrary.Position memory position = positions[positions.length - 1];
-
-        _updateTraderActivity(_params.order.trader, position.positionAsset, position.positionAmount, position.bucket);
-
-        emit OpenPosition({
-            positionId: position.id,
-            trader: _params.order.trader,
-            openedBy: _params.sender,
-            position: position,
-            feeToken: _params.order.feeToken,
-            protocolFee: posEventData.protocolFee,
-            entryPrice: posEventData.entryPrice,
-            leverage: posEventData.leverage,
-            closeConditions: vars.closeConditions
-        });
-        return (
-            vars.borrowedAmount + position.depositAmountInSoldAsset,
-            position.positionAmount,
-            position.id,
-            posEventData.entryPrice
-        );
+    ) external override returns (uint256, uint256, uint256, uint256, uint256) {
+        bytes memory data = abi.encodeWithSelector(IPositionManagerExtension.openPositionByOrder.selector, _params);
+        bytes memory returnData = Address.functionDelegateCall(positionManagerExtension, data);
+        return abi.decode(returnData, (uint256, uint256, uint256, uint256, uint256));
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
-    function openPosition(
-        PositionLibrary.OpenPositionParams calldata _params
-    ) external payable override nonReentrant whenNotPaused {
-        _notBlackListed();
-        (PositionLibrary.Position memory newPosition, PositionLibrary.OpenPositionVars memory vars) = PositionLibrary
-            .createPosition(_params, primexDNS, priceOracle);
-        PositionLibrary.OpenPositionEventData memory posEventData = _openPosition(newPosition, vars);
-
-        PositionLibrary.Position memory position = positions[positions.length - 1];
-        _updateTraderActivity(msg.sender, position.positionAsset, position.positionAmount, position.bucket);
-
-        emit OpenPosition({
-            positionId: position.id,
-            trader: position.trader,
-            openedBy: position.trader,
-            position: position,
-            feeToken: _params.isProtocolFeeInPmx ? primexDNS.pmx() : NATIVE_CURRENCY,
-            protocolFee: posEventData.protocolFee,
-            entryPrice: posEventData.entryPrice,
-            leverage: posEventData.leverage,
-            closeConditions: vars.closeConditions
-        });
+    function openPosition(PositionLibrary.OpenPositionParams calldata _params) external payable override {
+        bytes memory data = abi.encodeWithSelector(IPositionManagerExtension.openPosition.selector, _params);
+        Address.functionDelegateCall(positionManagerExtension, data);
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function closePositionByCondition(
-        uint256 _id,
-        address _keeper,
-        PrimexPricingLibrary.Route[] calldata _routes,
-        uint256 _conditionIndex,
-        bytes calldata _ccmAdditionalParams,
-        PositionLibrary.CloseReason _closeReason
-    ) external override nonReentrant {
-        _require(_closeReason != PositionLibrary.CloseReason.CLOSE_BY_TRADER, Errors.FORBIDDEN.selector);
+        ClosePositionByConditionParams calldata _params
+    ) external payable override nonReentrant {
+        _require(_params.closeReason != PositionLibrary.CloseReason.CLOSE_BY_TRADER, Errors.FORBIDDEN.selector);
         _notBlackListed();
         uint256 initialGasleft = gasleft();
         LimitOrderLibrary.Condition memory condition;
-        if (_conditionIndex < closeConditions[_id].length) condition = closeConditions[_id][_conditionIndex];
-        _closePosition(_id, _keeper, _routes, 0, condition, _ccmAdditionalParams, _closeReason, initialGasleft);
+        if (_params.conditionIndex < closeConditions[_params.id].length)
+            condition = closeConditions[_params.id][_params.conditionIndex];
+        PositionLibrary.ClosePositionEventData memory posEventData = _closePosition(
+            _params.id,
+            _params.keeper,
+            _params.megaRoutes,
+            0,
+            condition,
+            _params.ccmAdditionalParams,
+            _params.closeReason,
+            initialGasleft,
+            _params.positionSoldAssetOracleData,
+            _params.nativePmxOracleData,
+            _params.pmxPositionAssetOracleData,
+            _params.nativePositionAssetOracleData,
+            _params.positionNativeAssetOracleData,
+            _params.pullOracleData
+        );
+
+        emit PositionLibrary.PaidProtocolFee({
+            positionId: _params.id,
+            trader: posEventData.trader,
+            positionAsset: posEventData.positionAsset,
+            feeRateType: posEventData.feeRateType,
+            feeInPositionAsset: posEventData.feeInPositionAsset,
+            feeInPmx: posEventData.feeInPmx
+        });
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function updatePositionConditions(
         uint256 _positionId,
         LimitOrderLibrary.Condition[] calldata _closeConditions
-    ) external override nonReentrant {
-        _notBlackListed();
-        PositionLibrary.Position storage position = positions[positionIndexes[_positionId]];
-        _require(msg.sender == position.trader, Errors.CALLER_IS_NOT_TRADER.selector);
-
-        if (keccak256(abi.encode(_closeConditions)) != keccak256(abi.encode(closeConditions[_positionId]))) {
-            position.setCloseConditions(closeConditions, _closeConditions, primexDNS);
-            position.updatedConditionsAt = block.timestamp;
-            emit UpdatePositionConditions({
-                positionId: _positionId,
-                trader: position.trader,
-                closeConditions: _closeConditions
-            });
-        }
+    ) external override {
+        bytes memory data = abi.encodeWithSelector(
+            IPositionManagerExtension.updatePositionConditions.selector,
+            _positionId,
+            _closeConditions
+        );
+        Address.functionDelegateCall(positionManagerExtension, data);
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function increaseDeposit(
         uint256 _positionId,
         uint256 _amount,
         address _asset,
         bool _takeDepositFromWallet,
-        PrimexPricingLibrary.Route[] calldata _routes,
+        PrimexPricingLibrary.MegaRoute[] calldata _megaRoutes,
         uint256 _amountOutMin
     ) external override nonReentrant {
         _notBlackListed();
@@ -283,7 +179,7 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
                 amount: _amount,
                 asset: _asset,
                 takeDepositFromWallet: _takeDepositFromWallet,
-                routes: _routes,
+                megaRoutes: _megaRoutes,
                 primexDNS: primexDNS,
                 priceOracle: priceOracle,
                 traderBalanceVault: traderBalanceVault,
@@ -300,102 +196,51 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
-    function decreaseDeposit(uint256 _positionId, uint256 _amount) external override nonReentrant whenNotPaused {
-        _notBlackListed();
-        PositionLibrary.Position storage position = positions[positionIndexes[_positionId]];
-        position.decreaseDeposit(
-            PositionLibrary.DecreaseDepositParams({
-                amount: _amount,
-                primexDNS: primexDNS,
-                priceOracle: priceOracle,
-                traderBalanceVault: traderBalanceVault,
-                pairPriceDrop: priceOracle.getPairPriceDrop(position.positionAsset, position.soldAsset),
-                securityBuffer: securityBuffer,
-                oracleTolerableLimit: getOracleTolerableLimit(position.positionAsset, position.soldAsset),
-                maintenanceBuffer: maintenanceBuffer
-            })
+    function decreaseDeposit(
+        uint256 _positionId,
+        uint256 _amount,
+        bytes calldata _positionSoldAssetOracleData,
+        bytes[] calldata _pullOracleData
+    ) external payable override {
+        bytes memory data = abi.encodeWithSelector(
+            IPositionManagerExtension.decreaseDeposit.selector,
+            _positionId,
+            _amount,
+            _positionSoldAssetOracleData,
+            _pullOracleData
         );
-        emit DecreaseDeposit({
-            positionId: position.id,
-            trader: position.trader,
-            depositDelta: _amount,
-            scaledDebtAmount: position.scaledDebtAmount
-        });
+        Address.functionDelegateCall(positionManagerExtension, data);
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function partiallyClosePosition(
         uint256 _positionId,
         uint256 _amount,
         address _depositReceiver,
-        PrimexPricingLibrary.Route[] calldata _routes,
-        uint256 _amountOutMin
-    ) external override nonReentrant {
-        _notBlackListed();
-        _onlyExist(_positionId);
-        PositionLibrary.Position memory position = positions[positionIndexes[_positionId]];
-        _require(msg.sender == position.trader, Errors.CALLER_IS_NOT_TRADER.selector);
-        _require(_amount < position.positionAmount, Errors.AMOUNT_IS_MORE_THAN_POSITION_AMOUNT.selector);
-        PositionLibrary.ScaledParams memory scaledParams;
-        scaledParams.borrowedAmountIsNotZero = position.scaledDebtAmount != 0;
-        scaledParams.decreasePercent = _amount.wdiv(position.positionAmount);
-        scaledParams.scaledDebtAmount = scaledParams.borrowedAmountIsNotZero
-            ? position.scaledDebtAmount.wmul(scaledParams.decreasePercent)
-            : 0;
-        scaledParams.depositDecrease = position.depositAmountInSoldAsset.wmul(scaledParams.decreasePercent);
-        LimitOrderLibrary.Condition memory condition;
-        PositionLibrary.ClosePositionEventData memory posEventData = position.closePosition(
-            PositionLibrary.ClosePositionParams({
-                closeAmount: _amount,
-                depositDecrease: scaledParams.depositDecrease,
-                scaledDebtAmount: scaledParams.scaledDebtAmount,
-                depositReceiver: _depositReceiver,
-                routes: _routes,
-                amountOutMin: _amountOutMin,
-                oracleTolerableLimit: scaledParams.borrowedAmountIsNotZero
-                    ? getOracleTolerableLimit(position.positionAsset, position.soldAsset)
-                    : 0,
-                primexDNS: primexDNS,
-                priceOracle: priceOracle,
-                traderBalanceVault: traderBalanceVault,
-                closeCondition: condition,
-                ccmAdditionalParams: "",
-                borrowedAmountIsNotZero: scaledParams.borrowedAmountIsNotZero,
-                pairPriceDrop: priceOracle.getPairPriceDrop(position.positionAsset, position.soldAsset),
-                securityBuffer: securityBuffer,
-                needOracleTolerableLimitCheck: scaledParams.borrowedAmountIsNotZero
-            }),
-            PositionLibrary.CloseReason.CLOSE_BY_TRADER
+        PrimexPricingLibrary.MegaRoute[] calldata _megaRoutes,
+        uint256 _amountOutMin,
+        bytes calldata _positionSoldAssetOracleData,
+        bytes calldata _nativePositionAssetOracleData,
+        bytes calldata _pmxPositionAssetOracleData,
+        bytes[] calldata _pullOracleData
+    ) external payable override {
+        bytes memory data = abi.encodeWithSelector(
+            IPositionManagerExtension.partiallyClosePosition.selector,
+            _positionId,
+            _amount,
+            _depositReceiver,
+            _megaRoutes,
+            _amountOutMin,
+            _positionSoldAssetOracleData,
+            _nativePositionAssetOracleData,
+            _pmxPositionAssetOracleData,
+            _pullOracleData
         );
-        position.positionAmount -= _amount;
-        position.scaledDebtAmount -= scaledParams.scaledDebtAmount;
-        position.depositAmountInSoldAsset -= scaledParams.depositDecrease;
-        PrimexPricingLibrary.validateMinPositionSize(
-            minPositionSize,
-            minPositionAsset,
-            position.positionAmount,
-            position.positionAsset,
-            address(priceOracle)
-        );
-
-        positions[positionIndexes[_positionId]] = position;
-        emit PartialClosePosition({
-            positionId: _positionId,
-            trader: msg.sender,
-            bucketAddress: address(position.bucket),
-            soldAsset: position.soldAsset,
-            positionAsset: position.positionAsset,
-            decreasePositionAmount: _amount,
-            depositedAmount: position.depositAmountInSoldAsset,
-            scaledDebtAmount: position.scaledDebtAmount,
-            profit: posEventData.profit,
-            positionDebt: posEventData.debtAmount,
-            amountOut: posEventData.amountOut
-        });
+        Address.functionDelegateCall(positionManagerExtension, data);
     }
 
     /**
@@ -415,36 +260,7 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
     }
 
     /**
-     * @inheritdoc IPositionManager
-     */
-    function canBeClosed(
-        uint256 _positionId,
-        uint256 _conditionIndex,
-        bytes calldata _additionalParams
-    ) external override returns (bool) {
-        _require(
-            _conditionIndex < closeConditions[_positionId].length,
-            Errors.CONDITION_INDEX_IS_OUT_OF_BOUNDS.selector
-        );
-        LimitOrderLibrary.Condition storage condition = closeConditions[_positionId][_conditionIndex];
-        return
-            IConditionalClosingManager(primexDNS.cmTypeToAddress(condition.managerType)).canBeClosedBeforeSwap(
-                positions[positionIndexes[_positionId]],
-                condition.params,
-                _additionalParams
-            );
-    }
-
-    /**
-     * @inheritdoc IPositionManager
-     */
-    function setSpotTradingRewardDistributor(address _spotTradingRewardDistributor) external override {
-        _onlyRole(BIG_TIMELOCK_ADMIN);
-        spotTradingRewardDistributor = ISpotTradingRewardDistributor(_spotTradingRewardDistributor);
-    }
-
-    /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function deletePositions(
         uint256[] calldata _ids,
@@ -460,7 +276,7 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function getPosition(uint256 _id) external view override returns (PositionLibrary.Position memory) {
         _onlyExist(_id);
@@ -468,35 +284,35 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function getPositionByIndex(uint256 _index) external view override returns (PositionLibrary.Position memory) {
         return positions[_index];
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function getAllPositionsLength() external view override returns (uint256) {
         return positions.length;
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function getTraderPositionsLength(address _trader) external view override returns (uint256) {
         return traderPositionIds[_trader].length;
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function getBucketPositionsLength(address _bucket) external view override returns (uint256) {
         return bucketPositionIds[_bucket].length;
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function getPositionDebt(uint256 _id) external view override returns (uint256) {
         _onlyExist(_id);
@@ -504,46 +320,69 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
-    function isPositionRisky(uint256 _id) external view override returns (bool) {
-        return healthPosition(_id) < WadRayMath.WAD;
+    function isPositionRisky(
+        uint256 _id,
+        bytes calldata _positionSoldAssetOracleData,
+        bytes[] calldata _pullOracleData
+    ) external payable override returns (bool) {
+        return healthPosition(_id, _positionSoldAssetOracleData, _pullOracleData) < WadRayMath.WAD;
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function isDelistedPosition(uint256 _id) external view override returns (bool) {
         _onlyExist(_id);
         PositionLibrary.Position storage position = positions[positionIndexes[_id]];
-        return position.bucket == IBucket(address(0)) ? false : position.bucket.isDelisted();
+        return position.bucket == IBucketV3(address(0)) ? false : position.bucket.isDelisted();
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function closePosition(
         uint256 _id,
         address _depositReceiver,
-        PrimexPricingLibrary.Route[] calldata _routes,
-        uint256 _amountOutMin
-    ) public override nonReentrant {
+        PrimexPricingLibrary.MegaRoute[] calldata _megaRoutes,
+        uint256 _amountOutMin,
+        bytes calldata _positionSoldAssetOracleData,
+        bytes calldata _pmxPositionAssetOracleData,
+        bytes calldata _nativePositionAssetOracleData,
+        bytes[] calldata _pullOracleData
+    ) public payable override nonReentrant {
         _notBlackListed();
         LimitOrderLibrary.Condition memory condition;
-        _closePosition(
+        PositionLibrary.ClosePositionEventData memory posEventData = _closePosition(
             _id,
             _depositReceiver,
-            _routes,
+            _megaRoutes,
             _amountOutMin,
             condition,
-            bytes(""),
+            new bytes(0),
             PositionLibrary.CloseReason.CLOSE_BY_TRADER,
-            0
+            0,
+            _positionSoldAssetOracleData,
+            new bytes(0),
+            _pmxPositionAssetOracleData,
+            _nativePositionAssetOracleData,
+            new bytes(0),
+            _pullOracleData
         );
+
+        emit PositionLibrary.PaidProtocolFee({
+            positionId: _id,
+            trader: posEventData.trader,
+            positionAsset: posEventData.positionAsset,
+            feeRateType: posEventData.feeRateType,
+            feeInPositionAsset: posEventData.feeInPositionAsset,
+            feeInPmx: posEventData.feeInPmx
+        });
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function getOracleTolerableLimit(address assetA, address assetB) public view override returns (uint256) {
         uint256 oracleTolerableLimit = oracleTolerableLimits[assetA][assetB];
@@ -551,22 +390,28 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
-    function healthPosition(uint256 _id) public view override returns (uint256) {
+    function healthPosition(
+        uint256 _id,
+        bytes calldata _positionSoldAssetOracleData,
+        bytes[] calldata _pullOracleData
+    ) public payable override returns (uint256) {
         _onlyExist(_id);
+        priceOracle.updatePullOracle{value: msg.value}(_pullOracleData);
         PositionLibrary.Position storage position = positions[positionIndexes[_id]];
         return
             position.health(
                 priceOracle,
                 priceOracle.getPairPriceDrop(position.positionAsset, position.soldAsset),
                 securityBuffer,
-                getOracleTolerableLimit(position.positionAsset, position.soldAsset)
+                getOracleTolerableLimit(position.positionAsset, position.soldAsset),
+                _positionSoldAssetOracleData
             );
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function getCloseCondition(
         uint256 _positionId,
@@ -576,7 +421,7 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
     }
 
     /**
-     * @inheritdoc IPositionManager
+     * @inheritdoc IPositionManagerV2
      */
     function getCloseConditions(
         uint256 _positionId
@@ -589,56 +434,7 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
      * @param _interfaceId The interface id to check
      */
     function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
-        return _interfaceId == type(IPositionManager).interfaceId || super.supportsInterface(_interfaceId);
-    }
-
-    /**
-     * @notice Opens a new position.
-     * @param _position The position data.
-     * @param _vars The variables for opening the position.
-     * @return posEventData The event data for the opened position.
-     */
-    function _openPosition(
-        PositionLibrary.Position memory _position,
-        PositionLibrary.OpenPositionVars memory _vars
-    ) internal returns (PositionLibrary.OpenPositionEventData memory) {
-        (
-            PositionLibrary.Position memory position,
-            PositionLibrary.OpenPositionEventData memory posEventData
-        ) = PositionLibrary.openPosition(
-                _position,
-                _vars,
-                PositionLibrary.PositionManagerParams({
-                    primexDNS: primexDNS,
-                    priceOracle: priceOracle,
-                    traderBalanceVault: traderBalanceVault,
-                    oracleTolerableLimitForThirdAsset: _vars.isThirdAsset
-                        ? getOracleTolerableLimit(_vars.depositData.depositAsset, _position.positionAsset)
-                        : 0,
-                    oracleTolerableLimit: _vars.needOracleTolerableLimitCheck
-                        ? getOracleTolerableLimit(_position.soldAsset, _position.positionAsset)
-                        : 0,
-                    minPositionSize: minPositionSize,
-                    minPositionAsset: minPositionAsset,
-                    maxPositionSize: maxPositionSize[_position.soldAsset][_position.positionAsset]
-                })
-            );
-
-        // create position and update indexes (by trader, by bucket)
-        position.id = positionsId;
-        positionsId++;
-
-        positions.push(position);
-        positionIndexes[position.id] = positions.length - 1;
-
-        traderPositionIds[position.trader].push(position.id);
-        traderPositionIndexes[position.id] = traderPositionIds[position.trader].length - 1;
-
-        bucketPositionIds[address(position.bucket)].push(position.id);
-        bucketPositionIndexes[position.id] = bucketPositionIds[address(position.bucket)].length - 1;
-
-        position.setCloseConditions(closeConditions, _vars.closeConditions, primexDNS);
-        return posEventData;
+        return _interfaceId == type(IPositionManagerV2).interfaceId || super.supportsInterface(_interfaceId);
     }
 
     /**
@@ -669,11 +465,22 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
         delete positionIndexes[_id];
     }
 
+    function _setPositionManagerExtension(address _newPositionManagerExtension) internal {
+        _require(
+            IERC165Upgradeable(_newPositionManagerExtension).supportsInterface(
+                type(IPositionManagerExtension).interfaceId
+            ),
+            Errors.ADDRESS_NOT_SUPPORTED.selector
+        );
+        positionManagerExtension = _newPositionManagerExtension;
+        emit ChangePositionManagerExtension(_newPositionManagerExtension);
+    }
+
     /**
      * @notice Close a position.
      * @param _id The ID of the position to be closed.
      * @param _depositReceiver The address to receive the deposit assets.
-     * @param _routes The trading routes to be used for swapping assets.
+     * @param _megaRoutes The trading routes to be used for swapping assets.
      * @param _amountOutMin The minimum amount of output asset expected from the swaps.
      * @param closeCondition The condition that must be satisfied to close the position.
      * @param _ccmAdditionalParams Additional parameters for custom closing managers.
@@ -682,15 +489,22 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
     function _closePosition(
         uint256 _id,
         address _depositReceiver,
-        PrimexPricingLibrary.Route[] calldata _routes,
+        PrimexPricingLibrary.MegaRoute[] calldata _megaRoutes,
         uint256 _amountOutMin,
         LimitOrderLibrary.Condition memory closeCondition,
         bytes memory _ccmAdditionalParams,
         PositionLibrary.CloseReason _closeReason,
-        uint256 _initialGasLeft
-    ) internal {
+        uint256 _initialGasLeft,
+        bytes calldata _positionSoldAssetOracleData,
+        bytes memory _nativePmxOracleData,
+        bytes calldata _pmxPositionAssetOracleData,
+        bytes calldata _nativePositionAssetOracleData,
+        bytes memory _positionNativeAssetOracleData,
+        bytes[] calldata _pullOracleData
+    ) internal returns (PositionLibrary.ClosePositionEventData memory) {
         _onlyExist(_id);
         _require(_depositReceiver != address(0), Errors.ADDRESS_NOT_SUPPORTED.selector);
+        priceOracle.updatePullOracle{value: msg.value}(_pullOracleData);
         ClosePositionVars memory vars;
         vars.position = positions[positionIndexes[_id]];
         vars.borrowedAmountIsNotZero = vars.position.scaledDebtAmount > 0;
@@ -710,7 +524,7 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
             depositDecrease: vars.position.depositAmountInSoldAsset,
             scaledDebtAmount: vars.position.scaledDebtAmount,
             depositReceiver: _depositReceiver,
-            routes: _routes,
+            megaRoutes: _megaRoutes,
             amountOutMin: _amountOutMin,
             oracleTolerableLimit: vars.oracleTolerableLimit,
             primexDNS: primexDNS,
@@ -721,12 +535,14 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
             borrowedAmountIsNotZero: vars.borrowedAmountIsNotZero,
             pairPriceDrop: priceOracle.getPairPriceDrop(vars.position.positionAsset, vars.position.soldAsset),
             securityBuffer: securityBuffer,
-            needOracleTolerableLimitCheck: vars.needOracleTolerableLimitCheck
+            needOracleTolerableLimitCheck: vars.needOracleTolerableLimitCheck,
+            initialGasLeft: _initialGasLeft,
+            keeperRewardDistributor: address(keeperRewardDistributor),
+            positionSoldAssetOracleData: _positionSoldAssetOracleData,
+            pmxPositionAssetOracleData: _pmxPositionAssetOracleData,
+            nativePositionAssetOracleData: _nativePositionAssetOracleData
         });
-        IKeeperRewardDistributorStorage.KeeperActionType actionType = vars
-            .position
-            .closePosition(_params, _closeReason)
-            .actionType;
+        PositionLibrary.ClosePositionEventData memory posEventData = vars.position.closePosition(_params, _closeReason);
 
         _deletePosition(_id, address(vars.position.bucket), vars.position.trader);
         if (
@@ -736,40 +552,22 @@ contract PositionManager is IPositionManager, PositionManagerStorage {
             // to avoid abuse of the reward system, we will not pay the reward to
             // the keeper if the position open in the same block as the open conditions change
             keeperRewardDistributor.updateReward(
-                IKeeperRewardDistributor.UpdateRewardParams({
+                IKeeperRewardDistributorV3.UpdateRewardParams({
                     keeper: _depositReceiver,
                     positionAsset: vars.position.positionAsset,
-                    positionSize: vars.position.positionAmount,
-                    action: actionType,
+                    // Updating the keeperRewards from the full position size, before subtracting the fee
+                    positionSize: vars.position.positionAmount + posEventData.feeInPositionAsset,
+                    action: posEventData.actionType,
                     numberOfActions: 1,
                     gasSpent: _initialGasLeft - gasleft(),
                     decreasingCounter: new uint256[](0),
-                    routesLength: abi.encode(_routes).length
+                    routesLength: abi.encode(_megaRoutes).length,
+                    nativePmxOracleData: _nativePmxOracleData,
+                    positionNativeAssetOracleData: _positionNativeAssetOracleData
                 })
             );
         }
-    }
-
-    /**
-     * @notice Internal function to update trader activity.
-     * @dev This function updates the activity of a trader by calling the `updateTraderActivity` function
-     * @param trader The address of the trader whose activity is being updated.
-     * @param positionAsset The address of the position asset.
-     * @param positionSize The size of the position.
-     * @param bucket The bucket for which the trader's activity is being updated.
-     */
-    function _updateTraderActivity(
-        address trader,
-        address positionAsset,
-        uint256 positionSize,
-        IBucket bucket
-    ) internal {
-        // Tracks only spot trading activity.
-        if (
-            bucket == IBucket(address(0)) && spotTradingRewardDistributor != ISpotTradingRewardDistributor(address(0))
-        ) {
-            spotTradingRewardDistributor.updateTraderActivity(trader, positionAsset, positionSize);
-        }
+        return posEventData;
     }
 
     /**

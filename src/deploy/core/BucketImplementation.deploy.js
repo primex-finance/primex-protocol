@@ -12,4 +12,4 @@ module.exports = async ({ run, ethers: { getContract } }) => {
 };
 
 module.exports.tags = ["BucketImplementation", " PrimexCore"];
-module.exports.dependencies = ["Errors", "TokenTransfersLibrary", "TokenApproveLibrary"];
+module.exports.dependencies = ["Errors", "TokenTransfersLibrary", "TokenApproveLibrary", "BucketExtension"];

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 const { getConfigByName } = require("../../config/configUtils");
-const { NATIVE_CURRENCY, OrderType } = require("../../test/utils/constants");
+const { FeeRateType, TradingOrderType, CallingMethod } = require("../../test/utils/constants");
 module.exports = async ({
   run,
   ethers: {
     getContract,
-    utils: { parseUnits, parseEther },
+    utils: { parseEther },
     constants: { MaxUint256 },
   },
 }) => {
@@ -20,37 +20,56 @@ module.exports = async ({
   const delistingDelay = PrimexDNSconfig.delistingDelayInDays * SECONDS_PER_DAY;
   const adminWithdrawalDelay = PrimexDNSconfig.adminWithdrawalDelayInDays * SECONDS_PER_DAY;
 
-  const rates = [];
+  const feeRateParams = [];
+  const averageGasPerActionParams = [];
   const restrictions = [];
 
-  for (const orderType in OrderType) {
-    rates.push({
-      orderType: OrderType[orderType],
-      feeToken: PMXToken.address,
-      rate: parseUnits(PrimexDNSconfig.rates[orderType].protocolRateInPmx, 18).toString(),
+  for (const feeRateType in FeeRateType) {
+    feeRateParams.push({
+      feeRateType: FeeRateType[feeRateType],
+      feeRate: parseEther(PrimexDNSconfig.feeRates[feeRateType]).toString(),
     });
-    rates.push({
-      orderType: OrderType[orderType],
-      feeToken: NATIVE_CURRENCY,
-      rate: parseUnits(PrimexDNSconfig.rates[orderType].protocolRate, 18).toString(),
+  }
+
+  for (const tradingOrderType in TradingOrderType) {
+    averageGasPerActionParams.push({
+      tradingOrderType: TradingOrderType[tradingOrderType],
+      averageGasPerAction: PrimexDNSconfig.averageGasPerAction[tradingOrderType].toString(),
     });
-    const minProtocolFee = PrimexDNSconfig.feeRestrictions[orderType].minProtocolFee;
-    const maxProtocolFee = PrimexDNSconfig.feeRestrictions[orderType].maxProtocolFee;
-    const orderRestrictions = {
-      minProtocolFee: (minProtocolFee === "MaxUint256" ? MaxUint256 : parseEther(minProtocolFee)).toString(),
-      maxProtocolFee: (maxProtocolFee === "MaxUint256" ? MaxUint256 : parseEther(maxProtocolFee)).toString(),
+  }
+  let maxProtocolFee = PrimexDNSconfig.maxProtocolFee;
+  maxProtocolFee = (maxProtocolFee === "MaxUint256" ? MaxUint256 : parseEther(maxProtocolFee)).toString();
+  const liquidationGasAmount = PrimexDNSconfig.liquidationGasAmount.toString();
+  const protocolFeeCoefficient = PrimexDNSconfig.protocolFeeCoefficient.toString();
+  const additionalGasSpent = PrimexDNSconfig.additionalGasSpent.toString();
+  const pmxDiscountMultiplier = parseEther(PrimexDNSconfig.pmxDiscountMultiplier).toString();
+  const gasPriceBuffer = parseEther(PrimexDNSconfig.gasPriceBuffer).toString();
+
+  for (const callingMethod in CallingMethod) {
+    const maxGasAmount = PrimexDNSconfig.minFeeRestrictions[callingMethod].maxGasAmount;
+    const baseLength = PrimexDNSconfig.minFeeRestrictions[callingMethod].baseLength;
+    const minFeeRestrictions = {
+      maxGasAmount: maxGasAmount === "MaxUint256" ? MaxUint256 : maxGasAmount.toString(),
+      baseLength: baseLength === "MaxUint256" ? MaxUint256 : baseLength.toString(),
     };
-    restrictions.push({ orderType: OrderType[orderType], orderRestrictions: orderRestrictions });
+    restrictions.push({ callingMethod: CallingMethod[callingMethod], minFeeRestrictions: minFeeRestrictions });
   }
 
   await run("deploy:PrimexDNS", {
     registry: registry.address,
     pmx: PMXToken.address,
     treasury: Treasury.address,
-    errorsLibrary: errorsLibrary.address,
     delistingDelay: delistingDelay.toString(),
     adminWithdrawalDelay: adminWithdrawalDelay.toString(),
-    rates: JSON.stringify(rates),
+    feeRateParams: JSON.stringify(feeRateParams),
+    averageGasPerActionParams: JSON.stringify(averageGasPerActionParams),
+    maxProtocolFee: maxProtocolFee,
+    liquidationGasAmount: liquidationGasAmount,
+    protocolFeeCoefficient: protocolFeeCoefficient,
+    additionalGasSpent: additionalGasSpent,
+    pmxDiscountMultiplier: pmxDiscountMultiplier,
+    gasPriceBuffer: gasPriceBuffer,
+    errorsLibrary: errorsLibrary.address,
     restrictions: JSON.stringify(restrictions),
   });
 };

@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
@@ -11,7 +11,7 @@ interface ICurveRouter {
         uint256 _amount,
         uint256 _expected,
         address _receiver
-    ) external returns (uint256);
+    ) external payable returns (uint256);
 
     function exchange_with_best_rate(
         address _from,

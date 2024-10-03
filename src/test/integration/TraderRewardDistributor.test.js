@@ -5,7 +5,6 @@ const {
   ethers: {
     provider,
     getContract,
-    getContractFactory,
     getContractAt,
     getNamedSigners,
     utils: { parseEther, parseUnits },
@@ -16,8 +15,9 @@ const {
 } = require("hardhat");
 
 const { parseArguments } = require("../utils/eventValidation");
-
-const { addLiquidity, getSingleRoute, getAmountsOut } = require("../utils/dexOperations");
+const { encodeFunctionData } = require("../../tasks/utils/encodeFunctionData");
+const { addLiquidity, getSingleMegaRoute, getAmountsOut } = require("../utils/dexOperations");
+const { USD_DECIMALS, USD_MULTIPLIER } = require("../utils/constants");
 const {
   calculateRewardPerToken,
   calculateRewardIndex,
@@ -25,18 +25,24 @@ const {
   calculateEndTimestamp,
   Role,
 } = require("../utils/activityRewardDistributorMath");
-const { wadMul, wadDiv } = require("../utils/math");
-const { OrderType, NATIVE_CURRENCY } = require("../utils/constants");
+const { wadDiv } = require("../utils/math");
+const {
+  setupUsdOraclesForToken,
+  setupUsdOraclesForTokens,
+  getEncodedChainlinkRouteViaUsd,
+  getEncodedChainlinkRouteToUsd,
+  setOraclePrice,
+} = require("../utils/oracleUtils");
 
 process.env.TEST = true;
 
 describe("TraderRewardDistributor_integration", function () {
-  let pmx, bucket, activityRewardDistributor, debtToken, positionManager, dex, priceFeed;
+  let pmx, bucket, activityRewardDistributor, debtToken, positionManager, dex;
   let deployer, user, trader, lender;
   let totalRewards, rewardPerDay;
   let expectBucketData, expectTraderInfo, expectUserInfo, OpenPositionParams, closeRoute;
   let testTokenA, testTokenB, decimalsA, decimalsB, multiplierA, multiplierB;
-  let protocolRate, PriceInETH, amountOut, amountB;
+  let amountOut, amountB;
 
   before(async function () {
     await fixture(["Test"]);
@@ -50,11 +56,15 @@ describe("TraderRewardDistributor_integration", function () {
     activityRewardDistributor = await getContract("ActivityRewardDistributor");
     positionManager = await getContract("PositionManager");
 
-    await positionManager.setMaxPositionSize(testTokenA.address, testTokenB.address, 0, MaxUint256);
+    const { payload } = await encodeFunctionData(
+      "setMaxPositionSize",
+      [testTokenA.address, testTokenB.address, 0, MaxUint256],
+      "PositionManagerExtension",
+    );
+    await positionManager.setProtocolParamsByAdmin(payload);
 
     pmx = await getContract("EPMXToken");
     const PrimexDNS = await getContract("PrimexDNS");
-    protocolRate = await PrimexDNS.feeRates(OrderType.MARKET_ORDER, NATIVE_CURRENCY);
 
     const bucketAddress = (await PrimexDNS.buckets("bucket1")).bucketAddress;
     bucket = await getContractAt("Bucket", bucketAddress);
@@ -75,28 +85,20 @@ describe("TraderRewardDistributor_integration", function () {
       tokenB: testTokenB,
     });
 
-    const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
-    priceFeed = await getContract("PrimexAggregatorV3TestService TEST price feed");
-    await priceFeed.setDecimals(decimalsA);
-    await priceFeed.setAnswer(1);
     const priceOracle = await getContract("PriceOracle");
-    await priceOracle.updatePriceFeed(testTokenB.address, testTokenA.address, priceFeed.address);
+    const ttaPriceInETH = parseUnits("0.3", USD_DECIMALS); // 1 tta=0.3 ETH
 
-    const priceFeedTTAETH = await PrimexAggregatorV3TestServiceFactory.deploy("TTA_ETH", deployer.address);
-    PriceInETH = parseEther("0.3"); // 1 tta=0.3 eth
-    await priceFeedTTAETH.setDecimals("18");
-    await priceFeedTTAETH.setAnswer(PriceInETH);
-    await priceOracle.updatePriceFeed(testTokenA.address, await priceOracle.eth(), priceFeedTTAETH.address);
-    await positionManager.setMaintenanceBuffer(parseEther("0.01"));
+    await setupUsdOraclesForTokens(testTokenA, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForToken(testTokenB, parseUnits("1", USD_DECIMALS));
 
-    closeRoute = await getSingleRoute([testTokenB.address, testTokenA.address], dex);
+    closeRoute = await getSingleMegaRoute([testTokenB.address, testTokenA.address], dex);
     OpenPositionParams = {
       marginParams: {
         bucket: "bucket1",
         borrowedAmount: 0,
-        depositInThirdAssetRoutes: [],
+        depositInThirdAssetMegaRoutes: [],
       },
-      firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
+      firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
       depositAsset: testTokenA.address,
       depositAmount: 0,
       isProtocolFeeInPmx: false,
@@ -104,8 +106,15 @@ describe("TraderRewardDistributor_integration", function () {
       amountOutMin: 0,
       deadline: MaxUint256,
       takeDepositFromWallet: true,
-      payFeeFromWallet: true,
       closeConditions: [],
+      firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      thirdAssetOracleData: [],
+      depositSoldAssetOracleData: [],
+      positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+      nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      pullOracleData: [],
     };
 
     expectBucketData = {
@@ -161,8 +170,6 @@ describe("TraderRewardDistributor_integration", function () {
 
     const depositAmount = traderBorrowedAmount;
     OpenPositionParams.depositAmount = depositAmount;
-    let feeAmountCalculateWithETHRate;
-    let feeAmountInEth;
 
     await testTokenA.mint(user.address, traderBorrowedAmount.mul(10));
     await testTokenA.connect(user).approve(positionManager.address, MaxUint256);
@@ -174,9 +181,9 @@ describe("TraderRewardDistributor_integration", function () {
     const swap = swapSize.mul(multiplierA);
     amountOut = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
     amountB = amountOut.mul(multiplierB);
-    const price0 = wadDiv(swap.toString(), amountB.toString()).toString();
-    const limitPrice0 = BigNumber.from(price0).div(multiplierA);
-    await priceFeed.setAnswer(limitPrice0);
+    const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+    const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+    await setOraclePrice(testTokenA, testTokenB, price);
 
     // trader openPosition
     const unusedTime = 2 * 24 * 60 * 60;
@@ -186,12 +193,7 @@ describe("TraderRewardDistributor_integration", function () {
     await network.provider.send("evm_setNextBlockTimestamp", [nextTimestamp1]);
 
     OpenPositionParams.marginParams.borrowedAmount = traderBorrowedAmount;
-    feeAmountCalculateWithETHRate = BigNumber.from(
-      wadMul(traderBorrowedAmount.add(depositAmount).toString(), protocolRate.toString()).toString(),
-    );
-    feeAmountInEth = wadMul(feeAmountCalculateWithETHRate.mul(multiplierA).toString(), PriceInETH.toString()).toString();
-
-    await positionManager.connect(trader).openPosition(OpenPositionParams, { value: feeAmountInEth });
+    await positionManager.connect(trader).openPosition(OpenPositionParams);
 
     expectBucketData.rewardIndex = calculateRewardIndex(nextTimestamp1, expectBucketData);
     expectBucketData.scaledTotalSupply = await debtToken.scaledTotalSupply();
@@ -210,12 +212,7 @@ describe("TraderRewardDistributor_integration", function () {
 
     OpenPositionParams.marginParams.borrowedAmount = userBorrowedAmount;
 
-    feeAmountCalculateWithETHRate = BigNumber.from(
-      wadMul(userBorrowedAmount.add(depositAmount).toString(), protocolRate.toString()).toString(),
-    );
-    feeAmountInEth = wadMul(feeAmountCalculateWithETHRate.mul(multiplierA).toString(), PriceInETH.toString()).toString();
-
-    await positionManager.connect(user).openPosition(OpenPositionParams, { value: feeAmountInEth });
+    await positionManager.connect(user).openPosition(OpenPositionParams);
 
     expectBucketData.rewardIndex = calculateRewardIndex(nextTimestamp2, expectBucketData);
     expectBucketData.scaledTotalSupply = await debtToken.scaledTotalSupply();
@@ -232,21 +229,16 @@ describe("TraderRewardDistributor_integration", function () {
     // trader openPosition second time
     amountOut = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
     amountB = amountOut.mul(multiplierB);
-    const price1 = wadDiv(swap.toString(), amountB.toString()).toString();
-    const limitPrice1 = BigNumber.from(price1).div(multiplierA);
-    await priceFeed.setAnswer(limitPrice1);
+    const limitPrice1 = wadDiv(amountB.toString(), swap.toString()).toString();
+    const price1 = BigNumber.from(limitPrice1).div(USD_MULTIPLIER);
+    await setOraclePrice(testTokenA, testTokenB, price1);
 
     const nextTimestamp3 = expectBucketData.lastUpdatedTimestamp + 3 * 24 * 60 * 60;
     await network.provider.send("evm_setNextBlockTimestamp", [nextTimestamp3]);
 
     OpenPositionParams.marginParams.borrowedAmount = traderBorrowedAmount2;
 
-    feeAmountCalculateWithETHRate = BigNumber.from(
-      wadMul(traderBorrowedAmount2.add(depositAmount).toString(), protocolRate.toString()).toString(),
-    );
-    feeAmountInEth = wadMul(feeAmountCalculateWithETHRate.mul(multiplierA).toString(), PriceInETH.toString()).toString();
-
-    await positionManager.connect(trader).openPosition(OpenPositionParams, { value: feeAmountInEth });
+    await positionManager.connect(trader).openPosition(OpenPositionParams);
 
     expectBucketData.rewardIndex = calculateRewardIndex(nextTimestamp3, expectBucketData);
     expectBucketData.scaledTotalSupply = await debtToken.scaledTotalSupply();
@@ -265,7 +257,18 @@ describe("TraderRewardDistributor_integration", function () {
     // trader closePosition
     const nextTimestamp4 = expectBucketData.lastUpdatedTimestamp + 2 * 24 * 60 * 60;
     await network.provider.send("evm_setNextBlockTimestamp", [nextTimestamp4]);
-    await positionManager.connect(trader).closePosition(0, trader.address, closeRoute, 0);
+    await positionManager
+      .connect(trader)
+      .closePosition(
+        0,
+        trader.address,
+        closeRoute,
+        0,
+        getEncodedChainlinkRouteViaUsd(testTokenA),
+        getEncodedChainlinkRouteViaUsd(testTokenB),
+        getEncodedChainlinkRouteViaUsd(testTokenB),
+        [],
+      );
 
     expectBucketData.rewardIndex = calculateRewardIndex(nextTimestamp4, expectBucketData);
     expectBucketData.scaledTotalSupply = await debtToken.scaledTotalSupply();

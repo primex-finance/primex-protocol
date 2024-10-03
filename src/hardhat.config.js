@@ -90,8 +90,8 @@ module.exports = {
         version: "0.7.6",
       },
       {
-        version: "0.4.17",
-      },
+        version: "0.4.18",
+      }
     ],
     overrides: {
       "@uniswap/swap-router-contracts/contracts/libraries/PoolTicksCounter.sol": {

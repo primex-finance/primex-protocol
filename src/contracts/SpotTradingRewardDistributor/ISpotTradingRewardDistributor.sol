@@ -1,11 +1,11 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
 import {ISpotTradingRewardDistributorStorage} from "./ISpotTradingRewardDistributorStorage.sol";
 import {IPausable} from "../interfaces/IPausable.sol";
 
-interface ISpotTradingRewardDistributor is ISpotTradingRewardDistributorStorage, IPausable {
+interface ISpotTradingRewardDistributorV2 is ISpotTradingRewardDistributorStorage, IPausable {
     event SpotTradingClaimReward(address indexed trader, uint256 amount);
     event RewardPerPeriodDecreased(uint256 indexed rewardPerPeriod);
     event TopUpUndistributedPmxBalance(uint256 indexed amount);
@@ -36,7 +36,12 @@ interface ISpotTradingRewardDistributor is ISpotTradingRewardDistributorStorage,
      * @param positionAsset Address of a position asset
      * @param positionAmount Amount of a position asset
      */
-    function updateTraderActivity(address trader, address positionAsset, uint256 positionAmount) external;
+    function updateTraderActivity(
+        address trader,
+        address positionAsset,
+        uint256 positionAmount,
+        bytes calldata positionUsdOracleDataoracleData
+    ) external;
 
     /**
      * @dev Function to claim reward for spot trading activity.

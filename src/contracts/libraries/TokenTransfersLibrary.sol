@@ -1,5 +1,5 @@
 // Copyright 2020 Compound Labs, Inc.
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BSD-3-Clause
 
 // Modified version of token transfer logic that allows working with non-standart ERC-20 tokens, added method doTransferFromTo,

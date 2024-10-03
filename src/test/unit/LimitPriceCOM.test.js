@@ -12,27 +12,23 @@ const {
   deployments: { fixture },
 } = require("hardhat");
 
-const { getLimitPriceParams, getLimitPriceAdditionalParams } = require("../utils/conditionParams");
+const { getLimitPriceParams } = require("../utils/conditionParams");
 
 const { deployMockBucket, deployMockERC20 } = require("../utils/waffleMocks");
-const { getSingleRoute } = require("../utils/dexOperations");
 const { NATIVE_CURRENCY } = require("../utils/constants");
 
 process.env.TEST = true;
 
 describe("LimitPriceCOM_unit", function () {
-  let snapshotId, mockOrder, mockBucket, tokenA, tokenB, params, firstAssetRoutes, dex;
+  let snapshotId, mockOrder, mockBucket, tokenA, tokenB, params;
   let deployer, trader;
   let limitPriceCOM;
-  let ErrorsLibrary;
 
   before(async function () {
     await fixture(["Test"]);
     ({ deployer, trader } = await getNamedSigners());
 
     limitPriceCOM = await getContract("LimitPriceCOM");
-    ErrorsLibrary = await getContract("Errors");
-
     mockBucket = await deployMockBucket(deployer);
     tokenA = await deployMockERC20(deployer);
     tokenB = await deployMockERC20(deployer);
@@ -53,8 +49,6 @@ describe("LimitPriceCOM_unit", function () {
       extraParams: "0x",
     };
     params = getLimitPriceParams(parseEther("1"));
-    dex = "uniswap";
-    firstAssetRoutes = await getSingleRoute([tokenA.address, tokenB.address], dex);
   });
 
   beforeEach(async function () {
@@ -67,28 +61,6 @@ describe("LimitPriceCOM_unit", function () {
     await network.provider.request({
       method: "evm_revert",
       params: [snapshotId],
-    });
-  });
-
-  describe("canBeFilledBeforeSwap", function () {
-    const canBeFilledParams = [
-      "(address,address,address,uint256,address,uint256,address,uint256,uint256,uint256,bool,uint256,uint256,bytes)",
-      "bytes",
-      "bytes",
-    ];
-
-    it("Should revert when depositAsset is borrowedAsset and depositInThirdAssetRoutes length isn't 0", async function () {
-      const additionalParams = getLimitPriceAdditionalParams(firstAssetRoutes, firstAssetRoutes, []);
-      await expect(
-        limitPriceCOM.callStatic[`canBeFilledBeforeSwap(${canBeFilledParams})`](mockOrder, params, additionalParams),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "DEPOSIT_IN_THIRD_ASSET_ROUTES_LENGTH_SHOULD_BE_0");
-    });
-
-    it("Should revert when firstAssetRoutes length is empty", async function () {
-      const additionalParams = getLimitPriceAdditionalParams([], [], []);
-      await expect(
-        limitPriceCOM.callStatic[`canBeFilledBeforeSwap(${canBeFilledParams})`](mockOrder, params, additionalParams),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO");
     });
   });
 

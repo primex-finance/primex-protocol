@@ -12,10 +12,9 @@ task("deploy:PositionManager", "Deploy PositionManager contract", require("./pos
   .addParam("positionLibrary", "The address of PositionLibrary library")
   .addParam("tokenTransfersLibrary", "The address of TokenTransfersLibrary library")
   .addParam("keeperRewardDistributor", "The address of the KeeperRewardDistributor")
+  .addParam("positionManagerExtension", "The address of the PositionManagerExtension")
   .addOptionalParam("errorsLibrary", "The address of errorsLibrary contract")
   // setters
-  .addParam("minPositionSize", "The amount of minimum position asset that is set in position manager")
-  .addParam("minPositionAsset", "The address of minimum position asset that is set in position manager")
   .addParam(
     "defaultOracleTolerableLimit",
     "Default difference between dex price and oracle price. It's used if pair does not have its own value configured",

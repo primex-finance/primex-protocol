@@ -88,22 +88,24 @@ module.exports = async function (
         const amount0 = parseUnits(maxSize[0].toString(), decimalsByAddress[pairContracts[0].address]);
         const amount1 = parseUnits(maxSize[1].toString(), decimalsByAddress[pairContracts[1].address]);
 
-        encodeResult = await encodeFunctionData(
+        const { payload } = await encodeFunctionData(
           "setMaxPositionSize",
           [pairContracts[0].address, pairContracts[1].address, amount0, amount1],
-          "PositionManager",
+          "PositionManagerExtension",
         );
+        encodeResult = await encodeFunctionData("setProtocolParamsByAdmin", [payload], "PositionManager");
         targets.push(encodeResult.contractAddress);
         payloads.push(encodeResult.payload);
 
         if (pairsConfigAssetsForSpot[pairConfig].oracleTolerableLimit !== "0") {
           const oracleTolerableLimit = parseEther(pairsConfigAssetsForSpot[pairConfig].oracleTolerableLimit);
 
-          encodeResult = await encodeFunctionData(
+          const { payload } = await encodeFunctionData(
             "setOracleTolerableLimit",
             [pairContracts[0].address, pairContracts[1].address, oracleTolerableLimit],
-            "PositionManager",
+            "PositionManagerExtension",
           );
+          encodeResult = await encodeFunctionData("setProtocolParamsByAdmin", [payload], "PositionManager");
           targets.push(encodeResult.contractAddress);
           payloads.push(encodeResult.payload);
         }

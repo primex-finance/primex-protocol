@@ -6,7 +6,6 @@ const {
   ethers: {
     getContract,
     getContractAt,
-    getContractFactory,
     getNamedSigners,
     utils: { parseEther, parseUnits, getAddress, defaultAbiCoder },
     constants: { MaxUint256, AddressZero },
@@ -14,11 +13,19 @@ const {
   },
   deployments: { fixture },
 } = require("hardhat");
-const { addLiquidity, checkIsDexSupported, getAmountsOut, getEncodedPath, getSingleRoute } = require("../utils/dexOperations");
-const { wadDiv, wadMul } = require("../utils/math");
+const { addLiquidity, checkIsDexSupported, getAmountsOut, getEncodedPath, getSingleMegaRoute } = require("../utils/dexOperations");
+const { wadDiv } = require("../utils/math");
 const { deployMockReserve, deployMockWhiteBlackList } = require("../utils/waffleMocks");
-const { MAX_TOKEN_DECIMALITY, NATIVE_CURRENCY, OrderType, BAR_CALC_PARAMS_DECODE, USD } = require("../utils/constants");
+const { MAX_TOKEN_DECIMALITY, BAR_CALC_PARAMS_DECODE, USD_DECIMALS, USD_MULTIPLIER } = require("../utils/constants");
 const { barCalcParams } = require("../utils/defaultBarCalcParams");
+const { encodeFunctionData } = require("../../tasks/utils/encodeFunctionData");
+const {
+  setupUsdOraclesForToken,
+  setupUsdOraclesForTokens,
+  getEncodedChainlinkRouteViaUsd,
+  getEncodedChainlinkRouteToUsd,
+  setOraclePrice,
+} = require("../utils/oracleUtils");
 
 process.env.TEST = true;
 
@@ -42,7 +49,7 @@ describe("Operation with the Curve dex_integration", function () {
     assetRoutesAB,
     assetRoutesAX,
     interestRateStrategy;
-  let priceFeed, priceOracle, ttaPriceInNaive;
+  let priceOracle;
   let deployer, trader, lender;
   let snapshotIdBase;
   let multiplierA, multiplierB, multiplierX;
@@ -96,13 +103,10 @@ describe("Operation with the Curve dex_integration", function () {
     const feeBuffer = "1000200000000000000"; // 1.0002
     const withdrawalFeeRate = "5000000000000000"; // 0.005 - 0.5%
     const reserveRate = "100000000000000000"; // 0.1 - 10%
-    const BucketsFactory = await getContract("BucketsFactory");
+    const BucketsFactory = await getContract("BucketsFactoryV2");
     const estimatedBar = "100000000000000000000000000"; // 0.1 in ray
     const estimatedLar = "70000000000000000000000000"; // 0.07 in ray
 
-    priceFeed = await getContract("PrimexAggregatorV3TestService TEST price feed");
-    await priceOracle.updatePriceFeed(underlyingAsset, USD, priceFeed.address);
-    await priceOracle.updatePriceFeed(testTokenB.address, USD, priceFeed.address);
     await priceOracle.setPairPriceDrop(testTokenB.address, testTokenA.address, risksThreshold);
 
     const txCreateBucket = await BucketsFactory.createBucket({
@@ -150,24 +154,29 @@ describe("Operation with the Curve dex_integration", function () {
     testTokenX = await getContract("testTokenX_curve");
     decimalsX = await testTokenX.decimals();
 
-    await positionManager.setMaxPositionSize(testTokenA.address, testTokenB.address, 0, MaxUint256);
-    await positionManager.setMaxPositionSize(testTokenA.address, testTokenX.address, 0, MaxUint256);
+    const { payload: payload1 } = await encodeFunctionData(
+      "setMaxPositionSize",
+      [testTokenA.address, testTokenB.address, 0, MaxUint256],
+      "PositionManagerExtension",
+    );
+    await positionManager.setProtocolParamsByAdmin(payload1);
+    const { payload: payload2 } = await encodeFunctionData(
+      "setMaxPositionSize",
+      [testTokenA.address, testTokenX.address, 0, MaxUint256],
+      "PositionManagerExtension",
+    );
+    await positionManager.setProtocolParamsByAdmin(payload2);
 
     priceOracle = await getContract("PriceOracle");
-    await priceOracle.updatePriceFeed(testTokenA.address, testTokenB.address, priceFeed.address);
-    await priceFeed.setAnswer(1);
-    await priceFeed.setDecimals(decimalsB);
 
     multiplierA = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsA));
     multiplierB = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB));
     multiplierX = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsX));
 
-    const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
-    const priceFeedTTANATVE = await PrimexAggregatorV3TestServiceFactory.deploy("TTA_NATIVE", deployer.address);
-    ttaPriceInNaive = parseUnits("0.3", "18"); // 1 tta=0.3 eth
-    await priceFeedTTANATVE.setDecimals("18");
-    await priceFeedTTANATVE.setAnswer(ttaPriceInNaive);
-    await priceOracle.updatePriceFeed(testTokenA.address, NATIVE_CURRENCY, priceFeedTTANATVE.address);
+    const ttaPriceInETH = parseUnits("0.3", USD_DECIMALS); // 1 tta=0.3 ETH
+    await setupUsdOraclesForTokens(testTokenA, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForTokens(testTokenX, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForToken(testTokenB, parseUnits("1", USD_DECIMALS));
 
     snapshotIdBase = await network.provider.request({
       method: "evm_snapshot",
@@ -177,7 +186,7 @@ describe("Operation with the Curve dex_integration", function () {
 
   describe("For a pool with 3 tokens", function () {
     let snapshotId;
-    let depositAmount, borrowedAmount, amountOutMin, takeDepositFromWallet, priceFeedTTATTX, swapSize, deadline, pool, feeAmountInEth;
+    let depositAmount, borrowedAmount, amountOutMin, takeDepositFromWallet, swapSize, deadline, pool;
     before(async function () {
       deadline = new Date().getTime() + 600;
       pool = await addLiquidity({
@@ -190,10 +199,10 @@ describe("Operation with the Curve dex_integration", function () {
         ],
       });
 
-      assetRoutesAB = await getSingleRoute([testTokenA.address, testTokenB.address], dex, 1, [pool]);
-      assetRoutesAX = await getSingleRoute([testTokenA.address, testTokenX.address], dex, 1, [pool]);
-      routesForCloseBA = await getSingleRoute([testTokenB.address, testTokenA.address], dex, 1, [pool]);
-      routesForCloseXA = await getSingleRoute([testTokenX.address, testTokenA.address], dex, 1, [pool]);
+      assetRoutesAB = await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex, [pool]);
+      assetRoutesAX = await getSingleMegaRoute([testTokenA.address, testTokenX.address], dex, [pool]);
+      routesForCloseBA = await getSingleMegaRoute([testTokenB.address, testTokenA.address], dex, [pool]);
+      routesForCloseXA = await getSingleMegaRoute([testTokenX.address, testTokenA.address], dex, [pool]);
 
       const lenderAmount = parseEther("50");
       depositAmount = parseEther("1.5");
@@ -208,21 +217,9 @@ describe("Operation with the Curve dex_integration", function () {
 
       const pairPriceDrop = parseEther("0.01");
       await priceOracle.setPairPriceDrop(testTokenX.address, testTokenA.address, pairPriceDrop);
-      await priceOracle.updatePriceFeed(testTokenX.address, USD, priceFeed.address);
 
       await bucketCurve.addAsset(testTokenX.address);
       swapSize = depositAmount.add(borrowedAmount);
-
-      const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
-      priceFeedTTATTX = await PrimexAggregatorV3TestServiceFactory.deploy("PrimexAggregatorV3TestService TTA_TTX", deployer.address);
-      await priceFeedTTATTX.setDecimals(await testTokenX.decimals());
-      await priceOracle.updatePriceFeed(testTokenA.address, testTokenX.address, priceFeedTTATTX.address);
-
-      const feeAmountCalculateWithETHRate = wadMul(
-        borrowedAmount.add(depositAmount).toString(),
-        (await PrimexDNS.feeRates(OrderType.MARKET_ORDER, NATIVE_CURRENCY)).toString(),
-      ).toString();
-      feeAmountInEth = wadMul(feeAmountCalculateWithETHRate.toString(), ttaPriceInNaive.toString()).toString();
     });
     after(async function () {
       await network.provider.request({
@@ -265,133 +262,174 @@ describe("Operation with the Curve dex_integration", function () {
     });
     it("Should open position and increase position count when positionAsset is testTokenB", async function () {
       const deadline = new Date().getTime() + 600;
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: bucketNameCurve,
-            borrowedAmount: borrowedAmount,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: assetRoutesAB,
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenB.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: takeDepositFromWallet,
-          closeConditions: [],
+      const swap = swapSize.mul(multiplierA);
+      const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address], [pool]);
+      const amountB = amount0Out.mul(multiplierB);
+      const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: bucketNameCurve,
+          borrowedAmount: borrowedAmount,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: feeAmountInEth },
-      );
+        firstAssetMegaRoutes: assetRoutesAB,
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenB.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
     });
 
     it("Should open a position and increase position count when positionAsset is testTokenX", async function () {
       const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenX.address], [pool]);
-      const swapSizeInWadDecimals = swapSize.mul(multiplierA);
-      const amount0OutInWadDecimals = amount0Out.mul(multiplierX);
-      let limitPrice = wadDiv(amount0OutInWadDecimals.toString(), swapSizeInWadDecimals.toString()).toString();
-      limitPrice = BigNumber.from(limitPrice).div(multiplierX);
-
-      await priceFeedTTATTX.setAnswer(limitPrice);
-      await priceFeedTTATTX.setDecimals(decimalsX);
+      const amountX = amount0Out.mul(multiplierX);
+      const swap = swapSize.mul(multiplierA);
+      const limitPrice = wadDiv(amountX.toString(), swap.toString()).toString();
+      const price0 = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenX, price0);
 
       const deadline = new Date().getTime() + 600;
 
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(0);
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: bucketNameCurve,
-            borrowedAmount: borrowedAmount,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: assetRoutesAX,
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenX.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: takeDepositFromWallet,
-          closeConditions: [],
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: bucketNameCurve,
+          borrowedAmount: borrowedAmount,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: feeAmountInEth },
-      );
+        firstAssetMegaRoutes: assetRoutesAX,
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenX.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenX),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenX),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenX),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
     });
 
     it("Should close a position and decrease position count when positionAsset is testTokenB", async function () {
       const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address], [pool]);
-      const swapSizeInWadDecimals = swapSize.mul(multiplierA);
-      const amount0OutInWadDecimals = amount0Out.mul(multiplierB);
-
-      let limitPrice = wadDiv(amount0OutInWadDecimals.toString(), swapSizeInWadDecimals.toString()).toString();
-      limitPrice = BigNumber.from(limitPrice).div(multiplierB);
-      await priceFeed.setAnswer(limitPrice);
+      const swap = swapSize.mul(multiplierA);
+      const amountB = amount0Out.mul(multiplierB);
+      const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      const price0 = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price0);
 
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(0);
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: bucketNameCurve,
-            borrowedAmount: borrowedAmount,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: assetRoutesAB,
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenB.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: takeDepositFromWallet,
-          closeConditions: [],
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: bucketNameCurve,
+          borrowedAmount: borrowedAmount,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: feeAmountInEth },
-      );
+        firstAssetMegaRoutes: assetRoutesAB,
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenB.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
 
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
 
-      await positionManager.connect(trader).closePosition(0, trader.address, routesForCloseBA, 0);
+      await positionManager
+        .connect(trader)
+        .closePosition(
+          0,
+          trader.address,
+          routesForCloseBA,
+          0,
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenB),
+          [],
+        );
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(0);
     });
 
     it("Should close a position and decrease position count when positionAsset is testTokenX", async function () {
       const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenX.address], [pool]);
-      const swapSizeInWadDecimals = swapSize.mul(multiplierA);
-      const amount0OutInWadDecimals = amount0Out.mul(multiplierX);
-      let limitPrice = wadDiv(amount0OutInWadDecimals.toString(), swapSizeInWadDecimals.toString()).toString();
-      limitPrice = BigNumber.from(limitPrice).div(multiplierX);
-      await priceFeedTTATTX.setAnswer(limitPrice);
+      const amountX = amount0Out.mul(multiplierX);
+      const swap = swapSize.mul(multiplierA);
+      const limitPrice = wadDiv(amountX.toString(), swap.toString()).toString();
+      const price0 = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenX, price0);
 
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(0);
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: bucketNameCurve,
-            borrowedAmount: borrowedAmount,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: assetRoutesAX,
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenX.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: takeDepositFromWallet,
-          closeConditions: [],
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: bucketNameCurve,
+          borrowedAmount: borrowedAmount,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: feeAmountInEth },
-      );
+        firstAssetMegaRoutes: assetRoutesAX,
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenX.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenX),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenX),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenX),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
 
-      await positionManager.connect(trader).closePosition(0, trader.address, routesForCloseXA, 0);
+      await positionManager
+        .connect(trader)
+        .closePosition(
+          0,
+          trader.address,
+          routesForCloseXA,
+          0,
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          getEncodedChainlinkRouteViaUsd(testTokenX),
+          getEncodedChainlinkRouteViaUsd(testTokenX),
+          [],
+        );
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(0);
     });
   });

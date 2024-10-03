@@ -2,6 +2,7 @@
 const { expect } = require("chai");
 const {
   network,
+  upgrades,
   ethers: { getContract, getContractFactory, getNamedSigners },
   deployments: { fixture },
 } = require("hardhat");
@@ -42,8 +43,8 @@ describe("SwapManager_unit", function () {
     [mockPriceOracle] = await deployMockPriceOracle(deployer);
   });
 
-  describe("constructor", function () {
-    let snapshotId, SwapManagerFactory, args;
+  describe("initialize", function () {
+    let snapshotId, SwapManagerFactory, args, deploySM;
     before(async function () {
       SwapManagerFactory = await getContractFactory("SwapManager", {
         libraries: {
@@ -51,6 +52,14 @@ describe("SwapManager_unit", function () {
           PrimexPricingLibrary: primexPricingLibrary.address,
         },
       });
+      deploySM = async function deploySM(args) {
+        return await upgrades.deployProxy(SwapManagerFactory, [...args], {
+          unsafeAllow: ["constructor", "delegatecall", "external-library-linking"],
+        });
+      };
+
+      // to hide OZ warnings: You are using the "unsafeAllow.external-library-linking" flag to include external libraries.
+      await upgrades.silenceWarnings();
     });
 
     beforeEach(async function () {
@@ -69,36 +78,41 @@ describe("SwapManager_unit", function () {
     });
 
     it("Should deploy", async function () {
-      expect(await SwapManagerFactory.deploy(...args));
+      const swapManager = await deploySM(args);
+      expect(await swapManager.registry()).to.be.equal(registry.address);
+      expect(await swapManager.primexDNS()).to.be.equal(primexDNS.address);
+      expect(await swapManager.traderBalanceVault()).to.be.equal(traderBalanceVault.address);
+      expect(await swapManager.priceOracle()).to.be.equal(priceOracle.address);
+      expect(await swapManager.whiteBlackList()).to.be.equal(mockWhiteBlackList.address);
     });
 
     it("Should revert deploy when registry address not supported", async function () {
       await mockRegistry.mock.supportsInterface.returns(false);
       args[0] = mockRegistry.address;
-      await expect(SwapManagerFactory.deploy(...args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
+      await expect(deploySM(args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
 
     it("Should revert deploy when dns address not supported", async function () {
       await mockPrimexDns.mock.supportsInterface.returns(false);
       args[1] = mockPrimexDns.address;
-      await expect(SwapManagerFactory.deploy(...args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
+      await expect(deploySM(args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
 
     it("Should revert deploy when traderBalanceVault address not supported", async function () {
       await mockTraderBalanceVault.mock.supportsInterface.returns(false);
       args[2] = mockTraderBalanceVault.address;
-      await expect(SwapManagerFactory.deploy(...args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
+      await expect(deploySM(args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
 
     it("Should revert deploy when priceOracle address not supported", async function () {
       await mockPriceOracle.mock.supportsInterface.returns(false);
       args[3] = mockPriceOracle.address;
-      await expect(SwapManagerFactory.deploy(...args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
+      await expect(deploySM(args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
     it("Should revert deploy when WhiteBlackList address not supported", async function () {
       await mockWhiteBlackList.mock.supportsInterface.returns(false);
       args[3] = mockPriceOracle.address;
-      await expect(SwapManagerFactory.deploy(...args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
+      await expect(deploySM(args)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
   });
 

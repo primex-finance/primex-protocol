@@ -5,10 +5,12 @@ module.exports = async ({ run, ethers: { getContract } }) => {
   const primexPricingLibrary = await getContract("PrimexPricingLibrary");
   const positionLibrary = await getContract("PositionLibrary");
   const errorsLibrary = await getContract("Errors");
+  const registry = await getContract("Registry");
 
   await run("deploy:TakeProfitStopLossCCM", {
     primexDNS: primexDNS.address,
     priceOracle: priceOracle.address,
+    registry: registry.address,
     primexPricingLibrary: primexPricingLibrary.address,
     positionLibrary: positionLibrary.address,
     errorsLibrary: errorsLibrary.address,
@@ -16,4 +18,4 @@ module.exports = async ({ run, ethers: { getContract } }) => {
 };
 
 module.exports.tags = ["TakeProfitStopLossCCM", "Test", "PrimexCore"];
-module.exports.dependencies = ["PriceOracle", "PrimexDNS", "PositionLibrary", "Errors", "PrimexPricingLibrary"];
+module.exports.dependencies = ["PriceOracle", "PrimexDNS", "PositionLibrary", "Errors", "PrimexPricingLibrary", "Registry"];

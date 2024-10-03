@@ -31,7 +31,7 @@
       "quoterV2": "0x7E24086F23241EC13D850A0Df6dcfF1Fa21920eb",
       "nonfungiblePositionManager": "0x8E213F32fAc71F8b86c28Cde060184425098b714",
       "factory": "0x34Ae40Ae0DE43E8f2D21FE957d61Cb412E940ECE",
-      "poolDeployer":"0x324fAB10C3E55aae35C082Ea53A03E5Bf1F12DB6"
+      "poolDeployer": "0x324fAB10C3E55aae35C082Ea53A03E5Bf1F12DB6"
     },
     "balancer": {
       "router": "0x564d5496894eb359a9D7D3E76da5D0E2544eD87B",

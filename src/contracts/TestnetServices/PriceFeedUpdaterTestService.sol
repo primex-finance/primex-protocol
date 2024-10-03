@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -106,7 +106,7 @@ contract PriceFeedUpdaterTestService is IPriceFeedUpdaterTestService, AccessCont
                             path,
                             routers[i],
                             ancillaryDexData,
-                            address(dexAdapter),
+                            payable(dexAdapter),
                             false
                         ),
                         amount: 10 ** IERC20Metadata(_priceFeed.token0).decimals() / divider,

@@ -9,6 +9,7 @@ module.exports = async function (args, hre) {
     ethers: {
       getNamedSigners,
       getContractAt,
+      getContract,
       utils: { keccak256, toUtf8Bytes, getAddress },
     },
   } = hre;
@@ -44,11 +45,11 @@ module.exports = async function (args, hre) {
       maxTotalDeposit: args.maxTotalDeposit,
     };
     if (args.flowConfig.execute) {
-      const bucketsFactory = await getContractAt("BucketsFactory", args.bucketsFactory);
-      const txCreateBucket = await bucketsFactory.createBucket(params);
+      const bucketsFactoryV2 = await getContractAt("BucketsFactoryV2", args.bucketsFactoryV2);
+      const txCreateBucket = await bucketsFactoryV2.createBucket(params);
 
       if (!process.env.TEST) {
-        console.log(`\nBucketsFactory(${bucketsFactory.address}) call function createBucket`);
+        console.log(`\nBucketsFactory(${bucketsFactoryV2.address}) call function createBucket`);
         console.log(`tx - ${txCreateBucket.hash}`);
       }
       const txCreateBucketSuccess = await txCreateBucket.wait();
@@ -69,7 +70,7 @@ module.exports = async function (args, hre) {
       }
     } else {
       out.MediumTimelockAdmin = [];
-      out.MediumTimelockAdmin.push(await encodeFunctionData("createBucket", [params], "BucketsFactory", args.bucketsFactory));
+      out.MediumTimelockAdmin.push(await encodeFunctionData("createBucket", [params], "BucketsFactoryV2", args.bucketsFactoryV2));
     }
   }
   //
@@ -79,6 +80,9 @@ module.exports = async function (args, hre) {
   if (args.flowConfig.steps["2"]) {
     const NO_FEE_ROLE = keccak256(toUtf8Bytes("NO_FEE_ROLE"));
     const VAULT_ACCESS_ROLE = keccak256(toUtf8Bytes("VAULT_ACCESS_ROLE"));
+    const bucketExtension = await getContract("BucketExtension");
+    const bucket = await getContractAt("Bucket", out.newBucket);
+
     if (args.flowConfig.execute) {
       const whiteBlackList = await getContractAt("WhiteBlackList", args.whiteBlackList);
       let tx = await whiteBlackList.addAddressesToWhitelist([out.newBucket, out.newPToken, out.newDebtToken]);
@@ -112,6 +116,9 @@ module.exports = async function (args, hre) {
       await tx.wait();
       tx = await debtToken.setTraderRewardDistributor(args.activityRewardDistributor);
       await tx.wait();
+      tx = await bucket.setBucketExtension(bucketExtension.address);
+      await tx.wait();
+
       if (network.name !== "hardhat") {
         const newBucket = await getContractAt("Bucket", out.newBucket);
 
@@ -160,6 +167,7 @@ module.exports = async function (args, hre) {
       out.BigTimelockAdmin.push(
         await encodeFunctionData("setTraderRewardDistributor", [args.activityRewardDistributor], "DebtToken", DebtToken),
       );
+      out.BigTimelockAdmin.push(await encodeFunctionData("setBucketExtension", [bucketExtension.address], "Bucket", bucket.address));
     }
   }
 
@@ -182,8 +190,8 @@ async function validateArgs(
     args.primexDNS = (await getContract("PrimexDNS")).address;
   }
 
-  if (!args.bucketsFactory) {
-    args.bucketsFactory = (await getContract("BucketsFactory")).address;
+  if (!args.bucketsFactoryV2) {
+    args.bucketsFactoryV2 = (await getContract("BucketsFactoryV2")).address;
   }
 
   if (!args.positionManager) {
@@ -222,6 +230,10 @@ async function validateArgs(
 
   if (!args.activityRewardDistributor) {
     args.activityRewardDistributor = (await getContract("ActivityRewardDistributor")).address;
+  }
+
+  if (!args.bucketExtension) {
+    args.bucketExtension = (await getContract("BucketExtension")).address;
   }
 
   // if liquidityMiningAmount 0 liquidityMining is off

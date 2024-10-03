@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -7,8 +7,8 @@ import "../libraries/Errors.sol";
 import {FeeExecutor, IFeeExecutor, IBonusExecutor} from "./FeeExecutor.sol";
 import {IPMXBonusNFT} from "../PMXBonusNFT/IPMXBonusNFT.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
-import {IBucket} from "../Bucket/IBucket.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
+import {IBucketV3} from "../Bucket/IBucket.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
 
 contract FeeDecreaser is FeeExecutor {
     constructor() {
@@ -44,7 +44,7 @@ contract FeeDecreaser is FeeExecutor {
             address(bonuses[_owner][_bucket].bucket) == address(0),
             Errors.BONUS_FOR_BUCKET_ALREADY_ACTIVATED.selector
         );
-        uint256 index = IBucket(_bucket).getNormalizedVariableDebt();
+        uint256 index = IBucketV3(_bucket).getNormalizedVariableDebt();
         _updateIndex(index, _bucket);
         _activateBonus(_tier, _bucket, _nftId, _owner, index);
     }
@@ -97,8 +97,8 @@ contract FeeDecreaser is FeeExecutor {
     ) public override {
         if (paused()) return;
         if (address(bonuses[_user][_bucket].bucket) == address(0)) {
-            address bucket = IPrimexDNS(primexDNS).getBucketAddress(IBucket(_bucket).name());
-            _require(address(IBucket(bucket).debtToken()) == msg.sender, Errors.CALLER_IS_NOT_DEBT_TOKEN.selector);
+            address bucket = IPrimexDNSV3(primexDNS).getBucketAddress(IBucketV3(_bucket).name());
+            _require(address(IBucketV3(bucket).debtToken()) == msg.sender, Errors.CALLER_IS_NOT_DEBT_TOKEN.selector);
             _updateIndex(_currentIndex, _bucket);
             return;
         }

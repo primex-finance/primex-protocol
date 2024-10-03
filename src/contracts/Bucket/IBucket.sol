@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
@@ -8,17 +8,18 @@ import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
 
 import {IPToken} from "../PToken/IPToken.sol";
 import {IDebtToken} from "../DebtToken/IDebtToken.sol";
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
+import {IPositionManager, IPositionManagerV2} from "../PositionManager/IPositionManager.sol";
 import {IPriceOracle} from "../PriceOracle/IPriceOracle.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
+import {IPrimexDNS, IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
 import {IReserve} from "../Reserve/IReserve.sol";
 import {ILiquidityMiningRewardDistributor} from "../LiquidityMiningRewardDistributor/ILiquidityMiningRewardDistributor.sol";
 import {IInterestRateStrategy} from "../interfaces/IInterestRateStrategy.sol";
-import {ISwapManager} from "../interfaces/ISwapManager.sol";
+import {ISwapManager} from "../SwapManager/ISwapManager.sol";
 import {IBucketStorage} from "./IBucketStorage.sol";
+import {IBucketEvents} from "./IBucketEvents.sol";
 
-interface IBucket is IBucketStorage {
+interface IBucket is IBucketStorage, IBucketEvents {
     struct ConstructorParams {
         string name;
         IPToken pToken;
@@ -49,13 +50,7 @@ interface IBucket is IBucketStorage {
 
     event Deposit(address indexed depositer, address indexed pTokenReceiver, uint256 amount);
 
-    event Withdraw(address indexed withdrawer, address indexed borrowAssetReceiver, uint256 amount);
-
     event DepositToAave(address indexed pool, uint256 amount);
-
-    event WithdrawFromAave(address indexed pool, uint256 amount);
-
-    event TopUpTreasury(address indexed sender, uint256 amount);
 
     event FeeBufferChanged(uint256 feeBuffer);
 
@@ -92,7 +87,7 @@ interface IBucket is IBucketStorage {
 
     /**
      * @dev Function to add new trading asset for this bucket
-     * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
+     * @dev Only callable by the SMALL_TIMELOCK_ADMIN role.
      * @param _newAsset The address of trading asset
      */
     function addAsset(address _newAsset) external;
@@ -180,13 +175,13 @@ interface IBucket is IBucketStorage {
      * Used only in the case of failed liquidity mining in the bucket from where the transfer happens.
      * @param _bucketTo The name of the destination bucket.
      * @param _swapManager The address of the swap manager.
-     * @param routes The array of routes for swapping tokens.
+     * @param _megaRoutes The array of routes for swapping tokens.
      * @param _amountOutMin The minimum amount of tokens to receive from the swap.
      */
     function depositFromBucket(
         string calldata _bucketTo,
         ISwapManager _swapManager,
-        PrimexPricingLibrary.Route[] calldata routes,
+        PrimexPricingLibrary.MegaRoute[] calldata _megaRoutes,
         uint256 _amountOutMin
     ) external;
 
@@ -330,4 +325,25 @@ interface IBucketV2 is IBucket {
      * @param _takeDepositFromWallet A flag indicating whether to make the deposit from user wallet
      */
     function deposit(address _pTokenReceiver, uint256 _amount, bool _takeDepositFromWallet) external;
+}
+
+interface IBucketV3 is IBucketV2 {
+    event ChangedBucketExtension(address newBucketExtension);
+
+    /**
+     * @dev Calculates the max leverage according to the following formula:
+     * ((1 + maintenanceBuffer) * feeBuffer) / ((1 + maintenanceBuffer) * feeBuffer - (1 - securityBuffer) *
+     * (1 - pairPriceDropBA) * (1 - oracleTolerableLimitAB) * (1 - oracleTolerableLimitBA) + protocolFeeInPositionAsset / positionSize)
+     * @param _asset The address of trading asset
+     * @param _feeRate The ratio of protocolFeeInPositionAsset to positionSize
+     * @return The maximum leverage as a uint256 value.
+     */
+    function maxAssetLeverage(address _asset, uint256 _feeRate) external view returns (uint256);
+
+    /**
+     * @notice Sets the bucketExtension.
+     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @param _newBucketExtension The address of BucketExtension contract.
+     */
+    function setBucketExtension(address _newBucketExtension) external;
 }

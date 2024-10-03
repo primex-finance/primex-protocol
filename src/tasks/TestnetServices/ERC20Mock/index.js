@@ -13,6 +13,7 @@ task("deploy:ERC20Mock", "Deploy ERC20Mock contract", require("./erc20Mock.deplo
     "The amounts of tokens user can mint when isTimeLimitedMinting=true every 24 hours",
     ethers.utils.parseEther("50").toString(),
   );
+task("deploy:WETHMock", "Deploy ERC20Mock contract", require("./MockWETH.deploy"));
 
 task("deploy:NonStandartERC20Mock", "Deploy non standart ERC20Mock contract", require("./NonStandartErc20Mock.deploy.js"))
   .addParam("name", "The ERC20 token name", "Tether")

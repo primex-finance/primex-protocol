@@ -5,53 +5,22 @@ const {
   network,
   ethers: {
     getContract,
-    getNamedSigners,
     utils: { parseEther },
-    BigNumber,
   },
   deployments: { fixture },
 } = require("hardhat");
 
-const { getTakeProfitStopLossParams, getTakeProfitStopLossAdditionalParams } = require("../utils/conditionParams");
-const { RAY } = require("../utils/constants");
-
-const { deployMockBucket, deployMockERC20 } = require("../utils/waffleMocks");
-const { getSingleRoute } = require("../utils/dexOperations");
+const { getTakeProfitStopLossParams } = require("../utils/conditionParams");
 
 process.env.TEST = true;
 
 describe("TakeProfitStopLossCCM_unit", function () {
-  let snapshotId, mockPosition, mockBucket, tokenA, tokenB, assetRoutes, dex, takeProfitStopLossCCM;
-  let deployer, trader;
-  let scaledDebtAmount, depositAmountInSoldAsset, positionAmount;
+  let snapshotId, takeProfitStopLossCCM;
 
   before(async function () {
     await fixture(["Test"]);
-    ({ deployer, trader } = await getNamedSigners());
 
     takeProfitStopLossCCM = await getContract("TakeProfitStopLossCCM");
-    mockBucket = await deployMockBucket(deployer);
-    tokenA = await deployMockERC20(deployer);
-    tokenB = await deployMockERC20(deployer);
-    scaledDebtAmount = parseEther("1");
-    depositAmountInSoldAsset = parseEther("1");
-    positionAmount = parseEther("2");
-    mockPosition = {
-      id: 0,
-      scaledDebtAmount: scaledDebtAmount,
-      bucket: mockBucket.address,
-      soldAsset: tokenB.address,
-      depositAmountInSoldAsset: depositAmountInSoldAsset,
-      positionAsset: tokenA.address,
-      positionAmount: positionAmount,
-      trader: trader.address,
-      openBorrowIndex: RAY,
-      createdAt: BigNumber.from(new Date().getTime()),
-      updatedConditionsAt: BigNumber.from(new Date().getTime()),
-      extraParams: "0x",
-    };
-    dex = "uniswap";
-    assetRoutes = await getSingleRoute([tokenB.address, tokenA.address], dex);
   });
 
   beforeEach(async function () {
@@ -64,18 +33,6 @@ describe("TakeProfitStopLossCCM_unit", function () {
     await network.provider.request({
       method: "evm_revert",
       params: [snapshotId],
-    });
-  });
-
-  describe("canBeClosedBeforeSwap", function () {
-    it("Should return false when params are empty", async function () {
-      const additionalParams = getTakeProfitStopLossAdditionalParams(assetRoutes);
-      const params = [];
-      expect(
-        await takeProfitStopLossCCM.callStatic[
-          "canBeClosedBeforeSwap((uint256,uint256,address,address,uint256,address,uint256,address,uint256,uint256,uint256,bytes),bytes,bytes)"
-        ](mockPosition, params, additionalParams),
-      ).to.equal(false);
     });
   });
 

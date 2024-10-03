@@ -1,11 +1,11 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
 import {IKeeperRewardDistributorStorage, IKeeperRewardDistributorStorageV2} from "./IKeeperRewardDistributorStorage.sol";
 import {IPausable} from "../interfaces/IPausable.sol";
 
-interface IKeeperRewardDistributor is IKeeperRewardDistributorStorage, IPausable {
+interface IKeeperRewardDistributorV3 is IKeeperRewardDistributorStorageV2, IPausable {
     struct DecreasingGasByReasonParams {
         DecreasingReason reason;
         uint256 amount;
@@ -17,20 +17,19 @@ interface IKeeperRewardDistributor is IKeeperRewardDistributorStorage, IPausable
 
     /**
      * @dev     Params for initialize() function
-     * @param   priceOracle  Address of the PriceOracle contract
-     * @param   registry  Address of the Registry contract
-     * @param   pmx  Address of PMXToken
-     * @param   treasury  Address of the Treasury contract
-     * @param   pmxPartInReward  Percentage of PMX in reward (in WAD)
+     * @param   priceOracle Address of the PriceOracle contract
+     * @param   registry Address of the Registry contract
+     * @param   pmx Address of PMXToken
+     * @param   treasury Address of the Treasury contract
+     * @param   pmxPartInReward Percentage of PMX in reward (in WAD)
      * @param   nativePartInReward  Percentage of native token in reward (in WAD)
-     * @param   positionSizeCoefficientA  CoefficientA in the formula positionSize * CoefficientA + CoefficientB
-     * @param   positionSizeCoefficientB  CoefficientB in the formula positionSize * CoefficientA + CoefficientB
-     * @param   additionalGas  Additional gas added to actual gas spent
-     * @param   defaultMaxGasPrice  Max gas price allowed during reward calculation (used when no oracle price found)
-     * @param   oracleGasPriceTolerance  Percentage by which oracle gas price can be exceeded (in WAD)
-     * @param   paymentModel  The model of payment for gas in the network
-     * @param   maxGasPerPositionParams  Parameters for the setMaxGasPerPosition function
-     * @param   decreasingGasByReasonParams  Parameters for the setDecreasingGasByReason function
+     * @param   positionSizeCoefficient The reward param which is needed to calculate rewards, in WAD
+     * @param   additionalGas Additional gas added to actual gas spent
+     * @param   defaultMaxGasPrice Max gas price allowed during reward calculation (used when no oracle price found)
+     * @param   oracleGasPriceTolerance Percentage by which oracle gas price can be exceeded (in WAD)
+     * @param   paymentModel The model of payment for gas in the network
+     * @param   maxGasPerPositionParams Parameters for the setMaxGasPerPosition function
+     * @param   decreasingGasByReasonParams Parameters for the setDecreasingGasByReason function
      */
     struct InitParams {
         address priceOracle;
@@ -40,8 +39,7 @@ interface IKeeperRewardDistributor is IKeeperRewardDistributorStorage, IPausable
         address whiteBlackList;
         uint256 pmxPartInReward;
         uint256 nativePartInReward;
-        uint256 positionSizeCoefficientA;
-        int256 positionSizeCoefficientB;
+        uint256 positionSizeCoefficient;
         uint256 additionalGas;
         uint256 defaultMaxGasPrice;
         uint256 oracleGasPriceTolerance;
@@ -58,12 +56,10 @@ interface IKeeperRewardDistributor is IKeeperRewardDistributorStorage, IPausable
     event DecreasingGasByReasonChanged(DecreasingReason indexed reason, uint256 amount);
     event PmxPartInRewardChanged(uint256 indexed pmxPartInReward);
     event NativePartInRewardChanged(uint256 indexed nativePartInReward);
-    event PositionSizeCoefficientsChanged(
-        uint256 indexed positionSizeCoefficientA,
-        int256 indexed positionSizeCoefficientB
-    );
+    event PositionSizeCoefficientChanged(uint256 indexed positionSizeCoefficient);
     event AdditionalGasChanged(uint256 indexed additionalGas);
     event KeeperRewardUpdated(address indexed keeper, uint256 rewardInPmx, uint256 rewardInNativeCurrency);
+    event MinPositionSizeMultiplierChanged(uint256 newMinPositionSizeMultiplier);
 
     /**
      * @notice Initializes the KeeperRewardDistributor contract.
@@ -93,6 +89,8 @@ interface IKeeperRewardDistributor is IKeeperRewardDistributorStorage, IPausable
         uint256 gasSpent;
         uint256[] decreasingCounter;
         uint256 routesLength;
+        bytes nativePmxOracleData;
+        bytes positionNativeAssetOracleData;
     }
 
     /**
@@ -170,10 +168,9 @@ interface IKeeperRewardDistributor is IKeeperRewardDistributorStorage, IPausable
     /**
      * @notice Sets the position size coefficients for reward calculations.
      * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
-     * @param _positionSizeCoefficientA The new positionSizeCoefficientA value (in WAD).
-     * @param _positionSizeCoefficientB The new positionSizeCoefficientB value (in WAD).
+     * @param _positionSizeCoefficient The new positionSizeCoefficient value (in WAD).
      */
-    function setPositionSizeCoefficients(uint256 _positionSizeCoefficientA, int256 _positionSizeCoefficientB) external;
+    function setPositionSizeCoefficient(uint256 _positionSizeCoefficient) external;
 
     /**
      * @notice Sets the additional gas value for reward calculations.
@@ -181,10 +178,6 @@ interface IKeeperRewardDistributor is IKeeperRewardDistributorStorage, IPausable
      * @param _additionalGas The new additionalGas value.
      */
     function setAdditionalGas(uint256 _additionalGas) external;
-}
-
-interface IKeeperRewardDistributorV2 is IKeeperRewardDistributor, IKeeperRewardDistributorStorageV2 {
-    event MinPositionSizeMultiplierChanged(int256 newMinPositionSizeMultiplier);
 
     /**
      * @notice Sets the minPositionSizeMultiplier for reward calculations.
@@ -192,5 +185,13 @@ interface IKeeperRewardDistributorV2 is IKeeperRewardDistributor, IKeeperRewardD
      * @param _minPositionSizeMultiplier The new minPositionSizeMultiplier value (in WAD).
      */
 
-    function setMinPositionSizeMultiplier(int256 _minPositionSizeMultiplier) external;
+    function setMinPositionSizeMultiplier(uint256 _minPositionSizeMultiplier) external;
+
+    /**
+     * @notice Retrieves gas calculation params.
+     *
+     * @return oracleGasPriceTolerance The tolerance for gas price fluctuations based on the oracle.
+     * @return defaultMaxGasPrice The default maximum gas price allowed.
+     */
+    function getGasCalculationParams() external view returns (uint256, uint256);
 }

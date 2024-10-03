@@ -10,6 +10,7 @@ module.exports = async function ({ run }) {
     await run("deploy:UniswapV2", { name: names[i] });
   }
   await run("deploy:UniswapV3");
+  await run("deploy:ParaswapMock");
 };
 
 module.exports.tags = ["Dexes"];

@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -11,12 +11,12 @@ import {PositionLibrary} from "../libraries/PositionLibrary.sol";
 import {LimitOrderLibrary} from "../libraries/LimitOrderLibrary.sol";
 import "../libraries/Errors.sol";
 
-import {IPositionManagerStorage} from "./IPositionManagerStorage.sol";
-import {IKeeperRewardDistributor} from "../KeeperRewardDistributor/IKeeperRewardDistributor.sol";
+import {IPositionManagerStorage, IPositionManagerStorageV2} from "./IPositionManagerStorage.sol";
+import {IKeeperRewardDistributorV3} from "../KeeperRewardDistributor/IKeeperRewardDistributor.sol";
 import {ITraderBalanceVault} from "../TraderBalanceVault/ITraderBalanceVault.sol";
-import {ISpotTradingRewardDistributor} from "../SpotTradingRewardDistributor/ISpotTradingRewardDistributor.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
-import {IPriceOracle} from "../PriceOracle/IPriceOracle.sol";
+import {ISpotTradingRewardDistributorV2} from "../SpotTradingRewardDistributor/ISpotTradingRewardDistributor.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
+import {IPriceOracleV2} from "../PriceOracle/IPriceOracle.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
 
 abstract contract PositionManagerStorage is
@@ -60,10 +60,10 @@ abstract contract PositionManagerStorage is
 
     IAccessControl public override registry;
     ITraderBalanceVault public override traderBalanceVault;
-    IPrimexDNS public override primexDNS;
-    IPriceOracle public override priceOracle;
-    IKeeperRewardDistributor public override keeperRewardDistributor;
-    ISpotTradingRewardDistributor public override spotTradingRewardDistributor;
+    IPrimexDNSV3 public override primexDNS;
+    IPriceOracleV2 public override priceOracle;
+    IKeeperRewardDistributorV3 public override keeperRewardDistributor;
+    ISpotTradingRewardDistributorV2 public override spotTradingRewardDistributor;
 
     // minimum position size allowed
     uint256 public override minPositionSize;
@@ -78,4 +78,8 @@ abstract contract PositionManagerStorage is
     // mapping from positionId to the index in the bucketPositionIds[bucket] array
     mapping(uint256 => uint256) internal bucketPositionIndexes;
     IWhiteBlackList internal whiteBlackList;
+}
+
+abstract contract PositionManagerStorageV2 is IPositionManagerStorageV2, PositionManagerStorage {
+    address public override positionManagerExtension;
 }

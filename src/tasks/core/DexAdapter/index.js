@@ -5,6 +5,7 @@ task("deploy:DexAdapter", "Deploy DexAdapter contract", require("./dexAdapter.de
   .addOptionalParam("registry", "The address of registry contract")
   .addOptionalParam("primexDNS", "The address of registry contract")
   .addParam("routers", "The list of address of Dex routers")
+  .addParam("wNative", "The address of the wrapped native token")
   .addParam("name", "The list of domain name DEXes")
   .addParam("dexTypes", "Types of DEXes")
   .addOptionalParam(

@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -24,7 +24,8 @@ abstract contract KeeperRewardDistributorStorage is
     address payable public override treasury;
     uint256 public override pmxPartInReward;
     uint256 public override nativePartInReward;
-    uint256 public override positionSizeCoefficientA;
+    /// @custom:oz-renamed-from positionSizeCoefficientA
+    uint256 public override positionSizeCoefficient;
     int256 public override positionSizeCoefficientB;
     uint256 public override additionalGas;
     uint256 public override defaultMaxGasPrice;
@@ -42,5 +43,5 @@ abstract contract KeeperRewardDistributorStorageV2 is
     IKeeperRewardDistributorStorageV2,
     KeeperRewardDistributorStorage
 {
-    int256 public override minPositionSizeMultiplier;
+    uint256 public override minPositionSizeMultiplier;
 }

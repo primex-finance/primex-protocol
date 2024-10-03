@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -8,7 +8,8 @@ import {IUpgradeInterface} from "./IUpgradeInterface.sol";
 contract DexAdapterV2 is IUpgradeInterface, DexAdapter {
     uint256 public value;
 
-    constructor(address _registry) DexAdapter(_registry) {}
+    // solhint-disable-next-line var-name-mixedcase
+    constructor(address _registry, address _WNAtive) DexAdapter(_registry, _WNAtive) {}
 
     function testUpgrade() external pure override returns (string memory) {
         return "DexAdapterV2";

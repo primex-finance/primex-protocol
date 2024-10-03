@@ -13,7 +13,7 @@ async function getPhase34ArgumentsSetupBuckets(totalReward, rewardPerDay, role) 
   const targets = [];
   const payloads = [];
   const { Role } = require("../../../test/utils/activityRewardDistributorMath.js");
-  const BucketsFactory = await getContract("BucketsFactory");
+  const BucketsFactory = await getContract("BucketsFactoryV2");
   const buckets = await BucketsFactory.allBuckets();
   let encodeResult;
 
@@ -41,7 +41,7 @@ async function getPhase34ArgumentsSetupBuckets(totalReward, rewardPerDay, role) 
 async function getPhase34ArgumentsSetEarlyRewardsInBuckets(role) {
   const targets = [];
   const payloads = [];
-  const BucketsFactory = await getContract("BucketsFactory");
+  const BucketsFactory = await getContract("BucketsFactoryV2");
   const buckets = await BucketsFactory.allBuckets();
   let encodeResult;
 

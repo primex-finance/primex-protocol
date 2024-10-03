@@ -6,7 +6,6 @@ const {
   ethers: {
     getContract,
     getContractAt,
-    getContractFactory,
     getNamedSigners,
     utils: { parseEther, parseUnits },
     constants: { MaxUint256, AddressZero },
@@ -19,80 +18,65 @@ const {
 const { Role } = require("./utils/activityRewardDistributorMath");
 const { spotTradingRewards, earlyLendersRewards, earlyTradersRewards } = require("../tasks/deployScripts/phaseSwitching/config.json");
 const { wadDiv, MAX_TOKEN_DECIMALITY } = require("./utils/bnMath");
-const { getAmountsOut, addLiquidity, getSingleRoute } = require("./utils/dexOperations");
-const { NATIVE_CURRENCY, USD } = require("./utils/constants");
+const { getAmountsOut, addLiquidity, getSingleMegaRoute } = require("./utils/dexOperations");
+const { USD_DECIMALS, USD_MULTIPLIER } = require("./utils/constants");
+const { encodeFunctionData } = require("../tasks/utils/encodeFunctionData");
+const {
+  setupUsdOraclesForToken,
+  setupUsdOraclesForTokens,
+  getEncodedChainlinkRouteViaUsd,
+  getEncodedChainlinkRouteToUsd,
+  setOraclePrice,
+} = require("./utils/oracleUtils");
 process.env.TEST = true;
 
 describe("PhaseSwitching", function () {
   let bigTimelock;
-  let dex, positionManager, testTokenA, testTokenB, bucket, tokenUSD, PrimexDNS, bucketAddress, firstAssetRoutes;
-  let priceFeed, priceOracle, priceFeedTTBETH, priceFeedTTAETH;
-  let deployer, trader, lender;
-  let decimalsA, decimalsB, decimalsUSD;
+  let dex, positionManager, testTokenA, testTokenB, bucket, PrimexDNS, bucketAddress, firstAssetRoutes;
+  let priceOracle;
+  let trader, lender;
+  let decimalsA, decimalsB;
   let multiplierA, multiplierB;
   let OpenPositionParams;
   let positionAmount, price, depositAmount, borrowedAmount, swapSize;
-  let PMXToken;
   let spotTradingRewardDistributor, activityRewardDistributor;
 
   before(async function () {
     await fixture(["Test"]);
 
-    ({ deployer, trader, lender } = await getNamedSigners());
+    ({ trader, lender } = await getNamedSigners());
     testTokenA = await getContract("TestTokenA");
     decimalsA = await testTokenA.decimals();
     await testTokenA.mint(trader.address, parseUnits("100", decimalsA));
     testTokenB = await getContract("TestTokenB");
     decimalsB = await testTokenB.decimals();
-    // dec = await
     PrimexDNS = await getContract("PrimexDNS");
-    PMXToken = await getContract("EPMXToken");
     positionManager = await getContract("PositionManager");
     bigTimelock = await getContract("BigTimelockAdmin");
     spotTradingRewardDistributor = await getContract("SpotTradingRewardDistributor");
     activityRewardDistributor = await getContract("ActivityRewardDistributor");
 
-    await positionManager.setMaxPositionSize(testTokenA.address, testTokenB.address, 0, MaxUint256);
+    const { payload } = await encodeFunctionData(
+      "setMaxPositionSize",
+      [testTokenA.address, testTokenB.address, 0, MaxUint256],
+      "PositionManagerExtension",
+    );
+    await positionManager.setProtocolParamsByAdmin(payload);
 
     bucketAddress = (await PrimexDNS.buckets("bucket1")).bucketAddress;
     bucket = await getContractAt("Bucket", bucketAddress);
 
     dex = process.env.DEX ? process.env.DEX : "uniswap";
 
-    firstAssetRoutes = await getSingleRoute([testTokenA.address, testTokenB.address], dex);
+    firstAssetRoutes = await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex);
 
     await addLiquidity({ dex: dex, from: "lender", tokenA: testTokenA, tokenB: testTokenB });
-    tokenUSD = await getContract("USD Coin");
-    decimalsUSD = await tokenUSD.decimals();
-    const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
-    const priceFeedTTAPMX = await PrimexAggregatorV3TestServiceFactory.deploy("TTA_PMX", deployer.address);
-    priceFeedTTBETH = await PrimexAggregatorV3TestServiceFactory.deploy("TTB_ETH", deployer.address);
-    priceFeedTTAETH = await PrimexAggregatorV3TestServiceFactory.deploy("TTA_ETH", deployer.address);
-    const ttaPriceInETH = parseUnits("0.3", "18"); // 1 tta=0.3 eth
-    await priceFeedTTAETH.setDecimals("18");
-    await priceFeedTTAETH.setAnswer(ttaPriceInETH);
-
-    const decimalsPMX = await PMXToken.decimals();
-    await priceFeedTTAPMX.setDecimals(decimalsPMX);
-    const ttaPriceInPMX = parseUnits("0.2", decimalsPMX); // 1 tta=0.2 pmx
-    await priceFeedTTAPMX.setAnswer(ttaPriceInPMX);
-
-    const priceFeedTTBUSD = await PrimexAggregatorV3TestServiceFactory.deploy("TTD_USD", deployer.address);
-    await priceFeedTTBUSD.setAnswer(parseUnits("1", "8"));
-    await priceFeedTTBUSD.setDecimals("8");
-
-    await priceFeedTTBETH.setAnswer(parseUnits("10000", decimalsUSD));
-    await priceFeedTTBETH.setDecimals(decimalsUSD);
-
-    priceFeed = await getContract("PrimexAggregatorV3TestService TEST price feed");
-    await priceFeed.setDecimals(decimalsA);
 
     priceOracle = await getContract("PriceOracle");
-    await priceOracle.updatePriceFeed(testTokenB.address, testTokenA.address, priceFeed.address);
-    await priceOracle.updatePriceFeed(testTokenA.address, PMXToken.address, priceFeedTTAPMX.address);
-    await priceOracle.updatePriceFeed(testTokenA.address, NATIVE_CURRENCY, priceFeedTTAETH.address);
-    await priceOracle.updatePriceFeed(testTokenB.address, NATIVE_CURRENCY, priceFeedTTBETH.address);
-    await priceOracle.updatePriceFeed(testTokenB.address, USD, priceFeedTTBUSD.address);
+    const ttaPriceInETH = parseUnits("0.3", USD_DECIMALS); // 1 tta=0.3 ETH
+
+    await setupUsdOraclesForTokens(testTokenA, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForToken(testTokenB, parseUnits("1", USD_DECIMALS));
 
     multiplierA = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsA));
     multiplierB = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB));
@@ -111,9 +95,9 @@ describe("PhaseSwitching", function () {
       marginParams: {
         bucket: "bucket1",
         borrowedAmount: borrowedAmount,
-        depositInThirdAssetRoutes: [],
+        depositInThirdAssetMegaRoutes: [],
       },
-      firstAssetRoutes: firstAssetRoutes.concat(),
+      firstAssetMegaRoutes: firstAssetRoutes.concat(),
       depositAsset: testTokenA.address,
       depositAmount: depositAmount,
       isProtocolFeeInPmx: false,
@@ -121,16 +105,23 @@ describe("PhaseSwitching", function () {
       amountOutMin: 0,
       deadline: deadline,
       takeDepositFromWallet: true,
-      payFeeFromWallet: true,
       closeConditions: [],
+      firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      thirdAssetOracleData: [],
+      depositSoldAssetOracleData: [],
+      positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+      nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      pullOracleData: [],
     };
 
     const swap = swapSize.mul(multiplierA);
     positionAmount = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
     const amountB = positionAmount.mul(multiplierB);
-    const price0 = wadDiv(swap, amountB);
-    price = price0.div(multiplierA);
-    await priceFeed.setAnswer(price);
+    const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+    const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+    await setOraclePrice(testTokenA, testTokenB, price);
   });
 
   describe("Should switch to phase 1 - deploy", function () {
@@ -145,7 +136,7 @@ describe("PhaseSwitching", function () {
         bucket: "",
         borrowedAmount: BigNumber.from(0),
         depositToBorrowedRoutes: [],
-        depositInThirdAssetRoutes: [],
+        depositInThirdAssetMegaRoutes: [],
       };
       const params = { ...OpenPositionParams, marginParams };
       await positionManager.connect(trader).openPosition(params, { value: parseEther("1") });
@@ -154,7 +145,7 @@ describe("PhaseSwitching", function () {
     });
 
     it("Should not add rewards for early lenders", async function () {
-      const BucketsFactory = await getContract("BucketsFactory");
+      const BucketsFactory = await getContract("BucketsFactoryV2");
       const buckets = await BucketsFactory.allBuckets();
       const activityRewardDistributor = await getContract("ActivityRewardDistributor");
       for (let i = 0; i < buckets.length; i++) {
@@ -169,7 +160,7 @@ describe("PhaseSwitching", function () {
     });
 
     it("Should not add rewards for early traders", async function () {
-      const BucketsFactory = await getContract("BucketsFactory");
+      const BucketsFactory = await getContract("BucketsFactoryV2");
       const buckets = await BucketsFactory.allBuckets();
       const activityRewardDistributor = await getContract("ActivityRewardDistributor");
       for (let i = 0; i < buckets.length; i++) {
@@ -181,16 +172,16 @@ describe("PhaseSwitching", function () {
       const swap = swapSize.mul(multiplierA);
       positionAmount = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
       const amountB = positionAmount.mul(multiplierB);
-      const price0 = wadDiv(swap, amountB);
-      price = price0.div(multiplierA);
-      await priceFeed.setAnswer(price);
+      const price0 = wadDiv(amountB, swap);
+      price = price0.div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
       await positionManager.connect(trader).openPosition(OpenPositionParams, { value: parseEther("1") });
       const traderInfo = await activityRewardDistributor.getUserInfoFromBucket(bucket.address, Role.TRADER, trader.address);
       expect(traderInfo.fixedReward).to.equal(0);
     });
 
     it("Should not enable NFT bonuses", async function () {
-      const BucketsFactory = await getContract("BucketsFactory");
+      const BucketsFactory = await getContract("BucketsFactoryV2");
       const buckets = await BucketsFactory.allBuckets();
       for (let i = 0; i < buckets.length; i++) {
         const bucket = await getContractAt("Bucket", buckets[i]);
@@ -225,15 +216,15 @@ describe("PhaseSwitching", function () {
       const swap = spotSwap.mul(multiplierA);
       positionAmount = await getAmountsOut(dex, spotSwap, [testTokenA.address, testTokenB.address]);
       const amountB = positionAmount.mul(multiplierB);
-      const price0 = wadDiv(swap, amountB);
-      price = price0.div(multiplierA);
-      await priceFeed.setAnswer(price);
+      const price0 = wadDiv(amountB, swap);
+      price = price0.div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
 
       const marginParams = {
         bucket: "",
         borrowedAmount: BigNumber.from(0),
         depositToBorrowedRoutes: [],
-        depositInThirdAssetRoutes: [],
+        depositInThirdAssetMegaRoutes: [],
       };
       const params = { ...OpenPositionParams, marginParams: marginParams };
       await positionManager.connect(trader).openPosition(params, { value: parseEther("1") });
@@ -258,7 +249,7 @@ describe("PhaseSwitching", function () {
       await run("setup:phase-3-execution");
     });
     it("Should set correct params in ActivityRewardDistributor", async function () {
-      const BucketsFactory = await getContract("BucketsFactory");
+      const BucketsFactory = await getContract("BucketsFactoryV2");
       const buckets = await BucketsFactory.allBuckets();
       for (let i = 0; i < buckets.length; i++) {
         const bucketInfo = await activityRewardDistributor.buckets(buckets[i], Role.LENDER);
@@ -289,7 +280,7 @@ describe("PhaseSwitching", function () {
     });
 
     it("Should set correct params in ActivityRewardDistributor", async function () {
-      const BucketsFactory = await getContract("BucketsFactory");
+      const BucketsFactory = await getContract("BucketsFactoryV2");
       const buckets = await BucketsFactory.allBuckets();
 
       for (let i = 0; i < buckets.length; i++) {
@@ -307,9 +298,9 @@ describe("PhaseSwitching", function () {
       const swap = swapSize.mul(multiplierA);
       positionAmount = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
       const amountB = positionAmount.mul(multiplierB);
-      const price0 = wadDiv(swap, amountB);
-      price = price0.div(multiplierA);
-      await priceFeed.setAnswer(price);
+      const price0 = wadDiv(amountB, swap);
+      price = price0.div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
       await positionManager.connect(trader).openPosition(OpenPositionParams, { value: parseEther("1") });
       await network.provider.send("evm_mine");
       const reward = await activityRewardDistributor.getClaimableReward([[bucket.address, Role.TRADER]], trader.address);
@@ -327,7 +318,7 @@ describe("PhaseSwitching", function () {
       await run("setup:phase-5-execution");
     });
     it("Should enable NFT bonuses", async function () {
-      const BucketsFactory = await getContract("BucketsFactory");
+      const BucketsFactory = await getContract("BucketsFactoryV2");
       const buckets = await BucketsFactory.allBuckets();
 
       const FeeDecreaser = await getContract("FeeDecreaser");
@@ -370,7 +361,7 @@ describe("PhaseSwitching", function () {
 
       const newActivityRewardDistributor = await getContract("ActivityRewardDistributorNewPmx");
 
-      const BucketsFactory = await getContract("BucketsFactory");
+      const BucketsFactory = await getContract("BucketsFactoryV2");
       const buckets = await BucketsFactory.allBuckets();
       for (let i = 0; i < buckets.length; i++) {
         const bucket = await getContractAt("Bucket", buckets[i]);

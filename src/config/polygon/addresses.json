@@ -12,14 +12,23 @@
     "0x1F4eB13d269D8d6Ab78B43125D0d9174531066eb"
   ],
   "isETHNative": false,
+  "wrappedNativeToken": "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270",
   "assets": {
     "weth": "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
     "wbtc": "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6",
     "wmatic": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
-    "usdc": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
-    "usdt": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
+    "usdc.e": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+    "usdt": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+    "aave": "0xD6DF932A45C0f255f85145f286eA0b292B21C90B",
+    "usdc": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+    "dai": "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063",
+    "link": "0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaBad39",
+    "gns": "0xE5417Af564e4bFDA1c483642db72007871397896",
+    "quick": "0x831753DD7087CaC61aB5644b308642cc1c33Dc13"
   },
+  "wrappedNativeToken": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
   "aave": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+  "pyth": "0xff1a0f4744e8582DF1aE09D5611b887B6a12925C",
   "dexes": {
     "quickswap": {
       "router": "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff",
@@ -32,7 +41,8 @@
     "uniswapv3": {
       "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
       "type": "2",
-      "quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+      "quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
     },
     "curve": {
       "router": "0x2a426b3Bb4fa87488387545f15D01d81352732F9",
@@ -50,14 +60,23 @@
     "meshswap": {
       "router": "0x10f4A785F458Bc144e3706575924889954946639",
       "type": "6"
+    },
+    "paraswap": {
+      "router": "0xDEF171Fe48CF0115B1d80b88dc8eAB59176FEe57",
+      "type": "7"
     }
   },
   "pricefeeds": {
     "wbtc-usd": "0xDE31F8bFBD8c84b5360CFACCa3539B938dd78ae6",
-    "usdc-usd": "0xfE4A8cc5b5B2366C1B58Bea3858e81843581b2F7",
+    "usdc.e-usd": "0xfE4A8cc5b5B2366C1B58Bea3858e81843581b2F7",
     "usdt-usd": "0x0A6513e40db6EB1b165753AD52E80663aeA50545",
     "weth-usd": "0xF9680D99D6C9589e2a93a78A04A279e509205945",
     "wmatic-usd": "0xAB594600376Ec9fD91F8e885dADF0CE036862dE0",
-    "native-usd": "0xAB594600376Ec9fD91F8e885dADF0CE036862dE0"
+    "native-usd": "0xAB594600376Ec9fD91F8e885dADF0CE036862dE0",
+    "aave-usd": "0x72484b12719e23115761d5da1646945632979bb6",
+    "usdc-usd": "0xfE4A8cc5b5B2366C1B58Bea3858e81843581b2F7",
+    "dai-usd": "0x4746DeC9e833A82EC7C2C1356372CcF2cfcD2F3D",
+    "gns-usd": "0x9cb43aa3D036Cb035a694Ba0AAa91f8875B16cE1",
+    "link-usd": "0xd9FFdb71EbE7496cC440152d43986Aae0AB76665"
   }
 }

@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
@@ -65,4 +65,55 @@ interface IPrimexDNSStorageV2 is IPrimexDNSStorage {
     function feeRestrictions(
         OrderType _orderType
     ) external view returns (uint256 minProtocolFee, uint256 maxProtocolFee);
+}
+
+interface IPrimexDNSStorageV3 is IPrimexDNSStorageV2 {
+    enum FeeRateType {
+        MarginPositionClosedByTrader,
+        SpotPositionClosedByTrader,
+        MarginPositionClosedByKeeper,
+        SpotPositionClosedByKeeper,
+        MarginLimitOrderExecuted,
+        SpotLimitOrderExecuted,
+        SwapLimitOrderExecuted,
+        SwapMarketOrder
+    }
+
+    enum TradingOrderType {
+        MarginMarketOrder,
+        SpotMarketOrder,
+        MarginLimitOrder,
+        MarginLimitOrderDepositInThirdAsset,
+        SpotLimitOrder,
+        SwapLimitOrder
+    }
+
+    enum CallingMethod {
+        OpenPositionByOrder,
+        ClosePositionByCondition
+    }
+    struct MinFeeRestrictions {
+        uint256 maxGasAmount;
+        uint256 baseLength;
+    }
+
+    function protocolFeeRates(FeeRateType _feeRateType) external view returns (uint256);
+
+    function averageGasPerAction(TradingOrderType _tradingOrderType) external view returns (uint256);
+
+    function minFeeRestrictions(
+        CallingMethod _callingMethod
+    ) external view returns (uint256 maxGasAmount, uint256 baseLength);
+
+    function maxProtocolFee() external view returns (uint256);
+
+    function protocolFeeCoefficient() external view returns (uint256);
+
+    function liquidationGasAmount() external view returns (uint256);
+
+    function additionalGasSpent() external view returns (uint256);
+
+    function pmxDiscountMultiplier() external view returns (uint256);
+
+    function gasPriceBuffer() external view returns (uint256);
 }

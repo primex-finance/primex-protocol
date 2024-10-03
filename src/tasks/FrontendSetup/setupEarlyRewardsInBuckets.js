@@ -10,7 +10,7 @@ module.exports = async function (
     },
   },
 ) {
-  const BucketsFactory = await getContract("BucketsFactory");
+  const BucketsFactory = await getContract("BucketsFactoryV2");
   const activityRewardDistributor = await getContract("ActivityRewardDistributor");
 
   const buckets = await BucketsFactory.allBuckets();

@@ -11,15 +11,15 @@ const {
   },
   deployments: { fixture },
 } = require("hardhat");
-const { deployMockPriceOracle, deployMockPrimexDNS, deployMockDexAdapter, deployMockBucket } = require("../utils/waffleMocks");
-const { getEncodedPath } = require("../utils/dexOperations");
+const { deployMockPriceOracle, deployMockDexAdapter, deployMockBucket } = require("../utils/waffleMocks");
+const { getSingleMegaRoute } = require("../utils/dexOperations");
 
 process.env.TEST = true;
 
 describe("PrimexPricingLibrary_unit", function () {
   let snapshotId;
   let dex, primexPricingLibrary, primexPricingLibraryMock, testTokenA, decimalsA, testTokenB, decimalsB;
-  let priceOracle, primexDNS, dexAdapter, bucket;
+  let priceOracle, dexAdapter, bucket;
   let deployer, trader;
   let ErrorsLibrary;
 
@@ -36,7 +36,6 @@ describe("PrimexPricingLibrary_unit", function () {
     primexPricingLibrary = await getContract("PrimexPricingLibrary");
 
     [priceOracle] = await deployMockPriceOracle(deployer);
-    primexDNS = await deployMockPrimexDNS(deployer);
     dexAdapter = await deployMockDexAdapter(deployer);
     bucket = await deployMockBucket(deployer);
 
@@ -71,7 +70,7 @@ describe("PrimexPricingLibrary_unit", function () {
     it("Should revert if priceOracle does not support IPriceOracle interface", async function () {
       await priceOracle.mock.supportsInterface.returns(false);
       await expect(
-        primexPricingLibraryMock.getOracleAmountsOut(testTokenA.address, testTokenB.address, 1, priceOracle.address),
+        primexPricingLibraryMock.getOracleAmountsOut(testTokenA.address, testTokenB.address, 1, priceOracle.address, 0),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
 
@@ -83,13 +82,14 @@ describe("PrimexPricingLibrary_unit", function () {
           testTokenA.address,
           amountAssetA,
           priceOracle.address,
+          0,
         ),
       ).to.equal(amountAssetA);
     });
 
     it("Should return amount according to exchange rate", async function () {
       const exchangeRate = "2";
-      await priceOracle.mock.getExchangeRate.returns(parseEther(exchangeRate), true);
+      await priceOracle.mock.getExchangeRate.returns(parseEther(exchangeRate));
       const amountAssetA = parseUnits("2", decimalsA);
 
       const amountWithoutAdecimals = formatUnits(amountAssetA, decimalsA);
@@ -100,53 +100,9 @@ describe("PrimexPricingLibrary_unit", function () {
           testTokenB.address,
           amountAssetA,
           priceOracle.address,
+          0,
         ),
       ).to.equal(amountInBdecimals.mul(exchangeRate));
-    });
-  });
-
-  describe("getAmountOut", function () {
-    let amountToConvert;
-    before(async function () {
-      amountToConvert = parseUnits("1", decimalsA);
-    });
-
-    it("Should revert when assets are identical", async function () {
-      await expect(
-        primexPricingLibraryMock.getAmountOut({
-          tokenA: testTokenA.address,
-          tokenB: testTokenA.address,
-          amount: amountToConvert,
-          routes: [],
-          dexAdapter: dexAdapter.address,
-          primexDNS: primexDNS.address,
-        }),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "IDENTICAL_ASSETS");
-    });
-    it("Should revert when _routes is empty list", async function () {
-      await expect(
-        primexPricingLibraryMock.getAmountOut({
-          tokenA: testTokenA.address,
-          tokenB: testTokenB.address,
-          amount: amountToConvert,
-          routes: [],
-          dexAdapter: dexAdapter.address,
-          primexDNS: primexDNS.address,
-        }),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO");
-    });
-    it("Should revert if primexDNS does not support IPrimexDNS interface", async function () {
-      await primexDNS.mock.supportsInterface.returns(false);
-      await expect(
-        primexPricingLibraryMock.getAmountOut({
-          tokenA: testTokenA.address,
-          tokenB: testTokenB.address,
-          amount: amountToConvert,
-          routes: [],
-          dexAdapter: dexAdapter.address,
-          primexDNS: primexDNS.address,
-        }),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
   });
 
@@ -154,24 +110,6 @@ describe("PrimexPricingLibrary_unit", function () {
     let amountToConvert;
     before(async function () {
       amountToConvert = parseUnits("1", decimalsA);
-    });
-
-    it("Should revert if primexDNS does not support IPrimexDNS interface", async function () {
-      await primexDNS.mock.supportsInterface.returns(false);
-      await expect(
-        primexPricingLibraryMock.getDepositAmountInBorrowed(
-          {
-            tokenA: testTokenA.address,
-            tokenB: testTokenB.address,
-            amount: amountToConvert,
-            routes: [],
-            dexAdapter: dexAdapter.address,
-            primexDNS: primexDNS.address,
-          },
-          false,
-          priceOracle.address,
-        ),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
 
     it("Should revert if priceOracle does not support IPriceOracle interface", async function () {
@@ -182,12 +120,12 @@ describe("PrimexPricingLibrary_unit", function () {
             tokenA: testTokenA.address,
             tokenB: testTokenB.address,
             amount: amountToConvert,
-            routes: [],
-            dexAdapter: dexAdapter.address,
-            primexDNS: primexDNS.address,
+            megaRoutes: [],
           },
           false,
+          dexAdapter.address,
           priceOracle.address,
+          0,
         ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
@@ -199,143 +137,14 @@ describe("PrimexPricingLibrary_unit", function () {
             tokenA: testTokenA.address,
             tokenB: testTokenA.address,
             amount: amountToConvert,
-            routes: [
-              {
-                shares: 1,
-                paths: [
-                  {
-                    dexName: dex,
-                    encodedPath: await getEncodedPath([testTokenA.address, testTokenA.address], dex),
-                  },
-                ],
-              },
-            ],
-            dexAdapter: dexAdapter.address,
-            primexDNS: primexDNS.address,
+            megaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenA.address], dex),
           },
           false,
+          dexAdapter.address,
           priceOracle.address,
+          0,
         ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "DEPOSITED_TO_BORROWED_ROUTES_LENGTH_SHOULD_BE_0");
-    });
-  });
-
-  describe("multiSwap", function () {
-    let amountToConvert;
-    before(async function () {
-      amountToConvert = parseUnits("1", decimalsA);
-    });
-
-    it("Should revert if primexDNS does not support IPrimexDNS interface", async function () {
-      await primexDNS.mock.supportsInterface.returns(false);
-      await expect(
-        primexPricingLibraryMock.multiSwap(
-          {
-            tokenA: testTokenA.address,
-            tokenB: testTokenA.address,
-            amountTokenA: amountToConvert,
-            routes: [
-              {
-                shares: 1,
-                paths: [
-                  {
-                    dexName: dex,
-                    encodedPath: await getEncodedPath([testTokenA.address, testTokenA.address], dex),
-                  },
-                ],
-              },
-            ],
-            dexAdapter: dexAdapter.address,
-            receiver: AddressZero,
-            deadline: 0,
-          },
-          0,
-          primexDNS.address,
-          priceOracle.address,
-          false,
-        ),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
-    });
-    it("Should revert if priceOracle does not support IPriceOracle interface", async function () {
-      await priceOracle.mock.supportsInterface.returns(false);
-      await expect(
-        primexPricingLibraryMock.multiSwap(
-          {
-            tokenA: testTokenA.address,
-            tokenB: testTokenA.address,
-            amountTokenA: amountToConvert,
-            routes: [
-              {
-                shares: 1,
-                paths: [
-                  {
-                    dexName: dex,
-                    encodedPath: await getEncodedPath([testTokenA.address, testTokenA.address], dex),
-                  },
-                ],
-              },
-            ],
-            dexAdapter: dexAdapter.address,
-            primexDNS: primexDNS.address,
-            receiver: AddressZero,
-            deadline: 0,
-          },
-          0,
-          primexDNS.address,
-          priceOracle.address,
-          true,
-        ),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
-    });
-    it("Should revert if routes length is 0", async function () {
-      await expect(
-        primexPricingLibraryMock.multiSwap(
-          {
-            tokenA: testTokenA.address,
-            tokenB: testTokenA.address,
-            amountTokenA: amountToConvert,
-            routes: [],
-            dexAdapter: dexAdapter.address,
-            primexDNS: primexDNS.address,
-            receiver: AddressZero,
-            deadline: 0,
-          },
-          0,
-          primexDNS.address,
-          priceOracle.address,
-          false,
-        ),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO");
-    });
-    it("Should revert if sum of shares is 0", async function () {
-      await expect(
-        primexPricingLibraryMock.multiSwap(
-          {
-            tokenA: testTokenA.address,
-            tokenB: testTokenA.address,
-            amountTokenA: amountToConvert,
-            routes: [
-              {
-                shares: 0,
-                paths: [
-                  {
-                    dexName: dex,
-                    encodedPath: await getEncodedPath([testTokenA.address, testTokenA.address], dex),
-                  },
-                ],
-              },
-            ],
-            dexAdapter: dexAdapter.address,
-            primexDNS: primexDNS.address,
-            receiver: AddressZero,
-            deadline: 0,
-          },
-          0,
-          primexDNS.address,
-          priceOracle.address,
-          false,
-        ),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO");
     });
   });
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-const { getConfigByName, getAddress, getDecimals } = require("../../config/configUtils");
+const { getConfigByName } = require("../../config/configUtils");
 
 module.exports = async ({
   run,
@@ -19,11 +19,9 @@ module.exports = async ({
   const keeperRewardDistributor = await getContract("KeeperRewardDistributor");
   const whiteBlackList = await getContract("WhiteBlackList");
   const errorsLibrary = await getContract("Errors");
+  const positionManagerExtension = await getContract("PositionManagerExtension");
 
   const { PositionManagerConfig } = getConfigByName("generalConfig.json");
-
-  const minPositionAsset = await getAddress(PositionManagerConfig.minPositionAsset);
-  const minPositionSize = parseUnits(PositionManagerConfig.minPositionSize, await getDecimals(minPositionAsset));
 
   const defaultOracleTolerableLimit = parseUnits(PositionManagerConfig.defaultOracleTolerableLimit, 18);
   const oracleTolerableLimitMultiplier = parseUnits(PositionManagerConfig.oracleTolerableLimitMultiplier, 18);
@@ -39,10 +37,9 @@ module.exports = async ({
     whiteBlackList: whiteBlackList.address,
     positionLibrary: positionLibrary.address,
     tokenTransfersLibrary: tokenTransfersLibrary.address,
+    positionManagerExtension: positionManagerExtension.address,
     keeperRewardDistributor: keeperRewardDistributor.address,
     errorsLibrary: errorsLibrary.address,
-    minPositionSize: minPositionSize.toString(),
-    minPositionAsset: minPositionAsset,
     defaultOracleTolerableLimit: defaultOracleTolerableLimit.toString(),
     oracleTolerableLimitMultiplier: oracleTolerableLimitMultiplier.toString(),
     maintenanceBuffer: maintenanceBuffer.toString(),
@@ -62,4 +59,5 @@ module.exports.dependencies = [
   "KeeperRewardDistributor",
   "Errors",
   "PrimexProxyAdmin",
+  "PositionManagerExtension",
 ];

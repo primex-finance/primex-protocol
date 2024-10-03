@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 module.exports = async function (
-  { registry, routers, contractName, name, dexTypes, primexDNS, quoters, errorsLibrary, tokenApproveLibrary, addDexesToDns },
+  { registry, wNative, routers, contractName, name, dexTypes, primexDNS, quoters, errorsLibrary, tokenApproveLibrary, addDexesToDns },
   { run, getNamedAccounts, ethers: { getContract, getContractAt }, deployments: { deploy } },
 ) {
   const { deployer } = await getNamedAccounts();
@@ -18,7 +18,7 @@ module.exports = async function (
 
   const dexAdapter = await deploy(contractName ?? "DexAdapter", {
     from: deployer,
-    args: [registry],
+    args: [registry, wNative],
     log: true,
     libraries: {
       Errors: errorsLibrary,
@@ -27,9 +27,13 @@ module.exports = async function (
   });
 
   if (dexAdapter.newlyDeployed) {
+    const dexAdapterContract = await getContract(contractName ?? "DexAdapter");
+    let tx = await dexAdapterContract.initialize(primexDNS);
+    await tx.wait();
+
     const primexDNScontract = await getContractAt("PrimexDNS", primexDNS);
     const whiteBlackList = await getContract("WhiteBlackList");
-    let tx = await whiteBlackList.addAddressToWhitelist(dexAdapter.address);
+    tx = await whiteBlackList.addAddressToWhitelist(dexAdapter.address);
     await tx.wait();
 
     tx = await primexDNScontract.setDexAdapter(dexAdapter.address);
@@ -48,7 +52,6 @@ module.exports = async function (
     }
     if (quoters) {
       for (const key in quoters) {
-        const dexAdapterContract = await getContract(contractName ?? "DexAdapter");
         const txAddQoter = await dexAdapterContract.setQuoter(routers[key], quoters[key]);
         await txAddQoter.wait();
       }

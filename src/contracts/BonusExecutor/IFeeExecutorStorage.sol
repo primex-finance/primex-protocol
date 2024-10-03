@@ -1,13 +1,13 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
-import {IBucket} from "../Bucket/IBucket.sol";
+import {IBucketV3} from "../Bucket/IBucket.sol";
 
 interface IFeeExecutorStorage {
     struct ActivatedBonus {
         uint256 nftId;
-        IBucket bucket;
+        IBucketV3 bucket;
         uint256 percent;
         uint256 maxAmount;
         uint256 accumulatedAmount;

@@ -1,6 +1,6 @@
 {
   "adminAddress": "0xe9243361077f68fa17a613c67119fbcc9805d709",
-  "guardianAddress":"0xCD2700583158782FBCc2D8E681F51BA8d4BdE771", 
+  "guardianAddress": "0xCD2700583158782FBCc2D8E681F51BA8d4BdE771",
   "emergencyAdmins": [
     "0xc6C104DB1b744Eb247940BDBBF91172F29CBD67f",
     "0x6CCA53446A228053f6ce9B0233B92A80336221EE",
@@ -38,83 +38,90 @@
     "comp": "0xc00e94cb662c3520282e6f5717214004a7f26888",
     "crv": "0xD533a949740bb3306d119CC777fa900bA034cd52",
     "1inch": "0x111111111117dC0aa78b770fA6A738034120C302"
-    },
+  },
   "aave": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+  "pyth": "0x4305FB66699C3B2702D4d05CF36551390A4c69C6",
+  "wrappedNativeToken": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
   "dexes": {
     "uniswap": {
-          "router": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-          "type": "1"
-        },
+      "router": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+      "type": "1"
+    },
     "uniswapv3": {
-          "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
-          "type": "2",
-          "quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
-        },
+      "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+      "type": "2",
+      "quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+    },
     "pancakeswap": {
-          "router": "0xEfF92A263d31888d860bD50809A8D171709b7b1c",
-          "type": "1"
-        },
+      "router": "0xEfF92A263d31888d860bD50809A8D171709b7b1c",
+      "type": "1"
+    },
     "pancakeswapv3": {
-          "router": "0x1b81D678ffb9C0263b24A97847620C99d213eB14",
-          "type": "2",
-          "quoter": "0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997"
-        },
-        "sushiswap": {
-          "router": "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F",
-          "type": "1"
-        },
-        "sushiswapv3": {
-          "router": "0x2E6cd2d30aa43f40aa81619ff4b6E0a41479B13F",
-          "type": "2",
-          "quoterV2": "0x64e8802FE490fa7cc61d3463958199161Bb608A7"
-        },
-     "curve": {
-          "router": "0x99a58482BD75cbab83b27EC03CA68fF489b5788f",
-          "type": "3"
-        },
-     "balancer": {
-          "router": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
-          "type": "4"
-        },
+      "router": "0x1b81D678ffb9C0263b24A97847620C99d213eB14",
+      "type": "2",
+      "quoter": "0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997"
+    },
+    "sushiswap": {
+      "router": "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F",
+      "type": "1"
+    },
+    "sushiswapv3": {
+      "router": "0x2E6cd2d30aa43f40aa81619ff4b6E0a41479B13F",
+      "type": "2",
+      "quoterV2": "0x64e8802FE490fa7cc61d3463958199161Bb608A7"
+    },
+    "curve": {
+      "router": "0x99a58482BD75cbab83b27EC03CA68fF489b5788f",
+      "type": "3"
+    },
+    "balancer": {
+      "router": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+      "type": "4"
+    },
     "fraxswap": {
-          "router": "0xC14d550632db8592D1243Edc8B95b0Ad06703867",
-          "type": "1"
-        },
+      "router": "0xC14d550632db8592D1243Edc8B95b0Ad06703867",
+      "type": "1"
+    },
     "shibaswap": {
-          "router": "0x03f7724180AA6b939894B5Ca4314783B0b36b329",
-          "type": "1"
-        },
+      "router": "0x03f7724180AA6b939894B5Ca4314783B0b36b329",
+      "type": "1"
+    },
     "defiswap": {
-          "router": "0xCeB90E4C17d626BE0fACd78b79c9c87d7ca181b3",
-          "type": "1"
-        }
-      },
-      "pricefeeds": {
-        "native-usd": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
-        "weth-usd": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
-        "wbtc-usd": "0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c",
-        "usdc-usd": "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6",
-        "usdt-usd": "0x3E7d1eAB13ad0104d2750B8863b489D65364e32D",
-        "link-usd": "0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c",
-        "uni-usd": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
-        "dai-usd": "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9",
-        "lusd-usd": "0x3D7aE7E594f2f2091Ad8798313450130d0Aba3a0",
-        "fxs-usd": "0x6Ebc52C8C1089be9eB3945C4350B68B8E4C2233f",
-        "frax-usd": "0xB9E1E3A9feFf48998E45Fa90847ed4D467E8BcfD",
-        "sol-usd": "0x4ffC43a60e009B551865A93d232E33Fce9f01507",
-        "mkr-usd": "0xec1D1B3b0443256cc3860e24a46F108e699484Aa",
-        "snx-usd": "0xDC3EA94CD0AC27d9A86C180091e7f78C683d3699",
-        "imx-usd": "0xBAEbEFc1D023c0feCcc047Bff42E75F15Ff213E6",
-        "bal-usd": "0xdF2917806E30300537aEB49A7663062F4d1F2b5F",
-        "yfi-usd": "0xA027702dbb89fbd58938e4324ac03B58d812b0E1",
-        "stg-usd": "0x7A9f34a0Aa917D438e9b6E630067062B7F8f6f3d",
-        "sushi-usd": "0xCc70F09A6CC17553b2E31954cD36E4A2d89501f7",
-        "tusd-usd": "0xec746eCF986E2927Abd291a2A1716c940100f8Ba",
-        "matic-usd": "0x7bAC85A8a13A4BcD8abb3eB7d6b4d632c5a57676",
-        "rpl-usd": "0x4E155eD98aFE9034b7A5962f6C84c86d869daA9d",
-        "aave-usd": "0x547a514d5e3769680ce22b2361c10ea13619e8a9",
-        "comp-usd": "0xdbd020caef83efd542f4de03e3cf0c28a4428bd5",
-        "crv-usd": "0xcd627aa160a6fa45eb793d19ef54f5062f20f33f",
-        "1inch-usd": "0xc929ad75b72593967de83e7f7cda0493458261d9"
-        }
+      "router": "0xCeB90E4C17d626BE0fACd78b79c9c87d7ca181b3",
+      "type": "1"
+    },
+    "paraswap": {
+      "router": "0xDEF171Fe48CF0115B1d80b88dc8eAB59176FEe57",
+      "type": "7"
+    }
+  },
+  "pricefeeds": {
+    "native-usd": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
+    "weth-usd": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
+    "wbtc-usd": "0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c",
+    "usdc-usd": "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6",
+    "usdt-usd": "0x3E7d1eAB13ad0104d2750B8863b489D65364e32D",
+    "link-usd": "0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c",
+    "uni-usd": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+    "dai-usd": "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9",
+    "lusd-usd": "0x3D7aE7E594f2f2091Ad8798313450130d0Aba3a0",
+    "fxs-usd": "0x6Ebc52C8C1089be9eB3945C4350B68B8E4C2233f",
+    "frax-usd": "0xB9E1E3A9feFf48998E45Fa90847ed4D467E8BcfD",
+    "sol-usd": "0x4ffC43a60e009B551865A93d232E33Fce9f01507",
+    "mkr-usd": "0xec1D1B3b0443256cc3860e24a46F108e699484Aa",
+    "snx-usd": "0xDC3EA94CD0AC27d9A86C180091e7f78C683d3699",
+    "imx-usd": "0xBAEbEFc1D023c0feCcc047Bff42E75F15Ff213E6",
+    "bal-usd": "0xdF2917806E30300537aEB49A7663062F4d1F2b5F",
+    "yfi-usd": "0xA027702dbb89fbd58938e4324ac03B58d812b0E1",
+    "stg-usd": "0x7A9f34a0Aa917D438e9b6E630067062B7F8f6f3d",
+    "sushi-usd": "0xCc70F09A6CC17553b2E31954cD36E4A2d89501f7",
+    "tusd-usd": "0xec746eCF986E2927Abd291a2A1716c940100f8Ba",
+    "matic-usd": "0x7bAC85A8a13A4BcD8abb3eB7d6b4d632c5a57676",
+    "rpl-usd": "0x4E155eD98aFE9034b7A5962f6C84c86d869daA9d",
+    "aave-usd": "0x547a514d5e3769680ce22b2361c10ea13619e8a9",
+    "comp-usd": "0xdbd020caef83efd542f4de03e3cf0c28a4428bd5",
+    "crv-usd": "0xcd627aa160a6fa45eb793d19ef54f5062f20f33f",
+    "1inch-usd": "0xc929ad75b72593967de83e7f7cda0493458261d9"
+  }
 }

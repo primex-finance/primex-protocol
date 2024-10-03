@@ -1,0 +1,52 @@
+{
+  "Primex Bucket USDC": {
+    "LENDER": {
+      "amount": 349009,
+      "rewardPerDay": 956.2
+    },
+    "TRADER": {
+      "amount": 610766,
+      "rewardPerDay": 1673.3
+    }
+  },
+  "Primex Bucket WETH": {
+    "LENDER": {
+      "amount": 277870,
+      "rewardPerDay": 761.3
+    },
+    "TRADER": {
+      "amount": 486273,
+      "rewardPerDay": 1332.3
+    }
+  },
+  "Primex Bucket WBTC": {
+    "LENDER": {
+      "amount": 52775,
+      "rewardPerDay": 144.6
+    },
+    "TRADER": {
+      "amount": 92357,
+      "rewardPerDay": 253.0
+    }
+  },
+  "Primex Bucket WMATIC": {
+    "LENDER": {
+      "amount": 244341,
+      "rewardPerDay": 669.4
+    },
+    "TRADER": {
+      "amount": 427596,
+      "rewardPerDay": 1171.5
+    }
+  },
+  "Primex Bucket USDT": {
+    "LENDER": {
+      "amount": 76005,
+      "rewardPerDay": 208.2
+    },
+    "TRADER": {
+      "amount": 133008,
+      "rewardPerDay": 364.4
+    }
+  }
+}

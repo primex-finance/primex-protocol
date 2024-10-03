@@ -25,7 +25,7 @@ const flowConfig = {
 task("deploy:Bucket", "Deploy Bucket contract", require("./bucket.deploy"))
   // params to configure
   .addOptionalParam("primexDNS", "The address of the PrimexDNS contract")
-  .addOptionalParam("bucketsFactory", "The address of the BucketsFactory contract")
+  .addOptionalParam("bucketsFactoryV2", "The address of the BucketsFactoryV2 contract")
   .addOptionalParam("bigTimelockAdmin", "The address of the BigTimelockAdmin contract")
   .addOptionalParam("treasury", "The address of the Treasury contract")
   .addOptionalParam("registry", "The address of the Registry contract")

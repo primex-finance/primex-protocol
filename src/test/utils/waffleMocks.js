@@ -118,6 +118,12 @@ async function deployMockWhiteBlackList(deployer) {
   return mockWhiteBlackList;
 }
 
+async function deployMockPositionManagerExtension(deployer) {
+  const mockPositionManagerExtension = await deployMockContract(deployer, await abi("WhiteBlackList"));
+  await mockPositionManagerExtension.mock.supportsInterface.returns(true);
+  return mockPositionManagerExtension;
+}
+
 async function deployMockWhiteBlackListReferral(deployer) {
   const mockWhiteBlackList = await deployMockContract(deployer, await abi("WhiteBlackListRefferal"));
   await mockWhiteBlackList.mock.supportsInterface.returns(true);
@@ -155,7 +161,7 @@ async function deployMockPriceOracle(deployer) {
   const mockPriceOracle = await deployMockContract(deployer, await abi("PriceOracle"));
   await mockPriceOracle.mock.supportsInterface.returns(true);
   const defaultExchangeRate = parseEther("10");
-  await mockPriceOracle.mock.getExchangeRate.returns(defaultExchangeRate, true);
+  await mockPriceOracle.mock.getExchangeRate.returns(defaultExchangeRate);
   return [mockPriceOracle, defaultExchangeRate];
 }
 
@@ -262,6 +268,20 @@ async function deployUpgradeableBeacon(deployer) {
   await mockProxy.mock.upgradeTo.returns();
   return mockProxy;
 }
+
+async function deployMockUniswapPriceFeed(deployer) {
+  const mock = await deployMockContract(deployer, await abi("UniswapPriceFeed"));
+  await mock.mock.supportsInterface.returns(true);
+  return mock;
+}
+async function deployMockPyth(deployer) {
+  const mock = await deployMockContract(deployer, await abi("IPyth"));
+  await mock.mock.getUpdateFee.returns(1);
+  await mock.mock.updatePriceFeeds.returns();
+  await mock.mock.getPrice.returns([0, 0, 0, 0]);
+  return mock;
+}
+
 module.exports = {
   deployMockReserve,
   deployMockPToken,
@@ -270,6 +290,7 @@ module.exports = {
   deployMockBucketsFactory,
   deployMockDebtToken,
   deployMockDebtTokensFactory,
+  deployMockUniswapPriceFeed,
   deployMockPositionManager,
   deployMockPrimexDNS,
   deployMockAccessControl,
@@ -285,6 +306,7 @@ module.exports = {
   deployMockBestDexLens,
   deployMockPrimexLens,
   deployMockWhiteBlackList,
+  deployMockPositionManagerExtension,
   deployMockWhiteBlackListReferral,
   deployMockTokenTransfersLibrary,
   deployMockPrimexPricingLibrary,
@@ -300,4 +322,5 @@ module.exports = {
   deployMockProxy,
   deployUpgradeableBeacon,
   deployMockSwapManager,
+  deployMockPyth,
 };

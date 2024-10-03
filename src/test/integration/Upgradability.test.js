@@ -94,12 +94,10 @@ describe("Upgradability_integration", function () {
         newImplContractArtifactName: "PositionManagerV2",
         oldImplContractLibraries: {
           PositionLibrary: positionLibrary.address,
-          PrimexPricingLibrary: primexPricingLibrary.address,
           TokenTransfersLibrary: tokenTransfersLibrary.address,
         },
         newImplContractLibraries: {
           PositionLibrary: positionLibrary.address,
-          PrimexPricingLibrary: primexPricingLibrary.address,
           TokenTransfersLibrary: tokenTransfersLibrary.address,
         },
         isBeacon: "false",
@@ -229,7 +227,7 @@ describe("Upgradability_integration", function () {
   describe("Beacon proxies", function () {
     let bucketsFactory, bucketsFactorySigner;
     before(async function () {
-      bucketsFactory = await getContract("BucketsFactory");
+      bucketsFactory = await getContract("BucketsFactoryV2");
       bucketsFactorySigner = await getImpersonateSigner(bucketsFactory);
     });
     it("should upgrade contract Bucket", async function () {

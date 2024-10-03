@@ -1,10 +1,10 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
 import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
 
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
+import {IPositionManagerV2} from "../PositionManager/IPositionManager.sol";
 import {ILimitOrderManager} from "../LimitOrderManager/ILimitOrderManager.sol";
 
 interface IBestDexLens {
@@ -20,7 +20,7 @@ interface IBestDexLens {
      * @param dexes An array with dexes by which the algorithm will iterate
      */
     struct BestDexForOpenablePositionParams {
-        IPositionManager positionManager;
+        IPositionManagerV2 positionManager;
         address borrowedAsset;
         uint256 borrowedAmount;
         address depositAsset;
@@ -59,11 +59,12 @@ interface IBestDexLens {
      * @param dexes dexes with ancillary data
      */
     struct BestDexByOrderParams {
-        IPositionManager positionManager;
+        IPositionManagerV2 positionManager;
         ILimitOrderManager limitOrderManager;
         uint256 orderId;
         Shares shares;
         DexWithAncillaryData[] dexes;
+        bytes depositBorrowedAssetOracleData;
     }
 
     /**
@@ -78,7 +79,7 @@ interface IBestDexLens {
      * @param dexes An array with dexes by which the algorithm will iterate
      */
     struct GetBestMultipleDexesParams {
-        IPositionManager positionManager;
+        IPositionManagerV2 positionManager;
         address assetToBuy;
         address assetToSell;
         uint256 amount;
@@ -115,7 +116,7 @@ interface IBestDexLens {
     struct GetBestMultipleDexesReturnParams {
         uint256 returnAmount;
         uint256 estimateGasAmount;
-        PrimexPricingLibrary.Route[] routes;
+        PrimexPricingLibrary.MegaRoute[] megaRoutes;
     }
 
     /**
@@ -152,7 +153,7 @@ interface IBestDexLens {
      * @return A GetBestMultipleDexesReturnParams struct.
      */
     function getBestDexByPosition(
-        IPositionManager _positionManager,
+        IPositionManagerV2 _positionManager,
         uint256 _positionId,
         uint256 _shares,
         DexWithAncillaryData[] memory _dexesWithAncillaryData
@@ -194,61 +195,4 @@ interface IBestDexLens {
             GetBestMultipleDexesReturnParams memory _depositInThirdAssetReturnParams,
             GetBestMultipleDexesReturnParams memory _depositToBorrowedReturnParams
         );
-
-    /**
-     * @notice the function shows the profit/loss of a position with `_id`
-     * (in case of loss position, a negative number is issued) on dex `_dexName`
-     * @param _positionManager The address of the PositionManager where the position is stored
-     * @param _id Position id to calculate profit.
-     * @param _routes swap routes on dexes
-     */
-    function getPositionProfit(
-        address _positionManager,
-        uint256 _id,
-        PrimexPricingLibrary.Route[] calldata _routes
-    ) external returns (int256);
-
-    /**
-     * @notice The function returns the current price and profit for open position with `_id` on the best dex
-     * @param _positionManager The instance of the PositionManager where the position is stored
-     * @param _id Position id to show the parameters position
-     * @param _shares shares for expected close
-     * @param _dexes dexes with ancillary data
-     */
-    function getCurrentPriceAndProfitByPosition(
-        IPositionManager _positionManager,
-        uint256 _id,
-        uint256 _shares,
-        DexWithAncillaryData[] memory _dexes
-    ) external returns (uint256, int256);
-
-    /**
-     * @notice The function returns an array of the current price and the profit for open position with `_id` on the best dex
-     * @param _positionManager The instance of the PositionManager where the position is stored
-     * @param _ids Array of position ids to show the parameters position
-     * @param _shares shares for expected close
-     * @param _dexes Array of dexes with ancillary data
-     */
-    function getArrayCurrentPriceAndProfitByPosition(
-        IPositionManager _positionManager,
-        uint256[] memory _ids,
-        uint256[] memory _shares,
-        DexWithAncillaryData[][] memory _dexes
-    ) external returns (uint256[] memory, int256[] memory);
-
-    /**
-     * @notice Calculates the amount of output token that can be obtained for a given input token amount
-     * and pricing parameters.
-     * @param _params The input parameters for the calculation.
-     * @return The calculated output amount.
-     */
-    function getAmountOut(PrimexPricingLibrary.AmountParams memory _params) external returns (uint256);
-
-    /**
-     * @notice Calculates the amount of tokens to be received in exchange for a given amount of input tokens,
-     * based on the provided pricing parameters.
-     * @param _params The pricing parameters for calculating the token amount.
-     * @return The amount of tokens to be received.
-     */
-    function getAmountIn(PrimexPricingLibrary.AmountParams memory _params) external returns (uint256);
 }

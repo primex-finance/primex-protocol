@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -8,7 +8,7 @@ import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
 
 import "./ActivityRewardDistributorStorage.sol";
 import {MEDIUM_TIMELOCK_ADMIN, BIG_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN, EMERGENCY_ADMIN, SECONDS_PER_DAY} from "../Constants.sol";
-import {IActivityRewardDistributor, IBucket, IPausable} from "./IActivityRewardDistributor.sol";
+import {IActivityRewardDistributor, IBucketV3, IPausable} from "./IActivityRewardDistributor.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
 import {ITreasury} from "../Treasury/ITreasury.sol";
 
@@ -41,7 +41,7 @@ contract ActivityRewardDistributor is IActivityRewardDistributor, ActivityReward
      */
     function initialize(
         IERC20 _pmx,
-        IPrimexDNS _dns,
+        IPrimexDNSV3 _dns,
         address _registry,
         address _treasury,
         ITraderBalanceVault _traderBalanceVault,
@@ -49,7 +49,7 @@ contract ActivityRewardDistributor is IActivityRewardDistributor, ActivityReward
     ) external override initializer {
         _require(
             IERC165Upgradeable(_registry).supportsInterface(type(IAccessControl).interfaceId) &&
-                IERC165Upgradeable(address(_dns)).supportsInterface(type(IPrimexDNS).interfaceId) &&
+                IERC165Upgradeable(address(_dns)).supportsInterface(type(IPrimexDNSV3).interfaceId) &&
                 IERC165Upgradeable(address(_traderBalanceVault)).supportsInterface(
                     type(ITraderBalanceVault).interfaceId
                 ) &&
@@ -225,7 +225,7 @@ contract ActivityRewardDistributor is IActivityRewardDistributor, ActivityReward
     /**
      * @inheritdoc IActivityRewardDistributor
      */
-    function updateUserActivity(IBucket bucket, address user, uint256 newBalance, Role role) public override {
+    function updateUserActivity(IBucketV3 bucket, address user, uint256 newBalance, Role role) public override {
         (address bucketAddress, , , ) = dns.buckets(bucket.name());
         _require(bucketAddress != address(0), Errors.ZERO_BUCKET_ADDRESS.selector);
         _require(msg.sender == _getToken(bucketAddress, role), Errors.FORBIDDEN.selector);
@@ -244,7 +244,7 @@ contract ActivityRewardDistributor is IActivityRewardDistributor, ActivityReward
      * @inheritdoc IActivityRewardDistributor
      */
     function updateUsersActivities(
-        IBucket bucket,
+        IBucketV3 bucket,
         address[] calldata users,
         uint256[] calldata newBalances,
         uint256 length,
@@ -408,9 +408,9 @@ contract ActivityRewardDistributor is IActivityRewardDistributor, ActivityReward
      */
     function _getToken(address bucket, Role role) internal view returns (address tokenAddress) {
         if (role == Role.LENDER) {
-            tokenAddress = address(IBucket(bucket).pToken());
+            tokenAddress = address(IBucketV3(bucket).pToken());
         } else {
-            tokenAddress = address(IBucket(bucket).debtToken());
+            tokenAddress = address(IBucketV3(bucket).debtToken());
         }
     }
 

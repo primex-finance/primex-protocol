@@ -10,12 +10,18 @@ module.exports = async function (
     },
   },
 ) {
+  const { encodeFunctionData } = require("../utils/encodeFunctionData.js");
   const positionManager = await getContract("PositionManager");
   const pmx = await getContract("EPMXToken");
 
   const spotTradingRewardDistributor = await getContract("SpotTradingRewardDistributor");
   if ((await positionManager.spotTradingRewardDistributor()) !== spotTradingRewardDistributor.address) {
-    const tx = await positionManager.setSpotTradingRewardDistributor(spotTradingRewardDistributor.address);
+    const { payload } = await encodeFunctionData(
+      "setSpotTradingRewardDistributor",
+      [spotTradingRewardDistributor.address],
+      "PositionManagerExtension",
+    );
+    const tx = await positionManager.setProtocolParamsByAdmin(payload);
     await tx.wait();
   }
 

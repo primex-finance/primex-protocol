@@ -5,7 +5,6 @@ const {
   network,
   ethers: {
     provider,
-    getContractFactory,
     getContract,
     getContractAt,
     getSigners,
@@ -16,14 +15,21 @@ const {
   deployments: { fixture },
 } = require("hardhat");
 const { BigNumber: BN } = require("bignumber.js");
-const { MAX_TOKEN_DECIMALITY } = require("../utils/constants");
+const { MAX_TOKEN_DECIMALITY, USD_DECIMALS, USD_MULTIPLIER } = require("../utils/constants");
+const {
+  setupUsdOraclesForToken,
+  setupUsdOraclesForTokens,
+  getEncodedChainlinkRouteViaUsd,
+  getEncodedChainlinkRouteToUsd,
+  setOraclePrice,
+} = require("../utils/oracleUtils");
 
 process.env.TEST = true;
 
-const { addLiquidity, checkIsDexSupported, getAmountsOut, getSingleRoute } = require("../utils/dexOperations");
+const { addLiquidity, checkIsDexSupported, getAmountsOut, getSingleMegaRoute } = require("../utils/dexOperations");
 const { rayMul, wadDiv, rayDiv, calculateCompoundInterest, wadMul, calculateLinearInterest } = require("../utils/math");
-const { OrderType, NATIVE_CURRENCY } = require("../utils/constants");
 const { signNftMintData } = require("../utils/generateSignature.js");
+const { encodeFunctionData } = require("../../tasks/utils/encodeFunctionData");
 
 describe("PrimexNFT_integration", function () {
   let user, lender, trader, deployer;
@@ -39,7 +45,7 @@ describe("PrimexNFT_integration", function () {
     DebtTokenA,
     Reserve,
     testTokenB;
-  let percent, maxAmount, deadline, feeAmountInEth, multiplierA, multiplierB, decimalsA, decimalsB;
+  let percent, maxAmount, deadline, multiplierA, multiplierB, decimalsA, decimalsB;
   let uris;
   let dex, firstAssetRoutes;
 
@@ -64,7 +70,12 @@ describe("PrimexNFT_integration", function () {
 
     await registry.grantRole(NFT_MINTER, deployer.address);
 
-    await PositionManager.setMaxPositionSize(testTokenA.address, testTokenB.address, 0, MaxUint256);
+    const { payload } = await encodeFunctionData(
+      "setMaxPositionSize",
+      [testTokenA.address, testTokenB.address, 0, MaxUint256],
+      "PositionManagerExtension",
+    );
+    await PositionManager.setProtocolParamsByAdmin(payload);
 
     await PrimexNft.setExecutor(1, InterestIncreaser.address);
     await PrimexNft.setExecutor(2, FeeDecreaser.address);
@@ -92,62 +103,55 @@ describe("PrimexNFT_integration", function () {
 
     dex = process.env.DEX || "uniswap";
     checkIsDexSupported(dex);
-    firstAssetRoutes = await getSingleRoute([testTokenA.address, testTokenB.address], dex);
+    firstAssetRoutes = await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex);
 
     await addLiquidity({ dex: dex, from: "lender", tokenA: testTokenA, tokenB: testTokenB });
 
     PriceFeed = await getContract("PrimexAggregatorV3TestService TEST price feed");
     const priceOracle = await getContract("PriceOracle");
-    await priceOracle.updatePriceFeed(testTokenA.address, testTokenB.address, PriceFeed.address);
-    await PriceFeed.setDecimals(decimalsB);
 
+    const ttaPriceInETH = parseUnits("0.3", USD_DECIMALS); // 1 tta=0.3 ETH
+
+    await setupUsdOraclesForTokens(testTokenA, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForToken(testTokenB, parseUnits("1", USD_DECIMALS));
     // borrow
     const borrowedAmount = parseUnits("5", decimalsA);
     const depositAmount = parseUnits("3", decimalsA);
 
-    const swapAmount = borrowedAmount.add(depositAmount);
-    const swapAmountInWadDecimals = swapAmount.mul(multiplierA);
-
-    const amountBOut = await getAmountsOut(dex, swapAmount, [testTokenA.address, testTokenB.address]);
-    const amountBOutInWadDecimals = amountBOut.mul(multiplierB);
-    const limitPriceInWadDecimals = wadDiv(amountBOutInWadDecimals.toString(), swapAmountInWadDecimals.toString()).toString();
-    const limitPrice = BigNumber.from(limitPriceInWadDecimals).div(multiplierB);
-    await PriceFeed.setAnswer(limitPrice);
-
     await testTokenA.mint(trader.address, MaxUint256.div(2));
     await testTokenA.connect(trader).approve(PositionManager.address, MaxUint256);
-    const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
-    const priceFeedTTAETH = await PrimexAggregatorV3TestServiceFactory.deploy("TTA_ETH", deployer.address);
-    const ttaPriceInETH = parseUnits("0.3", "18"); // 1 tta=0.3 eth
-    await priceFeedTTAETH.setDecimals("18");
-    await priceFeedTTAETH.setAnswer(ttaPriceInETH);
 
-    const feeAmountCalculateWithETHRate = wadMul(
-      borrowedAmount.add(depositAmount).toString(),
-      (await PrimexDNS.feeRates(OrderType.MARKET_ORDER, NATIVE_CURRENCY)).toString(),
-    ).toString();
-    feeAmountInEth = wadMul(BigNumber.from(feeAmountCalculateWithETHRate).mul(multiplierA).toString(), ttaPriceInETH.toString()).toString();
-    await priceOracle.updatePriceFeed(testTokenA.address, await priceOracle.eth(), priceFeedTTAETH.address);
+    const swapAmount = borrowedAmount.add(depositAmount);
+    const swap = swapAmount.mul(multiplierA);
+    const amount0Out = await getAmountsOut(dex, swapAmount, [testTokenA.address, testTokenB.address]);
+    const amountB = amount0Out.mul(multiplierB);
+    const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+    const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+    await setOraclePrice(testTokenA, testTokenB, price);
 
-    await PositionManager.connect(trader).openPosition(
-      {
-        marginParams: {
-          bucket: "bucket1",
-          borrowedAmount: borrowedAmount,
-          depositInThirdAssetRoutes: [],
-        },
-        firstAssetRoutes: firstAssetRoutes,
-        depositAsset: testTokenA.address,
-        depositAmount: depositAmount,
-        positionAsset: testTokenB.address,
-        amountOutMin: 0,
-        deadline: Math.round(new Date().getTime() / 1000) + 600,
-        takeDepositFromWallet: true,
-        payFeeFromWallet: true,
-        closeConditions: [],
+    await PositionManager.connect(trader).openPosition({
+      marginParams: {
+        bucket: "bucket1",
+        borrowedAmount: borrowedAmount,
+        depositInThirdAssetMegaRoutes: [],
       },
-      { value: feeAmountInEth },
-    );
+      firstAssetMegaRoutes: firstAssetRoutes,
+      depositAsset: testTokenA.address,
+      depositAmount: depositAmount,
+      positionAsset: testTokenB.address,
+      amountOutMin: 0,
+      deadline: Math.round(new Date().getTime() / 1000) + 600,
+      takeDepositFromWallet: true,
+      closeConditions: [],
+      firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      thirdAssetOracleData: [],
+      depositSoldAssetOracleData: [],
+      positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+      nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      pullOracleData: [],
+    });
 
     uris = ["primexURL/" + "37" + "0", "primexURL/" + "37" + "1"];
 
@@ -346,7 +350,6 @@ describe("PrimexNFT_integration", function () {
     });
     it("Should update the activated bonus via burn", async function () {
       await PrimexNft.connect(lender).activate(mintParams.id, "bucket1");
-
       const balance = await PTokenA.scaledBalanceOf(lender.address);
       const { lastUpdatedIndex: lastUpdatedIndexBefore } = await InterestIncreaser.getBonus(lender.address, mintParams.id);
       const [currentIncome, accumulatedAmount] = await _increaseAccumulatedAmount(balance, lastUpdatedIndexBefore);
@@ -429,12 +432,12 @@ describe("PrimexNFT_integration", function () {
       const depositAmount = parseUnits("3", decimalsA);
 
       const swapAmount = borrowedAmount.add(depositAmount);
-      const swapAmountInWad = swapAmount.mul(multiplierA);
-      const amountBOut = await getAmountsOut(dex, swapAmount, [testTokenA.address, testTokenB.address]);
-      const amountBOutInWadDecimals = amountBOut.mul(multiplierB);
-      const limitPriceInWadDecimals = wadDiv(amountBOutInWadDecimals.toString(), swapAmountInWad.toString()).toString();
-      const limitPrice = BigNumber.from(limitPriceInWadDecimals).div(multiplierB);
-      await PriceFeed.setAnswer(limitPrice);
+      const swap = swapAmount.mul(multiplierA);
+      const amount0Out = await getAmountsOut(dex, swapAmount, [testTokenA.address, testTokenB.address]);
+      const amountB = amount0Out.mul(multiplierB);
+      const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
 
       await PrimexNft.connect(trader).activate(mintParams.id, "bucket1");
       const balance = await DebtTokenA.scaledBalanceOf(trader.address);
@@ -442,25 +445,29 @@ describe("PrimexNFT_integration", function () {
       const { lastUpdatedIndex: lastUpdatedIndexBefore } = await FeeDecreaser.getBonus(trader.address, mintParams.id);
       const [, accumulatedAmount] = await _increaseAccumulatedAmount(balance, lastUpdatedIndexBefore, 50, false);
       // mint via open position
-      await PositionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "bucket1",
-            borrowedAmount: borrowedAmount,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: firstAssetRoutes,
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenB.address,
-          amountOutMin: 0,
-          deadline: Math.round(new Date().getTime() / 1000) + 600,
-          takeDepositFromWallet: true,
-          payFeeFromWallet: true,
-          closeConditions: [],
+      await PositionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "bucket1",
+          borrowedAmount: borrowedAmount,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: feeAmountInEth },
-      );
+        firstAssetMegaRoutes: firstAssetRoutes,
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenB.address,
+        amountOutMin: 0,
+        deadline: Math.round(new Date().getTime() / 1000) + 600,
+        takeDepositFromWallet: true,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
 
       const { accumulatedAmount: accumulatedAfter, lastUpdatedIndex: lastUpdatedIndexAfter } = await FeeDecreaser.getBonus(
         trader.address,
@@ -481,10 +488,13 @@ describe("PrimexNFT_integration", function () {
         0,
         parseUnits("0.5", decimalsB),
         trader.address,
-        await getSingleRoute([testTokenB.address, testTokenA.address], dex),
+        await getSingleMegaRoute([testTokenB.address, testTokenA.address], dex),
         0,
+        getEncodedChainlinkRouteViaUsd(testTokenA),
+        getEncodedChainlinkRouteViaUsd(testTokenB),
+        getEncodedChainlinkRouteViaUsd(testTokenB),
+        [],
       );
-
       const { accumulatedAmount: accumulatedAfter, lastUpdatedIndex: lastUpdatedIndexAfter } = await FeeDecreaser.getBonus(
         trader.address,
         mintParams.id,

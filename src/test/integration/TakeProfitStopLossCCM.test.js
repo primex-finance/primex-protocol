@@ -2,7 +2,6 @@
 const { expect } = require("chai");
 
 const {
-  run,
   network,
   ethers: {
     getContract,
@@ -16,29 +15,41 @@ const {
   deployments: { fixture },
 } = require("hardhat");
 
-const { getTakeProfitStopLossParams, getTakeProfitStopLossAdditionalParams, getCondition } = require("../utils/conditionParams");
+const { getTakeProfitStopLossParams, getCondition } = require("../utils/conditionParams");
 
-const { getAmountsOut, addLiquidity, getSingleRoute } = require("../utils/dexOperations");
+const { getAmountsOut, addLiquidity, getSingleMegaRoute } = require("../utils/dexOperations");
 
-const { TAKE_PROFIT_STOP_LOSS_CM_TYPE, MAX_TOKEN_DECIMALITY, NATIVE_CURRENCY } = require("../utils/constants");
+const { encodeFunctionData } = require("../../tasks/utils/encodeFunctionData");
+
+const {
+  TAKE_PROFIT_STOP_LOSS_CM_TYPE,
+  MAX_TOKEN_DECIMALITY,
+  NATIVE_CURRENCY,
+  USD_DECIMALS,
+  USD_MULTIPLIER,
+} = require("../utils/constants");
 
 const { wadDiv } = require("../utils/math");
+const {
+  setupUsdOraclesForToken,
+  setupUsdOraclesForTokens,
+  getEncodedChainlinkRouteViaUsd,
+  getEncodedChainlinkRouteToUsd,
+  setOraclePrice,
+  reversePrice,
+} = require("../utils/oracleUtils");
 
 process.env.TEST = true;
 
 describe("TakeProfitStopLossCCM_integration", function () {
   let snapshotId;
-  let trader, lender, deployer;
+  let trader, lender;
   let primexDNS,
     priceOracle,
-    limitOrderManager,
-    positionLibrary,
-    primexPricingLibrary,
     registry,
     testTokenA,
     testTokenB,
     bucket,
-    priceFeed,
     traderBalanceVault,
     positionManager,
     primexLens,
@@ -49,7 +60,7 @@ describe("TakeProfitStopLossCCM_integration", function () {
     decimalsB,
     multiplierA,
     multiplierB;
-  let assetRoutes, assetRoutesForClose, dex, bucketAddress;
+  let assetRoutes, dex, bucketAddress;
 
   before(async function () {
     await fixture(["Test"]);
@@ -59,13 +70,10 @@ describe("TakeProfitStopLossCCM_integration", function () {
       dex = "uniswap";
     }
 
-    ({ deployer, trader, lender } = await getNamedSigners());
+    ({ trader, lender } = await getNamedSigners());
     takeProfitStopLossCCM = await getContract("TakeProfitStopLossCCM");
     primexDNS = await getContract("PrimexDNS");
     priceOracle = await getContract("PriceOracle");
-    limitOrderManager = await getContract("LimitOrderManager");
-    primexPricingLibrary = await getContract("PrimexPricingLibrary");
-    positionLibrary = await getContract("PositionLibrary");
     registry = await getContract("Registry");
     traderBalanceVault = await getContract("TraderBalanceVault");
     primexLens = await getContract("PrimexLens");
@@ -83,24 +91,24 @@ describe("TakeProfitStopLossCCM_integration", function () {
     multiplierA = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsA));
     multiplierB = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB));
 
-    await positionManager.setMaxPositionSize(testTokenA.address, testTokenB.address, 0, MaxUint256);
+    const { payload } = await encodeFunctionData(
+      "setMaxPositionSize",
+      [testTokenA.address, testTokenB.address, 0, MaxUint256],
+      "PositionManagerExtension",
+    );
+    await positionManager.setProtocolParamsByAdmin(payload);
 
     bucketAddress = (await primexDNS.buckets("bucket1")).bucketAddress;
     bucket = await getContractAt("Bucket", bucketAddress);
 
-    assetRoutes = await getSingleRoute([testTokenA.address, testTokenB.address], dex);
-    assetRoutesForClose = await getSingleRoute([testTokenB.address, testTokenA.address], dex);
+    assetRoutes = await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex);
 
-    priceFeed = await getContract("PrimexAggregatorV3TestService TEST price feed");
     priceOracle = await getContract("PriceOracle");
-    await priceOracle.updatePriceFeed(testTokenB.address, testTokenA.address, priceFeed.address);
-    const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
-    const priceFeedTTAETH = await PrimexAggregatorV3TestServiceFactory.deploy("TTA_ETH", deployer.address);
-    await priceFeedTTAETH.setDecimals("18");
 
-    const ttaPriceInETH = parseUnits("0.3", 18); // 1 tta=0.3 ETH
-    await priceFeedTTAETH.setAnswer(ttaPriceInETH);
-    await priceOracle.updatePriceFeed(testTokenA.address, await priceOracle.eth(), priceFeedTTAETH.address);
+    const ttaPriceInETH = parseUnits("0.3", USD_DECIMALS); // 1 tta=0.3 ETH
+
+    await setupUsdOraclesForTokens(testTokenA, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForToken(testTokenB, parseUnits("1", USD_DECIMALS));
 
     await addLiquidity({ dex: dex, from: "lender", tokenA: testTokenA, tokenB: testTokenB });
   });
@@ -119,6 +127,12 @@ describe("TakeProfitStopLossCCM_integration", function () {
   });
 
   describe("constructor", function () {
+    let TakeProfitStopLossCCMFactory;
+
+    before(async function () {
+      TakeProfitStopLossCCMFactory = await getContractFactory("TakeProfitStopLossCCM");
+    });
+
     it("Should initialize with correct values", async function () {
       expect(await takeProfitStopLossCCM.primexDNS()).to.equal(primexDNS.address);
       expect(await takeProfitStopLossCCM.priceOracle()).to.equal(priceOracle.address);
@@ -126,42 +140,25 @@ describe("TakeProfitStopLossCCM_integration", function () {
 
     it("Should revert when initialized with wrong primexDNS address", async function () {
       const wrongAddress = registry.address;
-      await expect(
-        run("deploy:TakeProfitStopLossCCM", {
-          registry: registry.address,
-          primexDNS: wrongAddress,
-          priceOracle: priceOracle.address,
-          primexPricingLibrary: primexPricingLibrary.address,
-          positionLibrary: positionLibrary.address,
-        }),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
+      const TakeProfitStopLossCCM = await TakeProfitStopLossCCMFactory.deploy(registry.address);
+      await expect(TakeProfitStopLossCCM.initialize(wrongAddress, priceOracle.address)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "ADDRESS_NOT_SUPPORTED",
+      );
     });
 
     it("Should revert when initialized with wrong priceOracle address", async function () {
       const wrongAddress = registry.address;
-      await expect(
-        run("deploy:TakeProfitStopLossCCM", {
-          registry: registry.address,
-          primexDNS: primexDNS.address,
-          priceOracle: wrongAddress,
-          limitOrderManager: limitOrderManager.address,
-          primexPricingLibrary: primexPricingLibrary.address,
-          positionLibrary: positionLibrary.address,
-        }),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
+      const TakeProfitStopLossCCM = await TakeProfitStopLossCCMFactory.deploy(registry.address);
+      await expect(TakeProfitStopLossCCM.initialize(primexDNS.address, wrongAddress)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "ADDRESS_NOT_SUPPORTED",
+      );
     });
   });
 
   describe("canBeClosed", function () {
-    let borrowedAmount,
-      lenderAmount,
-      depositAmount,
-      amountOutMin,
-      deadline,
-      takeDepositFromWallet,
-      snapshotId,
-      exchangeRate,
-      exchangeRateInWadDecimals;
+    let borrowedAmount, lenderAmount, depositAmount, amountOutMin, deadline, takeDepositFromWallet, snapshotId, price;
 
     before(async function () {
       lenderAmount = parseUnits("100", decimalsA);
@@ -185,14 +182,12 @@ describe("TakeProfitStopLossCCM_integration", function () {
       });
 
       const swapSize = depositAmount.add(borrowedAmount);
-      const swapSizeInWadDecimalss = swapSize.mul(multiplierA);
+      const swap = swapSize.mul(multiplierA);
       const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
-      const amountOutInWadDecimals = amount0Out.mul(multiplierB);
-
-      exchangeRateInWadDecimals = BigNumber.from(wadDiv(swapSizeInWadDecimalss.toString(), amountOutInWadDecimals.toString()).toString());
-      exchangeRate = exchangeRateInWadDecimals.div(multiplierA);
-      await priceFeed.setAnswer(exchangeRate);
-      await priceFeed.setDecimals(decimalsA);
+      const amountB = amount0Out.mul(multiplierB);
+      const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
     });
 
     beforeEach(async function () {
@@ -208,40 +203,16 @@ describe("TakeProfitStopLossCCM_integration", function () {
       });
     });
 
-    it("should return 'false' when stopLossPrice and takeProfitPrice is zero", async function () {
-      await positionManager.connect(trader).openPosition({
-        marginParams: {
-          bucket: "bucket1",
-          borrowedAmount: borrowedAmount,
-          depositInThirdAssetRoutes: [],
-        },
-        firstAssetRoutes: assetRoutes,
-        depositAsset: testTokenA.address,
-        depositAmount: depositAmount,
-        positionAsset: testTokenB.address,
-        amountOutMin: amountOutMin,
-        deadline: deadline,
-        takeDepositFromWallet: takeDepositFromWallet,
-        closeConditions: [],
-      });
-      const additionalParams = getTakeProfitStopLossAdditionalParams(assetRoutesForClose);
-      expect(await primexLens.isStopLossReached(pmAddress, 0)).to.be.equal(false);
-      expect(await primexLens.callStatic.isTakeProfitReached(pmAddress, 0, assetRoutesForClose)).to.be.equal(false);
-      await expect(positionManager.connect(trader).callStatic.canBeClosed(0, 0, additionalParams)).to.be.revertedWithCustomError(
-        ErrorsLibrary,
-        "CONDITION_INDEX_IS_OUT_OF_BOUNDS",
-      );
-    });
-
     it("isStopLossReached should return 'false' when stopLossPrice < oracle price", async function () {
-      const stopLossPrice = exchangeRate.sub(1).mul(multiplierA);
+      const stopLossPrice = reversePrice(price.toString()).mul(USD_MULTIPLIER).sub("1").toString();
+
       await positionManager.connect(trader).openPosition({
         marginParams: {
           bucket: "bucket1",
           borrowedAmount: borrowedAmount,
-          depositInThirdAssetRoutes: [],
+          depositInThirdAssetMegaRoutes: [],
         },
-        firstAssetRoutes: assetRoutes,
+        firstAssetMegaRoutes: assetRoutes,
         depositAsset: testTokenA.address,
         depositAmount: depositAmount,
         positionAsset: testTokenB.address,
@@ -249,18 +220,27 @@ describe("TakeProfitStopLossCCM_integration", function () {
         deadline: deadline,
         takeDepositFromWallet: takeDepositFromWallet,
         closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(0, stopLossPrice))],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
       });
-      expect(await primexLens.isStopLossReached(pmAddress, 0)).to.be.equal(false);
+      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenA))).to.be.equal(false);
     });
     it("isStopLossReached should return 'true' when oracle price <= stopLossPrice", async function () {
-      const stopLossPrice = exchangeRateInWadDecimals;
+      const stopLossPrice = reversePrice(price.toString()).mul(USD_MULTIPLIER).toString();
+
       await positionManager.connect(trader).openPosition({
         marginParams: {
           bucket: "bucket1",
           borrowedAmount: borrowedAmount,
-          depositInThirdAssetRoutes: [],
+          depositInThirdAssetMegaRoutes: [],
         },
-        firstAssetRoutes: assetRoutes,
+        firstAssetMegaRoutes: assetRoutes,
         depositAsset: testTokenA.address,
         depositAmount: depositAmount,
         positionAsset: testTokenB.address,
@@ -268,63 +248,20 @@ describe("TakeProfitStopLossCCM_integration", function () {
         deadline: deadline,
         takeDepositFromWallet: takeDepositFromWallet,
         closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(0, stopLossPrice))],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
       });
-      // when stopLossPrice == exchangeRateInWadDecimals
-      expect(await primexLens.isStopLossReached(pmAddress, 0)).to.be.equal(true);
-      // when stopLossPrice > exchangeRateInWadDecimals;
-      await priceFeed.setAnswer(exchangeRate.div("2"));
-      expect(await primexLens.isStopLossReached(pmAddress, 0)).to.be.equal(true);
-    });
-    it("isTakeProfitReached should return 'false' when takeProfitPrice >= oracle price", async function () {
-      const takeProfitAmount = borrowedAmount.add(depositAmount);
-      const positionAmount = await getAmountsOut(dex, takeProfitAmount, [testTokenA.address, testTokenB.address]);
-      const takeProfitPrice = wadDiv(takeProfitAmount.toString(), positionAmount.toString()).toString();
-      await positionManager.connect(trader).openPosition({
-        marginParams: {
-          bucket: "bucket1",
-          borrowedAmount: borrowedAmount,
-          depositInThirdAssetRoutes: [],
-        },
-        firstAssetRoutes: assetRoutes,
-        depositAsset: testTokenA.address,
-        depositAmount: depositAmount,
-        positionAsset: testTokenB.address,
-        amountOutMin: amountOutMin,
-        deadline: deadline,
-        takeDepositFromWallet: takeDepositFromWallet,
-        closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, 0))],
-      });
-
-      expect(await primexLens.callStatic.isTakeProfitReached(pmAddress, 0, assetRoutesForClose)).to.be.equal(false);
-    });
-    it("isTakeProfitReached should return 'true' when takeProfitPrice is lower market price", async function () {
-      const swapSize = depositAmount.add(borrowedAmount);
-      const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
-      const liquidationPrice = await primexPricingLibrary.getLiquidationPrice(
-        bucketAddress,
-        testTokenB.address,
-        amount0Out,
-        borrowedAmount,
-      );
-      const takeProfitPrice = liquidationPrice.add(1).mul(multiplierA);
-
-      await positionManager.connect(trader).openPosition({
-        marginParams: {
-          bucket: "bucket1",
-          borrowedAmount: borrowedAmount,
-          depositInThirdAssetRoutes: [],
-        },
-        firstAssetRoutes: assetRoutes,
-        depositAsset: testTokenA.address,
-        depositAmount: depositAmount,
-        positionAsset: testTokenB.address,
-        amountOutMin: amountOutMin,
-        deadline: deadline,
-        takeDepositFromWallet: takeDepositFromWallet,
-        closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, 0))],
-      });
-
-      expect(await primexLens.callStatic.isTakeProfitReached(pmAddress, 0, assetRoutesForClose)).to.be.equal(true);
+      // when stopLossPrice == exchangeRate
+      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenA))).to.be.equal(true);
+      // when stopLossPrice > exchangeRate;
+      await setOraclePrice(testTokenA, testTokenB, price.add("2"));
+      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenA))).to.be.equal(true);
     });
   });
 });

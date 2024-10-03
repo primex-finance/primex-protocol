@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -8,20 +8,20 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 
 import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
 
-import {IBucket} from "../Bucket/IBucket.sol";
+import {IBucketV3} from "../Bucket/IBucket.sol";
 import {IDebtToken} from "../DebtToken/IDebtToken.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
-import {IPriceOracle} from "../PriceOracle/IPriceOracle.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
+import {IPositionManagerV2} from "../PositionManager/IPositionManager.sol";
+import {IPriceOracleV2} from "../PriceOracle/IPriceOracle.sol";
 import {IPToken} from "../PToken/IPToken.sol";
 import {IReserve} from "../Reserve/IReserve.sol";
 import {IBucketMock} from "./mocksInterfaces/IBucketMock.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
 import {ILiquidityMiningRewardDistributor} from "../LiquidityMiningRewardDistributor/ILiquidityMiningRewardDistributor.sol";
 import {IInterestRateStrategy} from "../interfaces/IInterestRateStrategy.sol";
-import {ISwapManager} from "../interfaces/ISwapManager.sol";
+import {ISwapManager} from "../SwapManager/ISwapManager.sol";
 
-contract BucketMock is IBucket, IERC165, IBucketMock {
+contract BucketMock is IBucketV3, IERC165, IBucketMock {
     IDebtToken public override debtToken;
     IPToken public override pToken;
     bool public override isActive;
@@ -94,9 +94,9 @@ contract BucketMock is IBucket, IERC165, IBucketMock {
     /* solhint-disable no-unused-vars */
     string public override name;
     address public override registry;
-    IPrimexDNS internal dns;
-    IPositionManager public override positionManager;
-    IPriceOracle internal priceOracle;
+    IPrimexDNSV3 internal dns;
+    IPositionManagerV2 public override positionManager;
+    IPriceOracleV2 internal priceOracle;
     IERC20Metadata public override borrowedAsset;
     uint256 public override feeBuffer;
     uint256 public override withdrawalFeeRate;
@@ -114,6 +114,8 @@ contract BucketMock is IBucket, IERC165, IBucketMock {
     function initialize(ConstructorParams memory _params, address _registry) external override {}
 
     function removeAsset(address _assetToDelete) external override {}
+
+    function setBucketExtension(address _newBucketExtension) external override {}
 
     function setReserveRate(uint256 _fee) external override {}
 
@@ -137,7 +139,7 @@ contract BucketMock is IBucket, IERC165, IBucketMock {
     function depositFromBucket(
         string calldata _bucketTo,
         ISwapManager _swapManager,
-        PrimexPricingLibrary.Route[] calldata routes,
+        PrimexPricingLibrary.MegaRoute[] calldata megaRoutes,
         uint256 _amountOutMin
     ) external override {}
 
@@ -154,6 +156,8 @@ contract BucketMock is IBucket, IERC165, IBucketMock {
     }
 
     function deposit(address _pTokenReceiver, uint256 _amount) external override {}
+
+    function deposit(address _pTokenReceiver, uint256 _amount, bool _takeDepositFromWallet) external override {}
 
     function withdraw(address _borrowAssetReceiver, uint256 _amount) external override {}
 
@@ -196,6 +200,12 @@ contract BucketMock is IBucket, IERC165, IBucketMock {
         return 1;
     }
 
+    function maxAssetLeverage(address _asset, uint256 _feeRate) external pure override returns (uint256) {
+        _asset = address(0);
+        _feeRate = 0;
+        return 1;
+    }
+
     function getNormalizedVariableDebt() external pure override returns (uint256) {
         return 1;
     }
@@ -215,7 +225,7 @@ contract BucketMock is IBucket, IERC165, IBucketMock {
 
     /// @notice Interface checker
     function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
-        return _interfaceId == type(IBucket).interfaceId || _interfaceId == type(IERC165).interfaceId;
+        return _interfaceId == type(IBucketV3).interfaceId || _interfaceId == type(IERC165).interfaceId;
     }
 
     function availableLiquidity() public pure override returns (uint256) {

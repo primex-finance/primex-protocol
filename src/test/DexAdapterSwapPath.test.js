@@ -81,6 +81,8 @@ describe("DexAdapter swap by path", function () {
 
       const swapExactTokensForTokensParams = {
         encodedPath: await getEncodedPath(path, dex),
+        tokenIn: path[0],
+        tokenOut: path[path.length - 1],
         amountIn: amountIn,
         amountOutMin: 0,
         to: trader.address,
@@ -155,6 +157,8 @@ describe("DexAdapter swap by path", function () {
 
       const swapExactTokensForTokensParams = {
         encodedPath: await getEncodedPath(path, dex, fees),
+        tokenIn: path[0],
+        tokenOut: path[path.length - 1],
         amountIn: amountIn,
         amountOutMin: 0,
         to: trader.address,
@@ -271,6 +275,8 @@ describe("DexAdapter swap by path", function () {
 
       const swapExactTokensForTokensParams = {
         encodedPath: await getEncodedPath(path, dex, pools),
+        tokenIn: path[0],
+        tokenOut: path[path.length - 1],
         amountIn: amountIn,
         amountOutMin: 0,
         to: trader.address,
@@ -360,6 +366,8 @@ describe("DexAdapter swap by path", function () {
 
       const swapExactTokensForTokensParams = {
         encodedPath: await getEncodedPath(path, dex, pools),
+        tokenIn: path[0],
+        tokenOut: path[path.length - 1],
         amountIn: amountIn,
         amountOutMin: 0,
         to: trader.address,
@@ -433,6 +441,8 @@ describe("DexAdapter swap by path", function () {
 
       const swapExactTokensForTokensParams = {
         encodedPath: await getEncodedPath(path, dex),
+        tokenIn: path[0],
+        tokenOut: path[path.length - 1],
         amountIn: amountIn,
         amountOutMin: 0,
         to: trader.address,
@@ -506,6 +516,8 @@ describe("DexAdapter swap by path", function () {
 
       const swapExactTokensForTokensParams = {
         encodedPath: await getEncodedPath(path, dex),
+        tokenIn: path[0],
+        tokenOut: path[path.length - 1],
         amountIn: amountIn,
         amountOutMin: 0,
         to: trader.address,

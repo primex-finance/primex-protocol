@@ -9,28 +9,41 @@ const {
     getContract,
     getNamedSigners,
     getContractFactory,
-    constants: { AddressZero, HashZero },
+    constants: { AddressZero, HashZero, NegativeOne },
     utils: { keccak256, toUtf8Bytes, defaultAbiCoder, parseEther, parseUnits },
   },
   deployments: { fixture },
 } = require("hardhat");
-const { addLiquidity, getAmountsIn, getGas, getEncodedPath } = require("./utils/dexOperations");
+const {
+  addLiquidity,
+  getAmountsIn,
+  getGas,
+  getEncodedPath,
+  getSinglePath,
+  getPaths,
+  getSingleRoute,
+  getRoutes,
+  getSingleMegaRoute,
+  getMegaRoutes,
+} = require("./utils/dexOperations");
 const { wadMul } = require("./utils/math");
-const { deployMockAccessControl, deployMockERC165 } = require("./utils/waffleMocks");
+const { deployMockAccessControl, deployMockERC165, deployMockPrimexDNS } = require("./utils/waffleMocks");
 const { getAdminSigners } = require("./utils/hardhatUtils");
+const { ETH, NATIVE_CURRENCY } = require("./utils/constants");
 
 process.env.TEST = true;
 
 describe("DexAdapter", function () {
   let dexAdapter, DNS, PM, registry, deployer, caller, trader, MediumTimelockAdmin, ErrorsLibrary;
-  let mockRegistry, mockErc165;
-  let NonStandartERC20Token, nonStandartTokenDecimal;
+  let NonStandartERC20Token, nonStandartTokenDecimal, WETH;
+  let mockRegistry, mockDNS, mockErc165;
 
   before(async function () {
     await fixture(["Test"]);
     ({ deployer, caller, trader } = await getNamedSigners());
     ({ MediumTimelockAdmin } = await getAdminSigners());
     dexAdapter = await getContract("DexAdapter");
+    WETH = await getContractAt("WETH9", await dexAdapter.WNative());
     DNS = await getContract("PrimexDNS");
     PM = await getContract("PositionManager");
     registry = await getContract("Registry");
@@ -48,6 +61,7 @@ describe("DexAdapter", function () {
 
   beforeEach(async function () {
     mockRegistry = await deployMockAccessControl(deployer);
+    mockDNS = await deployMockPrimexDNS(deployer);
     mockErc165 = await deployMockERC165(deployer);
   });
 
@@ -68,12 +82,21 @@ describe("DexAdapter", function () {
         },
       });
     });
-    it("Should deploy dexAdapter", async function () {
-      expect(await dexAdapterFactory.deploy(registry.address));
+    it("Should deploy dexAdapter and initialize", async function () {
+      const dexAdapter = await dexAdapterFactory.deploy(registry.address, WETH.address);
+      expect(await dexAdapter.initialize(DNS.address));
     });
     it("Should revert when a param 'address registry' is not supported", async function () {
       await mockRegistry.mock.supportsInterface.returns(false);
-      await expect(dexAdapterFactory.deploy(mockRegistry.address)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
+      await expect(dexAdapterFactory.deploy(mockRegistry.address, WETH.address)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "ADDRESS_NOT_SUPPORTED",
+      );
+    });
+    it("Should revert when the dns address is not supported", async function () {
+      await mockDNS.mock.supportsInterface.returns(false);
+      const dexAdapter = await dexAdapterFactory.deploy(registry.address, WETH.address);
+      await expect(dexAdapter.initialize(mockDNS.address)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
   });
 
@@ -183,6 +206,8 @@ describe("DexAdapter", function () {
     beforeEach(async function () {
       swapExactTokensForTokensParams = {
         encodedPath: getEncodedPath([testTokenA.address, testTokenB.address], dex),
+        tokenIn: testTokenA.address,
+        tokenOut: testTokenB.address,
         amountIn: parseUnits("1", decimalsA),
         amountOutMin: 0,
         to: trader.address,
@@ -319,7 +344,8 @@ describe("DexAdapter", function () {
     });
 
     it("Should revert getAmountsOut() when Uniswap v3 is added to the dexType but uniV3Quoter is not set", async function () {
-      const dexAdapter = await dexAdapterFactory.deploy(registry.address);
+      const dexAdapter = await dexAdapterFactory.deploy(registry.address, WETH.address);
+      await dexAdapter.initialize(DNS.address);
       dexRouter = await DNS.getDexAddress("uniswapv3");
       getAmountsOutParams.dexRouter = dexRouter;
       await dexAdapter.setDexType(dexRouter, "2");
@@ -607,7 +633,8 @@ describe("DexAdapter", function () {
     });
 
     it("Should revert getAmountsIn() when Uniswap v3 is added to the dexType but uniV3Quoter is not set", async function () {
-      const dexAdapter = await dexAdapterFactory.deploy(registry.address);
+      const dexAdapter = await dexAdapterFactory.deploy(registry.address, WETH.address);
+      await dexAdapter.initialize(DNS.address);
       const dexRouter = await DNS.getDexAddress("uniswapv3");
       getAmountsInParams.dexRouter = dexRouter;
       await dexAdapter.setDexType(dexRouter, "2");
@@ -647,6 +674,8 @@ describe("DexAdapter", function () {
 
           const swapExactTokensForTokensParams = {
             encodedPath: getEncodedPath([tokenPairs[i][0].address, tokenPairs[i][1].address], dexes[j], pathParams[dexes[j]]),
+            tokenIn: tokenPairs[i][0].address,
+            tokenOut: tokenPairs[i][1].address,
             amountIn: amountInFromContract, // got from getAmountsIn
             amountOutMin: 0,
             to: trader.address,
@@ -700,6 +729,8 @@ describe("DexAdapter", function () {
         });
         const swapExactTokensForTokensParams = {
           encodedPath: getEncodedPath([tokenPairsCurve[i][0].address, tokenPairsCurve[i][1].address], "curve", pathParams.curve),
+          tokenIn: tokenPairsCurve[i][0].address,
+          tokenOut: tokenPairsCurve[i][1].address,
           amountIn: amountInFromContract, // got from getAmountsIn
           amountOutMin: 0,
           to: trader.address,
@@ -718,6 +749,778 @@ describe("DexAdapter", function () {
         expect(delta).to.be.equal(amountOutFromContract).to.be.closeTo(expectedAmountOut, slippage);
       });
     }
+    describe("getAmountsInByPaths", function () {
+      it("should getAmountsInByPaths through one dex", async function () {
+        const amountOut = parseUnits("1", decimalsC);
+        const singlePath = await getSinglePath([testTokenA.address, testTokenC.address], dexes[0]);
+
+        const [amountIn] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenC.address], dexes[0]),
+          amount: amountOut,
+          dexRouter: await DNS.getDexAddress(dexes[0]),
+        });
+        const amountInByPath = await dexAdapter.callStatic.getAmountsInByPaths(amountOut, singlePath);
+
+        expect(amountInByPath).to.be.equal(amountIn);
+      });
+
+      it("should getAmountsInByPaths through two dexes", async function () {
+        const amountOut = parseUnits("1", decimalsC);
+        const halfOfSwapAmount = amountOut.div("2");
+        const doublePath = await getPaths([
+          {
+            dex: dexes[0],
+            path: [testTokenA.address, testTokenC.address],
+            shares: 1,
+          },
+          {
+            dex: dexes[1],
+            path: [testTokenA.address, testTokenC.address],
+            shares: 1,
+          },
+        ]);
+
+        const [amountImOnFirstDex] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenC.address], dexes[0]),
+          amount: halfOfSwapAmount,
+          dexRouter: await DNS.getDexAddress(dexes[0]),
+        });
+        const [amountInOnSecondDex] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenC.address], dexes[1]),
+          amount: halfOfSwapAmount,
+          dexRouter: await DNS.getDexAddress(dexes[1]),
+        });
+        const amountInByPath = await dexAdapter.callStatic.getAmountsInByPaths(amountOut, doublePath);
+
+        expect(amountInByPath).to.be.equal(amountImOnFirstDex.add(amountInOnSecondDex));
+      });
+    });
+    describe("getAmountsInByRoutes", function () {
+      it("should getAmountsInByRoutes through one route with one dex", async function () {
+        const amountOut = parseUnits("1", decimalsC);
+        const singleRoute = await getSingleRoute([testTokenA.address, testTokenC.address], dexes[0]);
+        const [amountIn] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenC.address], dexes[0]),
+          amount: amountOut,
+          dexRouter: await DNS.getDexAddress(dexes[0]),
+        });
+        const amountInByPathRoutes = await dexAdapter.callStatic.getAmountsInByRoutes(amountOut, singleRoute);
+        expect(amountInByPathRoutes).to.be.equal(amountIn);
+      });
+      it("should getAmountsInByRoutes through two routes", async function () {
+        const amountOut = parseUnits("1", decimalsC);
+        const halfOfSwapAmount = amountOut.div("2");
+        const doubleRoute = await getRoutes([
+          {
+            to: testTokenX.address,
+            pathData: [
+              {
+                dex: dexes[0],
+                path: [testTokenA.address, testTokenX.address],
+                shares: 1,
+              },
+              {
+                dex: dexes[1],
+                path: [testTokenA.address, testTokenX.address],
+                shares: 1,
+              },
+            ],
+          },
+          {
+            to: testTokenC.address,
+            pathData: [
+              {
+                dex: dexes[0],
+                path: [testTokenX.address, testTokenC.address],
+                shares: 1,
+              },
+              {
+                dex: dexes[1],
+                path: [testTokenX.address, testTokenC.address],
+                shares: 1,
+              },
+            ],
+          },
+        ]);
+
+        const [amountXOnFirstDex] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenX.address, testTokenC.address], dexes[0]),
+          amount: halfOfSwapAmount,
+          dexRouter: await DNS.getDexAddress(dexes[0]),
+        });
+        const [amountXOnSecondDex] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenX.address, testTokenC.address], dexes[1]),
+          amount: halfOfSwapAmount,
+          dexRouter: await DNS.getDexAddress(dexes[1]),
+        });
+
+        const amountInX = amountXOnFirstDex.add(amountXOnSecondDex);
+        const halfOfSwapAmountX = amountInX.div("2");
+
+        const [amountInAOnFirstDex] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenX.address], dexes[0]),
+          amount: halfOfSwapAmountX,
+          dexRouter: await DNS.getDexAddress(dexes[0]),
+        });
+        const [amountInAOnSecondDex] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenX.address], dexes[1]),
+          amount: halfOfSwapAmountX,
+          dexRouter: await DNS.getDexAddress(dexes[1]),
+        });
+        const amountInByPathRoutes = await dexAdapter.callStatic.getAmountsInByRoutes(amountOut, doubleRoute);
+        expect(amountInByPathRoutes).to.be.equal(amountInAOnFirstDex.add(amountInAOnSecondDex));
+      });
+    });
+    describe("getAmountInByMegaRoutes", function () {
+      it("should getAmountInByMegaRoutes through signle megaroute", async function () {
+        const amountOut = parseUnits("1", decimalsC);
+        const singleMegaRoute = await getSingleMegaRoute([testTokenA.address, testTokenC.address], dexes[0]);
+        const [amountIn] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenC.address], dexes[0]),
+          amount: amountOut,
+          dexRouter: await DNS.getDexAddress(dexes[0]),
+        });
+        const amountInByMegaRoutes = await dexAdapter.callStatic.getAmountInByMegaRoutes({
+          tokenA: testTokenA.address,
+          tokenB: testTokenC.address,
+          amount: amountOut,
+          megaRoutes: singleMegaRoute,
+        });
+
+        expect(amountInByMegaRoutes).to.be.equal(amountIn);
+      });
+      it("should getAmountInByMegaRoutes through double megaroute", async function () {
+        const amountOut = parseUnits("1", decimalsC);
+        const doubleMegaRoute = await getMegaRoutes([
+          {
+            shares: 1,
+            // routes: => testTokenA => testTokenX => testTokenC
+            routesData: [
+              {
+                to: testTokenX.address,
+                pathData: [
+                  {
+                    dex: dexes[0],
+                    path: [testTokenA.address, testTokenX.address],
+                    shares: 1,
+                  },
+                  {
+                    dex: dexes[1],
+                    path: [testTokenA.address, testTokenX.address],
+                    shares: 1,
+                  },
+                ],
+              },
+              {
+                to: testTokenC.address,
+                pathData: [
+                  {
+                    dex: dexes[0],
+                    path: [testTokenX.address, testTokenC.address],
+                    shares: 1,
+                  },
+                  {
+                    dex: dexes[1],
+                    path: [testTokenX.address, testTokenC.address],
+                    shares: 1,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            shares: 1,
+            // routes: => testTokenA => testTokenX => testTokenC
+            routesData: [
+              {
+                to: testTokenX.address,
+                pathData: [
+                  {
+                    dex: dexes[0],
+                    path: [testTokenA.address, testTokenX.address],
+                    shares: 1,
+                  },
+                  {
+                    dex: dexes[1],
+                    path: [testTokenA.address, testTokenX.address],
+                    shares: 1,
+                  },
+                ],
+              },
+              {
+                to: testTokenC.address,
+                pathData: [
+                  {
+                    dex: dexes[0],
+                    path: [testTokenX.address, testTokenC.address],
+                    shares: 1,
+                  },
+                  {
+                    dex: dexes[1],
+                    path: [testTokenX.address, testTokenC.address],
+                    shares: 1,
+                  },
+                ],
+              },
+            ],
+          },
+        ]);
+
+        const quarterOfAmountOut = amountOut.div("4");
+
+        // calculate amount on first mega route
+        const [amountInXOnFirstDexFirstRoute] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenX.address, testTokenC.address], dexes[0]),
+          amount: quarterOfAmountOut,
+          dexRouter: await DNS.getDexAddress(dexes[0]),
+        });
+        const [amountInXOnSecondDexFirstRoute] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenX.address, testTokenC.address], dexes[1]),
+          amount: quarterOfAmountOut,
+          dexRouter: await DNS.getDexAddress(dexes[1]),
+        });
+
+        const amountOutX = amountInXOnFirstDexFirstRoute.add(amountInXOnSecondDexFirstRoute);
+        const halfOfAmountX = amountOutX.div("2");
+
+        const [amountInAOnFirstDexFirstRoute] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenX.address], dexes[0]),
+          amount: halfOfAmountX,
+          dexRouter: await DNS.getDexAddress(dexes[0]),
+        });
+        const [amountInAOnSecondDexFirstRoute] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenX.address], dexes[1]),
+          amount: halfOfAmountX,
+          dexRouter: await DNS.getDexAddress(dexes[1]),
+        });
+
+        // calculate amount on second mega route
+        const [amountInXOnFirstDexSecondRoute] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenX.address, testTokenC.address], dexes[0]),
+          amount: quarterOfAmountOut,
+          dexRouter: await DNS.getDexAddress(dexes[0]),
+        });
+        const [amountInXOnSecondtDexSecondRoute] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenX.address, testTokenC.address], dexes[1]),
+          amount: quarterOfAmountOut,
+          dexRouter: await DNS.getDexAddress(dexes[1]),
+        });
+
+        const amountInX = amountInXOnFirstDexSecondRoute.add(amountInXOnSecondtDexSecondRoute);
+        const halfOfAmountInX = amountInX.div("2");
+
+        const [amountInAOnFirstDexSecondRoute] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenX.address], dexes[0]),
+          amount: halfOfAmountInX,
+          dexRouter: await DNS.getDexAddress(dexes[0]),
+        });
+        const [amountInAOnSecondDexSecondRoute] = await dexAdapter.callStatic.getAmountsIn({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenX.address], dexes[1]),
+          amount: halfOfAmountInX,
+          dexRouter: await DNS.getDexAddress(dexes[1]),
+        });
+        const sumOfAToken = amountInAOnFirstDexFirstRoute
+          .add(amountInAOnSecondDexFirstRoute)
+          .add(amountInAOnFirstDexSecondRoute)
+          .add(amountInAOnSecondDexSecondRoute);
+
+        const getAmountInByMegaRoutes = await dexAdapter.callStatic.getAmountInByMegaRoutes({
+          tokenA: testTokenA.address,
+          tokenB: testTokenC.address,
+          amount: amountOut,
+          megaRoutes: doubleMegaRoute,
+        });
+        expect(getAmountInByMegaRoutes).to.be.equal(sumOfAToken);
+      });
+    });
+  });
+
+  describe("perform swaps", function () {
+    let singlePath, singleRoute, doublePath, doubleRoute, singleMegaRoute, doubleMegaRoute;
+    let dex, dex2, dex3;
+    let testTokenA, testTokenB, testTokenC, testTokenX;
+    let decimalsA;
+
+    before(async function () {
+      testTokenA = await getContract("TestTokenA");
+      testTokenB = await getContract("TestTokenB");
+      await run("deploy:ERC20Mock", {
+        name: "TestTokenC",
+        symbol: "TTC",
+        decimals: "6",
+        initialAccounts: JSON.stringify([]),
+        initialBalances: JSON.stringify([]),
+      });
+
+      await run("deploy:ERC20Mock", {
+        name: "TestTokenX",
+        symbol: "TTX",
+        decimals: "8",
+        initialAccounts: JSON.stringify([]),
+        initialBalances: JSON.stringify([]),
+      });
+
+      testTokenX = await getContract("TestTokenX");
+      testTokenC = await getContract("TestTokenC");
+
+      decimalsA = await testTokenA.decimals();
+      dex = process.env.DEX || "uniswap";
+      dex2 = "sushiswap";
+      dex3 = "uniswapv3";
+
+      singlePath = await getSinglePath([testTokenA.address, testTokenB.address], dex);
+      singleRoute = await getSingleRoute([testTokenA.address, testTokenB.address], dex);
+      singleMegaRoute = await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex);
+
+      doublePath = await getPaths([
+        {
+          dex: dex,
+          path: [testTokenA.address, testTokenB.address],
+          shares: 1,
+        },
+        {
+          dex: dex2,
+          path: [testTokenA.address, testTokenB.address],
+          shares: 1,
+        },
+      ]);
+
+      doubleRoute = await getRoutes([
+        {
+          to: testTokenB.address,
+          pathData: [
+            {
+              dex: dex,
+              path: [testTokenA.address, testTokenB.address],
+              shares: 1,
+            },
+            {
+              dex: dex2,
+              path: [testTokenA.address, testTokenB.address],
+              shares: 1,
+            },
+          ],
+        },
+        {
+          to: testTokenC.address,
+          pathData: [
+            {
+              dex: dex,
+              path: [testTokenB.address, testTokenC.address],
+              shares: 1,
+            },
+            {
+              dex: dex2,
+              path: [testTokenB.address, testTokenC.address],
+              shares: 1,
+            },
+          ],
+        },
+      ]);
+
+      doubleMegaRoute = await getMegaRoutes([
+        {
+          shares: 1,
+          // routes: => testTokenA => testTokenB => testTokenC
+          routesData: [
+            {
+              to: testTokenB.address,
+              pathData: [
+                {
+                  dex: dex,
+                  path: [testTokenA.address, testTokenB.address],
+                  shares: 1,
+                },
+                {
+                  dex: dex2,
+                  path: [testTokenA.address, testTokenB.address],
+                  shares: 1,
+                },
+              ],
+            },
+            {
+              to: testTokenC.address,
+              pathData: [
+                {
+                  dex: dex,
+                  path: [testTokenB.address, testTokenC.address],
+                  shares: 1,
+                },
+                {
+                  dex: dex2,
+                  path: [testTokenB.address, testTokenC.address],
+                  shares: 1,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          shares: 1,
+          // routes: => testTokenA => testTokenX => testTokenC
+          routesData: [
+            {
+              to: testTokenX.address,
+              pathData: [
+                {
+                  dex: dex,
+                  path: [testTokenA.address, testTokenX.address],
+                  shares: 1,
+                },
+                {
+                  dex: dex2,
+                  path: [testTokenA.address, testTokenX.address],
+                  shares: 1,
+                },
+              ],
+            },
+            {
+              to: testTokenC.address,
+              pathData: [
+                {
+                  dex: dex,
+                  path: [testTokenX.address, testTokenC.address],
+                  shares: 1,
+                },
+                {
+                  dex: dex2,
+                  path: [testTokenX.address, testTokenC.address],
+                  shares: 1,
+                },
+              ],
+            },
+          ],
+        },
+      ]);
+
+      const VAULT_ACCESS_ROLE = keccak256(toUtf8Bytes("VAULT_ACCESS_ROLE"));
+      await registry.grantRole(VAULT_ACCESS_ROLE, deployer.address);
+      // testTokenA -- testTokenB
+      await addLiquidity({ dex: dex, from: "lender", tokenA: testTokenA, tokenB: testTokenB });
+      await addLiquidity({ dex: dex2, from: "lender", tokenA: testTokenA, tokenB: testTokenB });
+      await addLiquidity({ dex: dex3, from: "lender", tokenA: testTokenA, tokenB: testTokenB });
+
+      // testTokenA -- testTokenX
+      await addLiquidity({ dex: dex, from: "lender", tokenA: testTokenA, tokenB: testTokenX });
+      await addLiquidity({ dex: dex2, from: "lender", tokenA: testTokenA, tokenB: testTokenX });
+      await addLiquidity({ dex: dex3, from: "lender", tokenA: testTokenA, tokenB: testTokenX });
+
+      // testTokenB -- testTokenC
+      await addLiquidity({ dex: dex, from: "lender", tokenA: testTokenB, tokenB: testTokenC });
+      await addLiquidity({ dex: dex2, from: "lender", tokenA: testTokenB, tokenB: testTokenC });
+      await addLiquidity({ dex: dex3, from: "lender", tokenA: testTokenB, tokenB: testTokenC });
+
+      // testTokenX -- testTokenC
+      await addLiquidity({ dex: dex, from: "lender", tokenA: testTokenX, tokenB: testTokenC });
+      await addLiquidity({ dex: dex2, from: "lender", tokenA: testTokenX, tokenB: testTokenC });
+      await addLiquidity({ dex: dex3, from: "lender", tokenA: testTokenX, tokenB: testTokenC });
+
+      await testTokenA.mint(dexAdapter.address, parseUnits("1000000", decimalsA));
+    });
+
+    describe("performPathsSwap with the native currency", function () {
+      let curvePool, balancerPool;
+      before(async function () {
+        // mint WETH and token
+        await WETH.deposit({ value: parseEther("100") });
+        await testTokenB.mint(deployer.address, parseUnits("100", await testTokenB.decimals()));
+
+        // WETH -- testTokenB
+        await addLiquidity({ dex: "uniswap", from: "deployer", tokenA: WETH, tokenB: testTokenB, needMint: false });
+        await addLiquidity({ dex: "quickswapv3", from: "deployer", tokenA: WETH, tokenB: testTokenB, needMint: false });
+        await addLiquidity({ dex: "uniswapv3", from: "deployer", tokenA: WETH, tokenB: testTokenB, needMint: false });
+
+        balancerPool = await addLiquidity({
+          dex: "balancer",
+          from: "deployer",
+          assets: [
+            { token: WETH.address, weight: "3", amount: "10" },
+            { token: testTokenB.address, weight: "3", amount: "10" },
+            { token: testTokenA.address, weight: "4", amount: "10" },
+          ],
+        });
+
+        // deploy and add liquidity to the ether pool
+        const data = await run("curve:createEtherPool", {
+          secondToken: testTokenB.address,
+        });
+        curvePool = data.pool;
+        await testTokenB.mint(dexAdapter.address, parseUnits("10", await testTokenB.decimals()));
+        await run("curve:addLiquidityEthPool", {
+          from: "deployer",
+          pool: curvePool,
+          secondToken: testTokenB.address,
+          amounts: JSON.stringify(["10", "10"]),
+        });
+      });
+      it("should swap the native currency for a token on the Curve", async function () {
+        const swapAmount = parseUnits("1", 18);
+        const path = await getSinglePath([ETH, testTokenB.address], "curve", [curvePool]);
+        const amountOut = await dexAdapter.callStatic.getAmountsOutByPaths(swapAmount, path);
+        const balanceBefore = await testTokenB.balanceOf(deployer.address);
+        await dexAdapter.performPathsSwap(NATIVE_CURRENCY, testTokenB.address, swapAmount, deployer.address, path, { value: swapAmount });
+        const balanceAfter = await testTokenB.balanceOf(deployer.address);
+        expect(balanceAfter.sub(balanceBefore)).to.be.equal(amountOut);
+      });
+      it("should swap a token for the native currency on the Curve", async function () {
+        const swapAmount = parseUnits("1", await testTokenB.decimals());
+        const path = await getSinglePath([testTokenB.address, ETH], "curve", [curvePool]);
+        const amountOut = await dexAdapter.callStatic.getAmountsOutByPaths(swapAmount, path);
+        await expect(() =>
+          dexAdapter.performPathsSwap(testTokenB.address, NATIVE_CURRENCY, swapAmount, deployer.address, path),
+        ).to.changeEtherBalances([curvePool, deployer.address], [amountOut.mul(NegativeOne), amountOut]);
+      });
+      it("should swap the native currency for a token on the Balancer", async function () {
+        const swapAmount = parseUnits("1", 18);
+        const path = await getSinglePath([WETH.address, testTokenB.address], "balancer", [balancerPool]);
+        const amountOut = await dexAdapter.callStatic.getAmountsOutByPaths(swapAmount, path);
+        const balanceBefore = await testTokenB.balanceOf(deployer.address);
+        await dexAdapter.performPathsSwap(NATIVE_CURRENCY, testTokenB.address, swapAmount, deployer.address, path, { value: swapAmount });
+        const balanceAfter = await testTokenB.balanceOf(deployer.address);
+        expect(balanceAfter.sub(balanceBefore)).to.be.equal(amountOut);
+      });
+      it("should swap a token for the native currency on the Balancer", async function () {
+        const swapAmount = parseUnits("1", await testTokenB.decimals());
+        const path = await getSinglePath([testTokenB.address, WETH.address], "balancer", [balancerPool]);
+        const amountOut = await dexAdapter.callStatic.getAmountsOutByPaths(swapAmount, path);
+        const balanceBefore = await WETH.balanceOf(deployer.address);
+        await dexAdapter.performPathsSwap(testTokenB.address, NATIVE_CURRENCY, swapAmount, deployer.address, path);
+        const balanceAfter = await WETH.balanceOf(deployer.address);
+        expect(balanceAfter.sub(balanceBefore)).to.be.equal(amountOut);
+      });
+      it("should swap the native currency for a token on the UniswapV3", async function () {
+        const swapAmount = parseUnits("1", 18);
+        const path = await getSinglePath([WETH.address, testTokenB.address], "uniswapv3");
+        const amountOut = await dexAdapter.callStatic.getAmountsOutByPaths(swapAmount, path);
+        const balanceBefore = await testTokenB.balanceOf(deployer.address);
+        await dexAdapter.performPathsSwap(NATIVE_CURRENCY, testTokenB.address, swapAmount, deployer.address, path, { value: swapAmount });
+        const balanceAfter = await testTokenB.balanceOf(deployer.address);
+        expect(balanceAfter.sub(balanceBefore)).to.be.equal(amountOut);
+      });
+      it("should swap a token for the native currency on the UniswapV3", async function () {
+        const swapAmount = parseUnits("1", await testTokenB.decimals());
+        const path = await getSinglePath([testTokenB.address, WETH.address], "uniswapv3");
+        const amountOut = await dexAdapter.callStatic.getAmountsOutByPaths(swapAmount, path);
+        const balanceBefore = await WETH.balanceOf(deployer.address);
+        await dexAdapter.performPathsSwap(testTokenB.address, NATIVE_CURRENCY, swapAmount, deployer.address, path);
+        const balanceAfter = await WETH.balanceOf(deployer.address);
+        expect(balanceAfter.sub(balanceBefore)).to.be.equal(amountOut);
+      });
+      it("should swap the native currency for a token on the QuickswapV3", async function () {
+        const swapAmount = parseUnits("1", 18);
+        const path = await getSinglePath([WETH.address, testTokenB.address], "quickswapv3");
+        const amountOut = await dexAdapter.callStatic.getAmountsOutByPaths(swapAmount, path);
+        const balanceBefore = await testTokenB.balanceOf(deployer.address);
+        await dexAdapter.performPathsSwap(NATIVE_CURRENCY, testTokenB.address, swapAmount, deployer.address, path, { value: swapAmount });
+        const balanceAfter = await testTokenB.balanceOf(deployer.address);
+        expect(balanceAfter.sub(balanceBefore)).to.be.equal(amountOut);
+      });
+      it("should swap a token for the native currency on the QuickswapV3", async function () {
+        const swapAmount = parseUnits("1", await testTokenB.decimals());
+        const path = await getSinglePath([testTokenB.address, WETH.address], "quickswapv3");
+        const amountOut = await dexAdapter.callStatic.getAmountsOutByPaths(swapAmount, path);
+        const balanceBefore = await WETH.balanceOf(deployer.address);
+        await dexAdapter.performPathsSwap(testTokenB.address, NATIVE_CURRENCY, swapAmount, deployer.address, path);
+        const balanceAfter = await WETH.balanceOf(deployer.address);
+        expect(balanceAfter.sub(balanceBefore)).to.be.equal(amountOut);
+      });
+      it("should swap the native currency for a token on the UniswapV2", async function () {
+        const swapAmount = parseUnits("1", 18);
+        const path = await getSinglePath([WETH.address, testTokenB.address], "uniswap");
+        const amountOut = await dexAdapter.callStatic.getAmountsOutByPaths(swapAmount, path);
+        const balanceBefore = await testTokenB.balanceOf(deployer.address);
+        await dexAdapter.performPathsSwap(NATIVE_CURRENCY, testTokenB.address, swapAmount, deployer.address, path, { value: swapAmount });
+        const balanceAfter = await testTokenB.balanceOf(deployer.address);
+        expect(balanceAfter.sub(balanceBefore)).to.be.equal(amountOut);
+      });
+      it("should swap a token for the native currency on the UniswapV2", async function () {
+        const swapAmount = parseUnits("1", await testTokenB.decimals());
+        const path = await getSinglePath([testTokenB.address, WETH.address], "uniswap");
+        const amountOut = await dexAdapter.callStatic.getAmountsOutByPaths(swapAmount, path);
+        const balanceBefore = await WETH.balanceOf(deployer.address);
+        await dexAdapter.performPathsSwap(testTokenB.address, NATIVE_CURRENCY, swapAmount, deployer.address, path);
+        const balanceAfter = await WETH.balanceOf(deployer.address);
+        expect(balanceAfter.sub(balanceBefore)).to.be.equal(amountOut);
+      });
+    });
+    describe("performPathsSwap", function () {
+      it("should performPathsSwap through one dex", async function () {
+        const swapAmount = parseUnits("1", decimalsA);
+        const [, amountOut] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenB.address], dex),
+          amount: swapAmount,
+          dexRouter: await DNS.getDexAddress(dex),
+        });
+        const balanceBefore = await testTokenB.balanceOf(deployer.address);
+        await dexAdapter.performPathsSwap(testTokenA.address, testTokenB.address, swapAmount, deployer.address, singlePath);
+        const balanceAfter = await testTokenB.balanceOf(deployer.address);
+
+        expect(balanceAfter.sub(balanceBefore)).to.be.equal(amountOut);
+      });
+
+      it("should performPathsSwap through two dexes", async function () {
+        const swapAmount = parseUnits("1", decimalsA);
+        const halfOfSwapAmount = swapAmount.div("2");
+
+        const [, amountOutOnFirstDex] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenB.address], dex),
+          amount: halfOfSwapAmount,
+          dexRouter: await DNS.getDexAddress(dex),
+        });
+        const [, amountOutOnSecondDex] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenB.address], dex2),
+          amount: halfOfSwapAmount,
+          dexRouter: await DNS.getDexAddress(dex2),
+        });
+        const balanceBefore = await testTokenB.balanceOf(deployer.address);
+        await dexAdapter.performPathsSwap(testTokenA.address, testTokenB.address, swapAmount, deployer.address, doublePath);
+        const balanceAfter = await testTokenB.balanceOf(deployer.address);
+
+        expect(balanceAfter.sub(balanceBefore)).to.be.equal(amountOutOnFirstDex.add(amountOutOnSecondDex));
+      });
+    });
+    describe("performRoutesSwap", function () {
+      it("should performRoutesSwap through one route with one dex", async function () {
+        const swapAmount = parseUnits("1", decimalsA);
+        const [, amountOut] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenB.address], dex),
+          amount: swapAmount,
+          dexRouter: await DNS.getDexAddress(dex),
+        });
+        const returnAmount = await dexAdapter.callStatic.performRoutesSwap(testTokenA.address, swapAmount, deployer.address, singleRoute);
+        const balanceBefore = await testTokenB.balanceOf(deployer.address);
+        await dexAdapter.performRoutesSwap(testTokenA.address, swapAmount, deployer.address, singleRoute);
+        const balanceAfter = await testTokenB.balanceOf(deployer.address);
+        expect(balanceAfter.sub(balanceBefore)).to.be.equal(amountOut).to.be.equal(returnAmount);
+      });
+      it("should performRoutesSwap through two routes", async function () {
+        const swapAmount = parseUnits("1", decimalsA);
+        const halfOfSwapAmount = swapAmount.div("2");
+
+        const [, amountOutBOnFirstDex] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenB.address], dex),
+          amount: halfOfSwapAmount,
+          dexRouter: await DNS.getDexAddress(dex),
+        });
+        const [, amountOutBOnSecondDex] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenB.address], dex2),
+          amount: halfOfSwapAmount,
+          dexRouter: await DNS.getDexAddress(dex2),
+        });
+
+        const swapAmountB = amountOutBOnFirstDex.add(amountOutBOnSecondDex);
+        const halfOfSwapAmountB = swapAmountB.div("2");
+
+        const [, amountOutCOnFirstDex] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenB.address, testTokenC.address], dex),
+          amount: halfOfSwapAmountB,
+          dexRouter: await DNS.getDexAddress(dex),
+        });
+        const [, amountOutCOnSecondDex] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenB.address, testTokenC.address], dex2),
+          amount: halfOfSwapAmountB,
+          dexRouter: await DNS.getDexAddress(dex2),
+        });
+        const balanceBefore = await testTokenC.balanceOf(deployer.address);
+        await dexAdapter.performRoutesSwap(testTokenA.address, swapAmount, deployer.address, doubleRoute);
+        const balanceAfter = await testTokenC.balanceOf(deployer.address);
+
+        expect(balanceAfter.sub(balanceBefore)).to.be.equal(amountOutCOnFirstDex.add(amountOutCOnSecondDex));
+      });
+    });
+    describe("performMegaRoutesSwap", function () {
+      it("should performMegaRoutesSwap through signle megaroute", async function () {
+        const swapAmount = parseUnits("1", decimalsA);
+        const [, amountOut] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenB.address], dex),
+          amount: swapAmount,
+          dexRouter: await DNS.getDexAddress(dex),
+        });
+        const balanceBefore = await testTokenB.balanceOf(deployer.address);
+        await dexAdapter.performMegaRoutesSwap({
+          tokenA: testTokenA.address,
+          tokenB: testTokenB.address,
+          amountTokenA: swapAmount,
+          megaRoutes: singleMegaRoute,
+          receiver: deployer.address,
+          deadline: new Date().getTime() + 600,
+        });
+        const balanceAfter = await testTokenB.balanceOf(deployer.address);
+
+        expect(balanceAfter.sub(balanceBefore)).to.be.equal(amountOut);
+      });
+      it("should performMegaRoutesSwap through double megaroute", async function () {
+        const swapAmount = parseUnits("1", decimalsA);
+        const quarterOfSwapAmount = swapAmount.div("4");
+
+        // calculate amount on first mega route
+        const [, amountOutBOnFirstDex] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenB.address], dex),
+          amount: quarterOfSwapAmount,
+          dexRouter: await DNS.getDexAddress(dex),
+        });
+        const [, amountOutBOnSecondDex] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenB.address], dex2),
+          amount: quarterOfSwapAmount,
+          dexRouter: await DNS.getDexAddress(dex2),
+        });
+
+        const swapAmountB = amountOutBOnFirstDex.add(amountOutBOnSecondDex);
+        const halfOfSwapAmountB = swapAmountB.div("2");
+
+        const [, amountOutCOnFirstDexFirstRoute] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenB.address, testTokenC.address], dex),
+          amount: halfOfSwapAmountB,
+          dexRouter: await DNS.getDexAddress(dex),
+        });
+        const [, amountOutCOnSecondDexFirstRoute] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenB.address, testTokenC.address], dex2),
+          amount: halfOfSwapAmountB,
+          dexRouter: await DNS.getDexAddress(dex2),
+        });
+
+        // calculate amount on second mega route
+        const [, amountOutXOnFirstDex] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenX.address], dex),
+          amount: quarterOfSwapAmount,
+          dexRouter: await DNS.getDexAddress(dex),
+        });
+        const [, amountOutXOnSecondDex] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenA.address, testTokenX.address], dex2),
+          amount: quarterOfSwapAmount,
+          dexRouter: await DNS.getDexAddress(dex2),
+        });
+
+        const swapAmountX = amountOutXOnFirstDex.add(amountOutXOnSecondDex);
+        const halfOfSwapAmountX = swapAmountX.div("2");
+
+        const [, amountOutCOnFirstDexSecondRoute] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenX.address, testTokenC.address], dex),
+          amount: halfOfSwapAmountX,
+          dexRouter: await DNS.getDexAddress(dex),
+        });
+        const [, amountOutCOnSecondDexSecondRoute] = await dexAdapter.callStatic.getAmountsOut({
+          encodedPath: getEncodedPath([testTokenX.address, testTokenC.address], dex2),
+          amount: halfOfSwapAmountX,
+          dexRouter: await DNS.getDexAddress(dex2),
+        });
+        const sumOfCToken = amountOutCOnFirstDexFirstRoute
+          .add(amountOutCOnSecondDexFirstRoute)
+          .add(amountOutCOnFirstDexSecondRoute)
+          .add(amountOutCOnSecondDexSecondRoute);
+        const balanceBefore = await testTokenC.balanceOf(deployer.address);
+        await dexAdapter.performMegaRoutesSwap({
+          tokenA: testTokenA.address,
+          tokenB: testTokenC.address,
+          amountTokenA: swapAmount,
+          megaRoutes: doubleMegaRoute,
+          receiver: deployer.address,
+          deadline: new Date().getTime() + 600,
+        });
+        const balanceAfter = await testTokenC.balanceOf(deployer.address);
+        expect(balanceAfter.sub(balanceBefore)).to.be.equal(sumOfCToken);
+      });
+    });
   });
 
   describe("Should getGas", function () {

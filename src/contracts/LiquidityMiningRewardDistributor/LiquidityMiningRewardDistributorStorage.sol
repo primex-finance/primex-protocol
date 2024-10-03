@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -9,7 +9,7 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/se
 import "../libraries/Errors.sol";
 
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
-import {ILiquidityMiningRewardDistributorStorage, IPrimexDNS, ITraderBalanceVault, IERC20} from "./ILiquidityMiningRewardDistributorStorage.sol";
+import {ILiquidityMiningRewardDistributorStorage, IPrimexDNSV3, ITraderBalanceVault, IERC20} from "./ILiquidityMiningRewardDistributorStorage.sol";
 
 contract LiquidityMiningRewardDistributorStorage is
     ILiquidityMiningRewardDistributorStorage,
@@ -17,7 +17,7 @@ contract LiquidityMiningRewardDistributorStorage is
     ERC165Upgradeable,
     ReentrancyGuardUpgradeable
 {
-    IPrimexDNS public override primexDNS;
+    IPrimexDNSV3 public override primexDNS;
     IERC20 public override pmx;
     ITraderBalanceVault public override traderBalanceVault;
     address public override registry;

@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2023 zOS Global Limited and contributors
+// Copyright (c) 2016-2024 zOS Global Limited and contributors
 // SPDX-License-Identifier: MIT
 
 // Interface for OpenZeppelin's Pausable contract from https://github.com/OpenZeppelin/openzeppelin-contracts/

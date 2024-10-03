@@ -1,19 +1,21 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
-import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
+import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
 import {TokenTransfersLibrary} from "../libraries/TokenTransfersLibrary.sol";
 import {TokenApproveLibrary} from "../libraries/TokenApproveLibrary.sol";
 
 import "./BucketStorage.sol";
 import {VAULT_ACCESS_ROLE, PM_ROLE, BATCH_MANAGER_ROLE, MAX_ASSET_DECIMALS, SECONDS_PER_YEAR} from "../Constants.sol";
 import {BIG_TIMELOCK_ADMIN, MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN} from "../Constants.sol";
-import {IBucket, IBucketV2} from "./IBucket.sol";
+import {IBucket, IBucketV2, ISwapManager, IBucketV3} from "./IBucket.sol";
+import {IBucketExtension} from "./IBucketExtension.sol";
 
 /* solhint-disable max-states-count */
-contract Bucket is IBucketV2, BucketStorage {
+contract Bucket is IBucketV3, BucketStorageV2 {
     using WadRayMath for uint256;
 
     constructor() {
@@ -34,14 +36,11 @@ contract Bucket is IBucketV2, BucketStorage {
      */
     function initialize(ConstructorParams calldata _params, address _registry) public override initializer {
         _require(
-            IERC165Upgradeable(_registry).supportsInterface(type(IAccessControl).interfaceId) &&
-                IERC165Upgradeable(address(_params.pToken)).supportsInterface(type(IPToken).interfaceId) &&
-                IERC165Upgradeable(address(_params.dns)).supportsInterface(type(IPrimexDNS).interfaceId) &&
-                IERC165Upgradeable(address(_params.debtToken)).supportsInterface(type(IDebtToken).interfaceId) &&
+            IERC165Upgradeable(address(_params.dns)).supportsInterface(type(IPrimexDNSV3).interfaceId) &&
                 IERC165Upgradeable(address(_params.positionManager)).supportsInterface(
-                    type(IPositionManager).interfaceId
+                    type(IPositionManagerV2).interfaceId
                 ) &&
-                IERC165Upgradeable(address(_params.priceOracle)).supportsInterface(type(IPriceOracle).interfaceId) &&
+                IERC165Upgradeable(address(_params.priceOracle)).supportsInterface(type(IPriceOracleV2).interfaceId) &&
                 IERC165Upgradeable(address(_params.reserve)).supportsInterface(type(IReserve).interfaceId) &&
                 IERC165Upgradeable(address(_params.interestRateStrategy)).supportsInterface(
                     type(IInterestRateStrategy).interfaceId
@@ -90,9 +89,9 @@ contract Bucket is IBucketV2, BucketStorage {
         _params.interestRateStrategy.setBarCalculationParams(_params.barCalcParams);
         name = _params.name;
         pToken = _params.pToken;
-        dns = _params.dns;
-        positionManager = _params.positionManager;
-        priceOracle = _params.priceOracle;
+        dns = IPrimexDNSV3(address(_params.dns));
+        positionManager = IPositionManagerV2(address(_params.positionManager));
+        priceOracle = IPriceOracleV2(address(_params.priceOracle));
         debtToken = _params.debtToken;
         reserve = _params.reserve;
         whiteBlackList = _params.whiteBlackList;
@@ -116,7 +115,7 @@ contract Bucket is IBucketV2, BucketStorage {
      * @inheritdoc IBucket
      */
     function addAsset(address _newAsset) external override {
-        _onlyRole(MEDIUM_TIMELOCK_ADMIN);
+        _onlyRole(SMALL_TIMELOCK_ADMIN);
         _addAsset(_newAsset);
     }
 
@@ -142,6 +141,19 @@ contract Bucket is IBucketV2, BucketStorage {
         _onlyRole(BIG_TIMELOCK_ADMIN);
         interestRateStrategy.setBarCalculationParams(_params);
         emit BarCalculationParamsChanged(_params);
+    }
+
+    /**
+     * @inheritdoc IBucketV3
+     */
+    function setBucketExtension(address _newBucketExtension) external override {
+        _onlyRole(BIG_TIMELOCK_ADMIN);
+        _require(
+            IERC165Upgradeable(_newBucketExtension).supportsInterface(type(IBucketExtension).interfaceId),
+            Errors.ADDRESS_NOT_SUPPORTED.selector
+        );
+        bucketExtension = _newBucketExtension;
+        emit ChangedBucketExtension(_newBucketExtension);
     }
 
     /**
@@ -271,62 +283,17 @@ contract Bucket is IBucketV2, BucketStorage {
     function depositFromBucket(
         string calldata _bucketTo,
         ISwapManager _swapManager,
-        PrimexPricingLibrary.Route[] calldata routes,
+        PrimexPricingLibrary.MegaRoute[] calldata _megaRoutes,
         uint256 _amountOutMin
-    ) external override nonReentrant {
-        _notBlackListed();
-        // don't need check that _bucketTo isn't this bucket name
-        // tx will be reverted by ReentrancyGuard
-        _require(
-            !LMparams.isBucketLaunched && block.timestamp > LMparams.deadlineTimestamp,
-            Errors.DEADLINE_IS_NOT_PASSED.selector
-        );
-        if (isReinvestToAaveEnabled && aaveDeposit > 0) {
-            _withdrawBucketLiquidityFromAave();
-        }
-        IBucket receiverBucket = IBucket(dns.getBucketAddress(_bucketTo));
-
-        LMparams.liquidityMiningRewardDistributor.reinvest(
-            name,
+    ) external override {
+        bytes memory data = abi.encodeWithSignature(
+            "depositFromBucket(string,address,(uint256,(address,(string,uint256,bytes)[])[])[],uint256)",
             _bucketTo,
-            msg.sender,
-            receiverBucket.getLiquidityMiningParams().isBucketLaunched,
-            LMparams.deadlineTimestamp
+            _swapManager,
+            _megaRoutes,
+            _amountOutMin
         );
-
-        uint256 allUserBalance = pToken.burn(msg.sender, type(uint256).max, liquidityIndex);
-        emit Withdraw(msg.sender, address(receiverBucket), allUserBalance);
-        IERC20Metadata bucketToAsset = receiverBucket.borrowedAsset();
-        if (bucketToAsset != borrowedAsset) {
-            // Need this check that _swapManager is legit.
-            // Without it, user can specify any address of _swapManager to withdraw their funds with an extra reward
-            _require(
-                IAccessControl(registry).hasRole(VAULT_ACCESS_ROLE, address(_swapManager)),
-                Errors.FORBIDDEN.selector
-            );
-            TokenApproveLibrary.doApprove(address(borrowedAsset), address(_swapManager), allUserBalance);
-            allUserBalance = _swapManager.swap(
-                ISwapManager.SwapParams({
-                    tokenA: address(borrowedAsset),
-                    tokenB: address(bucketToAsset),
-                    amountTokenA: allUserBalance,
-                    amountOutMin: _amountOutMin,
-                    routes: routes,
-                    receiver: address(receiverBucket),
-                    deadline: block.timestamp,
-                    isSwapFromWallet: true,
-                    isSwapToWallet: true,
-                    isSwapFeeInPmx: false,
-                    payFeeFromWallet: false
-                }),
-                0,
-                false
-            );
-        } else {
-            TokenTransfersLibrary.doTransferOut(address(borrowedAsset), address(receiverBucket), allUserBalance);
-        }
-
-        receiverBucket.receiveDeposit(msg.sender, allUserBalance, LMparams.stabilizationDuration, name);
+        Address.functionDelegateCall(bucketExtension, data);
     }
 
     /**
@@ -334,7 +301,8 @@ contract Bucket is IBucketV2, BucketStorage {
      */
     function returnLiquidityFromAaveToBucket() external override {
         _onlyRole(SMALL_TIMELOCK_ADMIN);
-        _withdrawBucketLiquidityFromAave();
+        bytes memory data = abi.encodeWithSelector(IBucketExtension.withdrawBucketLiquidityFromAave.selector);
+        Address.functionDelegateCall(bucketExtension, data);
     }
 
     /**
@@ -360,7 +328,8 @@ contract Bucket is IBucketV2, BucketStorage {
         if (!LMparams.isBucketLaunched && isReinvestToAaveEnabled && aaveDeposit > 0) {
             // if liquidity mining failed, take all tokens from aave during first withdraw from bucket
             if (block.timestamp > LMparams.deadlineTimestamp) {
-                _withdrawBucketLiquidityFromAave();
+                bytes memory data = abi.encodeWithSelector(IBucketExtension.withdrawBucketLiquidityFromAave.selector);
+                Address.functionDelegateCall(bucketExtension, data);
             } else {
                 // if liquidity mining is in progress, withdraw needed amount from aave
                 address aavePool = dns.aavePool();
@@ -487,19 +456,30 @@ contract Bucket is IBucketV2, BucketStorage {
      * @inheritdoc IBucket
      */
     function maxAssetLeverage(address _asset) external view override returns (uint256) {
+        return maxAssetLeverage(_asset, 0);
+    }
+
+    /**
+     * @inheritdoc IBucketV3
+     */
+    function maxAssetLeverage(address _asset, uint256 _feeRate) public view override returns (uint256) {
         _require(allowedAssets[_asset].isSupported, Errors.ASSET_IS_NOT_SUPPORTED.selector);
         uint256 maintenanceBuffer = positionManager.maintenanceBuffer();
-        //  The formula is:
-        //  (WAD + maintenanceBuffer) feeBuffer /
-        //  ((WAD + maintenanceBuffer) feeBuffer) -
-        //  (WAD - securityBuffer) (WAD - pairPriceDropBA) (WAD - oracleTolerableLimitAB) (WAD - oracleTolerableLimitBA)
+        // The formula is:
+        // (WAD + maintenanceBuffer) feeBuffer /
+        // ((WAD + maintenanceBuffer) feeBuffer) -
+        // (WAD - securityBuffer) (WAD - pairPriceDropBA) (WAD - oracleTolerableLimitAB) (WAD - oracleTolerableLimitBA) +
+        // protocolFeeInPositionAsset / positionSize)
         return
             (WadRayMath.WAD + maintenanceBuffer).wmul(feeBuffer).wdiv(
                 (WadRayMath.WAD + maintenanceBuffer).wmul(feeBuffer) -
                     (WadRayMath.WAD - positionManager.securityBuffer())
                         .wmul(WadRayMath.WAD - priceOracle.getPairPriceDrop(_asset, address(borrowedAsset)))
                         .wmul(WadRayMath.WAD - positionManager.getOracleTolerableLimit(address(borrowedAsset), _asset))
-                        .wmul(WadRayMath.WAD - positionManager.getOracleTolerableLimit(_asset, address(borrowedAsset)))
+                        .wmul(
+                            WadRayMath.WAD - positionManager.getOracleTolerableLimit(_asset, address(borrowedAsset))
+                        ) +
+                    _feeRate
             );
     }
 
@@ -566,8 +546,12 @@ contract Bucket is IBucketV2, BucketStorage {
     /// @notice Interface checker
     function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
         return
+            _interfaceId == type(IBucketV3).interfaceId ||
             _interfaceId == type(IBucketV2).interfaceId ||
             _interfaceId == type(IBucket).interfaceId ||
+            //we are forced to support this specific interface because of the upgradeTo function in the BucketFactory contract,
+            // which checks for the existence of this legacy interface
+            _interfaceId == 0xcad9e0d3 ||
             super.supportsInterface(_interfaceId);
     }
 
@@ -689,32 +673,10 @@ contract Bucket is IBucketV2, BucketStorage {
         LMparams.isBucketLaunched = true;
         LMparams.stabilizationEndTimestamp = block.timestamp + LMparams.stabilizationDuration;
         if (isReinvestToAaveEnabled) {
-            _withdrawBucketLiquidityFromAave();
+            bytes memory data = abi.encodeWithSelector(IBucketExtension.withdrawBucketLiquidityFromAave.selector);
+            Address.functionDelegateCall(bucketExtension, data);
         }
         emit BucketLaunched();
-    }
-
-    /**
-     * @notice Internal function to withdraw all liquidity from Aave
-     */
-    function _withdrawBucketLiquidityFromAave() internal {
-        address aavePool = dns.aavePool();
-        uint256 aaveBalance = IAToken(IPool(aavePool).getReserveData(address(borrowedAsset)).aTokenAddress).balanceOf(
-            address(this)
-        );
-        isReinvestToAaveEnabled = false;
-        if (aaveBalance == 0) return;
-
-        IPool(aavePool).withdraw(address(borrowedAsset), type(uint256).max, address(this));
-        emit WithdrawFromAave(aavePool, aaveBalance);
-
-        // if there is earned interest, withdraw it to treasury
-        if (aaveBalance > aaveDeposit) {
-            uint256 interest = aaveBalance - aaveDeposit;
-            TokenTransfersLibrary.doTransferOut(address(borrowedAsset), dns.treasury(), interest);
-            emit TopUpTreasury(aavePool, interest);
-        }
-        aaveDeposit = 0;
     }
 
     /**
@@ -747,8 +709,6 @@ contract Bucket is IBucketV2, BucketStorage {
             priceOracle.pairPriceDrops(_newAsset, address(borrowedAsset)) > 0,
             Errors.PAIR_PRICE_DROP_IS_NOT_CORRECT.selector
         );
-        // Check that both the new asset and the borrowed asset have oracle price feeds available
-        priceOracle.getPriceFeedsPair(_newAsset, address(borrowedAsset));
         assets.push(_newAsset);
         allowedAssets[_newAsset] = Asset(assets.length - 1, true);
         emit AddAsset(_newAsset);

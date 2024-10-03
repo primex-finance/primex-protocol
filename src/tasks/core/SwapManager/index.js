@@ -10,4 +10,4 @@ task("deploy:SwapManager", "Deploy PositionManager contract", require("./swapMan
   .addParam("primexPricingLibrary", "The address of PrimexPricingLibrary library")
   .addParam("tokenTransfersLibrary", "The address of TokenTransfersLibrary library")
   .addOptionalParam("errorsLibrary", "The address of errorsLibrary contract")
-  .addOptionalParam("contractName", "The name of the contract artifact e.g SwapManager");
+  .addFlag("notExecuteNewDeployedTasks", "Whether to ignore the newDeployed if statement");

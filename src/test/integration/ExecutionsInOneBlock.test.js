@@ -18,9 +18,16 @@ const {
 const { CloseReason, LIMIT_PRICE_CM_TYPE, TAKE_PROFIT_STOP_LOSS_CM_TYPE } = require("../utils/constants");
 const { getLimitPriceAdditionalParams, getTakeProfitStopLossAdditionalParams, getLimitPriceParams } = require("../utils/conditionParams");
 const { wadMul, wadDiv, MAX_TOKEN_DECIMALITY } = require("../utils/bnMath");
-const { getAmountsOut, addLiquidity, swapExactTokensForTokens, checkIsDexSupported, getSingleRoute } = require("../utils/dexOperations");
+const {
+  getAmountsOut,
+  addLiquidity,
+  swapExactTokensForTokens,
+  checkIsDexSupported,
+  getSingleMegaRoute,
+} = require("../utils/dexOperations");
 const { getTakeProfitStopLossParams, getCondition } = require("../utils/conditionParams");
 const { NATIVE_CURRENCY } = require("../utils/constants");
+const { encodeFunctionData } = require("../../tasks/utils/encodeFunctionData");
 
 process.env.TEST = true;
 
@@ -62,7 +69,12 @@ function tests() {
     KeeperRewardDistributor = await getContract("KeeperRewardDistributor");
     positionManager = await getContract("PositionManager");
 
-    await positionManager.setMaxPositionSize(testTokenA.address, testTokenB.address, 0, MaxUint256);
+    const { payload } = await encodeFunctionData(
+      "setMaxPositionSize",
+      [testTokenA.address, testTokenB.address, 0, MaxUint256],
+      "PositionManagerExtension",
+    );
+    await positionManager.setProtocolParamsByAdmin(payload);
 
     bucketAddress = (await PrimexDNS.buckets("bucket1")).bucketAddress;
     bucket = await getContractAt("Bucket", bucketAddress);
@@ -78,8 +90,8 @@ function tests() {
     dex = process.env.DEX ? process.env.DEX : "uniswap";
     checkIsDexSupported(dex);
 
-    firstAssetRoutes = await getSingleRoute([testTokenA.address, testTokenB.address], dex);
-    routesForClose = await getSingleRoute([testTokenB.address, testTokenA.address], dex);
+    firstAssetRoutes = await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex);
+    routesForClose = await getSingleMegaRoute([testTokenB.address, testTokenA.address], dex);
 
     await addLiquidity({ dex: dex, from: "lender", tokenA: testTokenA, tokenB: testTokenB });
     tokenUSD = await getContract("USD Coin");
@@ -141,9 +153,9 @@ function tests() {
       marginParams: {
         bucket: "bucket1",
         borrowedAmount: borrowedAmount,
-        depositInThirdAssetRoutes: [],
+        depositInThirdAssetMegaRoutes: [],
       },
-      firstAssetRoutes: firstAssetRoutes.concat(),
+      firstAssetMegaRoutes: firstAssetRoutes.concat(),
       depositedAsset: testTokenA.address,
       depositedAmount: depositedAmount,
       isProtocolFeeInPmx: false,
@@ -187,9 +199,9 @@ function tests() {
       marginParams: {
         bucket: "bucket1",
         borrowedAmount: borrowedAmount,
-        depositInThirdAssetRoutes: [],
+        depositInThirdAssetMegaRoutes: [],
       },
-      firstAssetRoutes: firstAssetRoutes.concat(),
+      firstAssetMegaRoutes: firstAssetRoutes.concat(),
       depositedAsset: testTokenA.address,
       depositedAmount: depositedAmount,
       isProtocolFeeInPmx: false,
@@ -288,7 +300,7 @@ function tests() {
 
     const stopLossPrice = BigNumber.from(price.mul(multiplierA)).sub("1").toString();
     const takeProfitPrice = BigNumber.from(price.mul(multiplierA)).add("1").toString();
-    const closeRoute = await getSingleRoute([testTokenB.address, testTokenA.address], dex);
+    const closeRoute = await getSingleMegaRoute([testTokenB.address, testTokenA.address], dex);
 
     OpenPositionParams.closeConditions = [
       getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice)),
@@ -385,8 +397,8 @@ function tests() {
       orderId: orderId,
       conditionIndex: 0,
       comAdditionalParams: defaultAdditionalParams,
-      firstAssetRoutes: firstAssetRoutes,
-      depositInThirdAssetRoutes: [],
+      firstAssetMegaRoutes: firstAssetRoutes,
+      depositInThirdAssetMegaRoutes: [],
       keeper: liquidator.address,
     });
     const latestTimeStamp = (await provider.getBlock("latest")).timestamp;

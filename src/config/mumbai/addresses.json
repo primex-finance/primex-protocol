@@ -61,6 +61,7 @@
     "usdt": "0xFa8F27BbC45435362A4e74850Eae9E52F0a55DF3"
   },
   "aave": "0x3f4FE3E43351971a81669Af382BE9F79e6F43A4D",
+  "pyth": "0xFC6bd9F9f0c6481c6Af3A7Eb46b296A5B85ed379",
   "priceDropfeeds": {
     "selfDeployed": {
       "weth-usdc": "0x92830D4af653897864C4BD1abC015779A6b00582",

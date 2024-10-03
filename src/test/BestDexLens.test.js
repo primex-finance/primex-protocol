@@ -15,7 +15,7 @@ const {
   deployments: { fixture },
 } = require("hardhat");
 
-const { wadDiv, wadMul } = require("./utils/math");
+const { wadDiv } = require("./utils/math");
 const {
   getAmountsOut,
   getAmountsIn,
@@ -24,7 +24,7 @@ const {
   checkIsDexSupported,
   getAncillaryDexData,
   getEncodedPath,
-  getSingleRoute,
+  getSingleMegaRoute,
 } = require("./utils/dexOperations");
 const { parseArguments } = require("./utils/eventValidation");
 const {
@@ -33,14 +33,21 @@ const {
   deployMockPrimexDNS,
   deployMockDexAdapter,
 } = require("./utils/waffleMocks");
-const { MAX_TOKEN_DECIMALITY, TAKE_PROFIT_STOP_LOSS_CM_TYPE, OrderType, NATIVE_CURRENCY } = require("./utils/constants");
+const { MAX_TOKEN_DECIMALITY, TAKE_PROFIT_STOP_LOSS_CM_TYPE, NATIVE_CURRENCY, USD_DECIMALS, USD_MULTIPLIER } = require("./utils/constants");
 const { getTakeProfitStopLossParams, getCondition } = require("./utils/conditionParams");
+const { encodeFunctionData } = require("../tasks/utils/encodeFunctionData");
+const {
+  setupUsdOraclesForToken,
+  setupUsdOraclesForTokens,
+  getEncodedChainlinkRouteViaUsd,
+  getEncodedChainlinkRouteToUsd,
+  setOraclePrice,
+} = require("./utils/oracleUtils");
 
 process.env.TEST = true;
 
 describe("BestDexLens", function () {
-  let priceFeed,
-    positionManager,
+  let positionManager,
     limitOrderManager,
     traderBalanceVault,
     bucket,
@@ -52,11 +59,10 @@ describe("BestDexLens", function () {
     depositAmountA,
     depositAmountB,
     depositAmountX,
-    depositAmountAFromB,
-    depositAmountAFromX,
     dexesWithAncillaryData,
     availableDexes,
     primexPricingLibrary,
+    primexPricingLibraryMock,
     primexLens;
   let ancillaryDexDataDex, ancillaryDexDataDex2;
   let trader, lender, deployer;
@@ -65,10 +71,7 @@ describe("BestDexLens", function () {
   let decimalsA, decimalsB, decimalsX;
   let multiplierA, multiplierB, multiplierX;
   let borrowedAmount0, borrowedAmount1, borrowedAmount2;
-  let positionDebt0, positionDebt1, positionDebt2;
-  let positionAmount0, positionAmount1, positionAmount2;
-  let bestShares0, bestShares1, bestShares2;
-  let currentPrice0, currentPrice1, currentPrice2;
+  let positionAmount2;
   let positionsStopLoss, positionsTakeProfit;
   let dexExchangeRateTtaTtb;
   let mockLimitOrderManager, mockPositionManager;
@@ -89,6 +92,14 @@ describe("BestDexLens", function () {
     ErrorsLibrary = await getContract("Errors");
     primexPricingLibrary = await getContract("PrimexPricingLibrary");
     primexLens = await getContract("PrimexLens");
+
+    const PrimexPricingLibraryMockFactory = await getContractFactory("PrimexPricingLibraryMock", {
+      libraries: {
+        PrimexPricingLibrary: primexPricingLibrary.address,
+      },
+    });
+    primexPricingLibraryMock = await PrimexPricingLibraryMockFactory.deploy();
+    await primexPricingLibraryMock.deployed();
 
     const bucketAddress = (await PrimexDNS.buckets("bucket1")).bucketAddress;
     bucket = await getContractAt("Bucket", bucketAddress);
@@ -117,7 +128,12 @@ describe("BestDexLens", function () {
     dexRouter = await PrimexDNS.getDexAddress(dex);
     dex2Router = await PrimexDNS.getDexAddress(dex2);
 
-    await positionManager.setMaxPositionSize(testTokenA.address, testTokenB.address, 0, MaxUint256);
+    const { payload } = await encodeFunctionData(
+      "setMaxPositionSize",
+      [testTokenA.address, testTokenB.address, 0, MaxUint256],
+      "PositionManagerExtension",
+    );
+    await positionManager.setProtocolParamsByAdmin(payload);
 
     checkIsDexSupported(dex);
     ancillaryDexDataDex = await getAncillaryDexData({ dex });
@@ -135,37 +151,16 @@ describe("BestDexLens", function () {
     await testTokenB.mint(trader.address, parseUnits("100", decimalsB));
     await testTokenX.mint(trader.address, parseUnits("100", decimalsX));
 
-    priceFeed = await getContract("PrimexAggregatorV3TestService TEST price feed");
-    const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
-    const priceFeedTTXTTB = await PrimexAggregatorV3TestServiceFactory.deploy("PrimexAggregatorV3TestService TTX_TTB", deployer.address);
-    const priceFeedTTXTTA = await PrimexAggregatorV3TestServiceFactory.deploy("PrimexAggregatorV3TestService TTX_TTA", deployer.address);
-
-    const priceFeedTTAETH = await PrimexAggregatorV3TestServiceFactory.deploy("TTA_ETH", deployer.address);
-    const priceFeedTTBETH = await PrimexAggregatorV3TestServiceFactory.deploy("TTB_ETH", deployer.address);
-    const priceFeedTTXETH = await PrimexAggregatorV3TestServiceFactory.deploy("TTX_ETH", deployer.address);
-    const PriceInETH = parseUnits("0.3", "18"); // 1 tta=0.3 eth
-    await priceFeedTTAETH.setDecimals("18");
-    await priceFeedTTBETH.setDecimals("18");
-    await priceFeedTTXETH.setDecimals("18");
-
-    await priceFeedTTAETH.setAnswer(PriceInETH);
-    await priceFeedTTBETH.setAnswer(PriceInETH);
-    await priceFeedTTXETH.setAnswer(PriceInETH);
-
     const priceOracle = await getContract("PriceOracle");
-
-    await priceOracle.updatePriceFeed(testTokenA.address, await priceOracle.eth(), priceFeedTTAETH.address);
-    await priceOracle.updatePriceFeed(testTokenB.address, await priceOracle.eth(), priceFeedTTBETH.address);
-    await priceOracle.updatePriceFeed(testTokenX.address, await priceOracle.eth(), priceFeedTTXETH.address);
-    await priceOracle.updatePriceFeed(testTokenA.address, testTokenB.address, priceFeed.address);
-    await priceOracle.updatePriceFeed(testTokenX.address, testTokenB.address, priceFeedTTXTTB.address);
-    await priceOracle.updatePriceFeed(testTokenX.address, testTokenA.address, priceFeedTTXTTA.address);
+    const ttaPriceInETH = parseUnits("0.3", USD_DECIMALS); // 1 tta=0.3 ETH
+    await setupUsdOraclesForTokens(testTokenA, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForTokens(testTokenX, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForToken(testTokenB, parseUnits("1", USD_DECIMALS));
 
     const lenderAmount = parseUnits("100", decimalsA);
     await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
     await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
 
-    const WAD = parseEther("1");
     depositAmountA = parseUnits("15", decimalsA);
     depositAmountB = parseUnits("15", decimalsB);
     depositAmountX = parseUnits("15", decimalsX);
@@ -174,8 +169,6 @@ describe("BestDexLens", function () {
     borrowedAmount0 = borrowedAmount.div(5);
     borrowedAmount1 = borrowedAmount.div(5).mul(2);
     borrowedAmount2 = borrowedAmount.div(5).mul(3);
-
-    const protocolRate = await PrimexDNS.feeRates(OrderType.MARKET_ORDER, NATIVE_CURRENCY);
 
     positionsStopLoss = [parseEther("1").toString(), parseEther("2").toString(), parseEther("3").toString()];
     positionsTakeProfit = [parseEther("6").toString(), parseEther("5").toString(), parseEther("4").toString()];
@@ -191,24 +184,19 @@ describe("BestDexLens", function () {
     const amountBinWAD = amountBOut.mul(multiplierB);
 
     const exchRate = wadDiv(amountBinWAD.toString(), swap.toString()).toString();
-    const price = BigNumber.from(exchRate).div(multiplierB);
-    await priceFeed.setAnswer(price);
-    await priceFeed.setDecimals(decimalsB);
-
-    await priceFeedTTXTTB.setDecimals("18");
-    await priceFeedTTXTTB.setAnswer("1");
+    const price = BigNumber.from(exchRate).div(USD_MULTIPLIER);
+    await setOraclePrice(testTokenA, testTokenB, price);
 
     await testTokenA.connect(trader).approve(traderBalanceVault.address, depositAmountA);
     await traderBalanceVault.connect(trader).deposit(testTokenA.address, depositAmountA);
     await traderBalanceVault.connect(trader).deposit(NATIVE_CURRENCY, 0, { value: parseEther("1") });
-
     await positionManager.connect(trader).openPosition({
       marginParams: {
         bucket: "bucket1",
         borrowedAmount: borrowedAmount0,
-        depositInThirdAssetRoutes: [],
+        depositInThirdAssetMegaRoutes: [],
       },
-      firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
+      firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
       depositAsset: testTokenA.address,
       depositAmount: depositAmountA,
       positionAsset: testTokenB.address,
@@ -218,6 +206,14 @@ describe("BestDexLens", function () {
       closeConditions: [
         getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(positionsTakeProfit[0], positionsStopLoss[0])),
       ],
+      firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      thirdAssetOracleData: [],
+      depositSoldAssetOracleData: [],
+      positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+      nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      pullOracleData: [],
     });
 
     /// POSITION 2 /////
@@ -225,31 +221,19 @@ describe("BestDexLens", function () {
     const amountBinWAD1 = amountBOut1.mul(multiplierB);
 
     const exchRate1 = wadDiv(amountBinWAD1.toString(), borrowedAmount1.mul(multiplierA).toString()).toString();
-    const price1 = BigNumber.from(exchRate1).div(multiplierB);
-    await priceFeed.setAnswer(price1);
-
-    depositAmountAFromB = await primexPricingLibrary.getOracleAmountsOut(
-      testTokenB.address,
-      testTokenA.address,
-      depositAmountB,
-      priceOracle.address,
-    );
-    const leverage1 = WAD.add(wadDiv(borrowedAmount1.toString(), depositAmountAFromB.toString()).toString());
-    const positionSize1 = wadMul(depositAmountAFromB.add(borrowedAmount1).toString(), leverage1.toString()).toString();
-    const feeAmountB = wadMul(BigNumber.from(positionSize1).mul(multiplierA).toString(), protocolRate.toString()).toString();
-    const feeAmountInEthB = wadMul(feeAmountB.toString(), PriceInETH.toString()).toString();
+    const price1 = BigNumber.from(exchRate1).div(USD_MULTIPLIER);
+    await setOraclePrice(testTokenA, testTokenB, price1);
 
     await testTokenB.connect(trader).approve(traderBalanceVault.address, depositAmountB.add(parseUnits("1", decimalsB)));
     await traderBalanceVault.connect(trader).deposit(testTokenB.address, depositAmountB.add(parseUnits("1", decimalsB)));
-    await traderBalanceVault.connect(trader).deposit(NATIVE_CURRENCY, 0, { value: feeAmountInEthB });
 
     await positionManager.connect(trader).openPosition({
       marginParams: {
         bucket: "bucket1",
         borrowedAmount: borrowedAmount1,
-        depositInThirdAssetRoutes: [],
+        depositInThirdAssetMegaRoutes: [],
       },
-      firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
+      firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
       depositAsset: testTokenB.address,
       depositAmount: depositAmountB,
       positionAsset: testTokenB.address,
@@ -259,45 +243,38 @@ describe("BestDexLens", function () {
       closeConditions: [
         getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(positionsTakeProfit[1], positionsStopLoss[1])),
       ],
+      firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      thirdAssetOracleData: [],
+      depositSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+      nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      pullOracleData: [],
     });
 
     /// POSITION 3 /////
     const amountBOut2 = await getAmountsOut(dex, borrowedAmount2, [testTokenA.address, testTokenB.address]);
     const amountBinWAD2 = amountBOut2.mul(multiplierB);
     const exchRate2 = wadDiv(amountBinWAD2.toString(), borrowedAmount2.mul(multiplierA).toString()).toString();
-    const price2 = BigNumber.from(exchRate2).div(multiplierB);
-    await priceFeed.setAnswer(price2);
+    const price2 = BigNumber.from(exchRate2).div(USD_MULTIPLIER);
+    await setOraclePrice(testTokenA, testTokenB, price2);
 
     const depositAmountAXFromDex = await getAmountsOut(dex, depositAmountX, [testTokenX.address, testTokenA.address]);
     const amountAFromX = depositAmountAXFromDex.mul(multiplierA);
     const depositX = depositAmountX.mul(multiplierX);
     const exchangeXArate = wadDiv(depositX.toString(), amountAFromX.toString()).toString();
-    const priceTTXTTA = BigNumber.from(exchangeXArate).div(multiplierA);
-    await priceFeedTTXTTA.setAnswer(priceTTXTTA);
-    await priceFeedTTXTTA.setDecimals(decimalsA);
-
-    depositAmountAFromX = await primexPricingLibrary.getOracleAmountsOut(
-      testTokenX.address,
-      testTokenA.address,
-      depositAmountX,
-      priceOracle.address,
-    );
-    const leverage2 = WAD.add(wadDiv(borrowedAmount2.toString(), depositAmountAFromX.toString()).toString());
-    const positionSize2 = wadMul(depositAmountX.toString(), leverage2.toString()).toString();
-    const feeAmountX = wadMul(BigNumber.from(positionSize2).mul(multiplierX).toString(), protocolRate.toString()).toString();
-    const feeAmountInEthX = wadMul(feeAmountX.toString(), PriceInETH.toString()).toString();
-
+    const priceTTXTTA = BigNumber.from(exchangeXArate).div(USD_MULTIPLIER);
+    await setOraclePrice(testTokenX, testTokenA, priceTTXTTA);
     await testTokenX.connect(trader).approve(traderBalanceVault.address, depositAmountX);
     await traderBalanceVault.connect(trader).deposit(testTokenX.address, depositAmountX);
-    await traderBalanceVault.connect(trader).deposit(NATIVE_CURRENCY, 0, { value: feeAmountInEthX });
-
     await positionManager.connect(trader).openPosition({
       marginParams: {
         bucket: "bucket1",
         borrowedAmount: borrowedAmount2,
-        depositInThirdAssetRoutes: await getSingleRoute([testTokenX.address, testTokenB.address], dex),
+        depositInThirdAssetMegaRoutes: await getSingleMegaRoute([testTokenX.address, testTokenB.address], dex),
       },
-      firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
+      firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
       depositAsset: testTokenX.address,
       depositAmount: depositAmountX,
       positionAsset: testTokenB.address,
@@ -307,10 +284,17 @@ describe("BestDexLens", function () {
       closeConditions: [
         getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(positionsTakeProfit[2], positionsStopLoss[2])),
       ],
+      firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      thirdAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      depositSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+      nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      pullOracleData: [],
     });
+
     const { positionsData } = await primexLens.getArrayOpenPositionDataByTrader(positionManager.address, trader.address, 0, 10);
-    positionAmount0 = positionsData[0].positionSize;
-    positionAmount1 = positionsData[1].positionSize;
     positionAmount2 = positionsData[2].positionSize;
 
     const amount0Out2 = await getAmountsOut(dex, positionAmount2, [testTokenB.address, testTokenA.address]);
@@ -318,9 +302,8 @@ describe("BestDexLens", function () {
 
     const amountB = positionAmount2.mul(multiplierB);
     dexExchangeRateTtaTtb = wadDiv(amountB.toString(), amountA.toString()).toString();
-    const priceTtaTtb = BigNumber.from(dexExchangeRateTtaTtb).div(multiplierB);
-    await priceFeed.setAnswer(priceTtaTtb);
-    await priceFeed.setDecimals(decimalsB);
+    const priceTtaTtb = BigNumber.from(dexExchangeRateTtaTtb).div(USD_MULTIPLIER);
+    await setOraclePrice(testTokenA, testTokenB, priceTtaTtb);
 
     await swapExactTokensForTokens({
       dex: dex2,
@@ -339,37 +322,8 @@ describe("BestDexLens", function () {
       },
     ];
 
-    bestShares0 = (await BestDexLens.callStatic.getBestDexByPosition(positionManager.address, 0, 1, dexesWithAncillaryData)).routes;
-    bestShares1 = (await BestDexLens.callStatic.getBestDexByPosition(positionManager.address, 1, 1, dexesWithAncillaryData)).routes;
-    bestShares2 = (await BestDexLens.callStatic.getBestDexByPosition(positionManager.address, 2, 1, dexesWithAncillaryData)).routes;
-
-    // currentPrice0 calculation
-    const amountBorrowed0 = await getAmountsOut(bestShares0[0].paths[0].dexName, positionAmount0, [testTokenB.address, testTokenA.address]);
-    const amountBorrowed0InWADdecimals = amountBorrowed0.mul(multiplierA);
-    const positionAmount0InWADdecimals = positionAmount0.mul(multiplierB);
-    const currentPrice0InWADdecimals = wadDiv(amountBorrowed0InWADdecimals.toString(), positionAmount0InWADdecimals.toString()).toString();
-    currentPrice0 = BigNumber.from(currentPrice0InWADdecimals).div(multiplierA);
-
-    // currentPrice1 calculation
-    const amountBorrowed1 = await getAmountsOut(bestShares1[0].paths[0].dexName, positionAmount1, [testTokenB.address, testTokenA.address]);
-    const amountBorrowed1InWADdecimals = amountBorrowed1.mul(multiplierA);
-    const positionAmount1InWADdecimals = positionAmount1.mul(multiplierB);
-    const currentPrice1InWADdecimals = wadDiv(amountBorrowed1InWADdecimals.toString(), positionAmount1InWADdecimals.toString()).toString();
-    currentPrice1 = BigNumber.from(currentPrice1InWADdecimals).div(multiplierA);
-
-    // currentPrice2 calculation
-    const amountBorrowed2 = await getAmountsOut(bestShares2[0].paths[0].dexName, positionAmount2, [testTokenB.address, testTokenA.address]);
-    const amountBorrowed2InWADdecimals = amountBorrowed2.mul(multiplierA);
-    const positionAmount2InWADdecimals = positionAmount2.mul(multiplierB);
-    const currentPrice2InWADdecimals = wadDiv(amountBorrowed2InWADdecimals.toString(), positionAmount2InWADdecimals.toString()).toString();
-    currentPrice2 = BigNumber.from(currentPrice2InWADdecimals).div(multiplierA);
-
     mockPositionManager = await deployMockPositionManager(deployer);
     mockLimitOrderManager = await deployMockLimitOrderManager(deployer);
-
-    positionDebt0 = await positionManager.getPositionDebt(0);
-    positionDebt1 = await positionManager.getPositionDebt(1);
-    positionDebt2 = await positionManager.getPositionDebt(2);
 
     availableDexes = [
       ["uniswap", HashZero],
@@ -398,11 +352,11 @@ describe("BestDexLens", function () {
     const amountToSellDefault = 100;
     const sharesDefault = 2;
 
-    async function getSumAmountsFromDexes(amount, numShares, routes) {
+    async function getSumAmountsFromDexes(amount, numShares, paths) {
       let result = Zero;
-      for (let i = 0; i < routes.length; i++) {
-        const amountPart = amount.mul(routes[i].shares.toNumber()).div(numShares);
-        result = result.add(await getAmountsOut(routes[i].paths[0].dexName, amountPart, [testTokenB.address, testTokenA.address]));
+      for (let i = 0; i < paths.length; i++) {
+        const amountPart = amount.mul(paths[i].shares.toNumber()).div(numShares);
+        result = result.add(await getAmountsOut(paths[i].dexName, amountPart, [testTokenB.address, testTokenA.address]));
       }
       return result;
     }
@@ -432,7 +386,25 @@ describe("BestDexLens", function () {
       expect(response.estimateGasAmount).to.equal(await dexAdapter.getGas(dex2Router));
       expect(response.returnAmount).to.equal(await getAmountsOut(dex2, amountToSell, [testTokenB.address, testTokenA.address]));
       const encodedPath = await getEncodedPath([testTokenB.address, testTokenA.address], availableDexes[1][0]);
-      expect(response.routes).to.deep.equal([[BigNumber.from(shares), [[availableDexes[1][0], encodedPath]]]]);
+
+      const expectedMegaRoutes = [
+        {
+          shares: 1,
+          routes: [
+            {
+              to: testTokenA.address,
+              paths: [
+                {
+                  dexName: availableDexes[1][0],
+                  shares: BigNumber.from(shares),
+                  payload: encodedPath,
+                },
+              ],
+            },
+          ],
+        },
+      ];
+      parseArguments(response.megaRoutes, expectedMegaRoutes);
     });
 
     it("should getBestMultipleDexes", async function () {
@@ -453,7 +425,24 @@ describe("BestDexLens", function () {
       });
 
       const encodedPath = await getEncodedPath([testTokenB.address, testTokenA.address], availableDexes[1][0]);
-      expect(response.routes).to.deep.equal([[BigNumber.from(sharesDefault), [[availableDexes[1][0], encodedPath]]]]);
+      const expectedMegaRoutes = [
+        {
+          shares: 1,
+          routes: [
+            {
+              to: testTokenA.address,
+              paths: [
+                {
+                  dexName: availableDexes[1][0],
+                  shares: BigNumber.from(sharesDefault),
+                  payload: encodedPath,
+                },
+              ],
+            },
+          ],
+        },
+      ];
+      parseArguments(response.megaRoutes, expectedMegaRoutes);
       expect(response.estimateGasAmount).to.equal(await dexAdapter.getGas(dex2Router));
       expect(response.returnAmount).to.equal(await getAmountsOut(dex2, amountToSellDefault, [testTokenB.address, testTokenA.address]));
     });
@@ -472,7 +461,24 @@ describe("BestDexLens", function () {
       });
 
       const encodedPath = await getEncodedPath([testTokenB.address, testTokenA.address], availableDexes[1][0]);
-      expect(response.routes).to.deep.equal([[BigNumber.from(sharesDefault), [[availableDexes[1][0], encodedPath]]]]);
+      const expectedMegaRoutes = [
+        {
+          shares: 1,
+          routes: [
+            {
+              to: testTokenA.address,
+              paths: [
+                {
+                  dexName: availableDexes[1][0],
+                  shares: BigNumber.from(sharesDefault),
+                  payload: encodedPath,
+                },
+              ],
+            },
+          ],
+        },
+      ];
+      parseArguments(response.megaRoutes, expectedMegaRoutes);
       expect(response.estimateGasAmount).to.equal(await dexAdapter.getGas(dex2Router));
       expect(response.returnAmount).to.equal(await getAmountsIn(dex2, amountToBuy, [testTokenB.address, testTokenA.address]));
     });
@@ -491,10 +497,30 @@ describe("BestDexLens", function () {
 
       const encodedPath1 = await getEncodedPath([testTokenB.address, testTokenA.address], availableDexes[0][0]);
       const encodedPath2 = await getEncodedPath([testTokenB.address, testTokenA.address], availableDexes[1][0]);
-      expect(response.routes).to.deep.equal([
-        [BigNumber.from(sharesDefault / 2), [[availableDexes[0][0], encodedPath1]]],
-        [BigNumber.from(sharesDefault / 2), [[availableDexes[1][0], encodedPath2]]],
-      ]);
+      const expectedMegaRoutes = [
+        {
+          shares: 1,
+          routes: [
+            {
+              to: testTokenA.address,
+              paths: [
+                {
+                  dexName: availableDexes[0][0],
+                  shares: BigNumber.from(sharesDefault / 2),
+                  payload: encodedPath1,
+                },
+                {
+                  dexName: availableDexes[1][0],
+                  shares: BigNumber.from(sharesDefault / 2),
+                  payload: encodedPath2,
+                },
+              ],
+            },
+          ],
+        },
+      ];
+
+      parseArguments(response.megaRoutes, expectedMegaRoutes);
 
       expect(response.estimateGasAmount).to.equal((await dexAdapter.getGas(dexRouter)).add(await dexAdapter.getGas(dex2Router)));
       expect(response.returnAmount).to.equal(
@@ -602,7 +628,24 @@ describe("BestDexLens", function () {
       });
 
       const encodedPath = await getEncodedPath([testTokenB.address, testTokenA.address], availableDexes[1][0]);
-      expect(response.routes).to.deep.equal([[BigNumber.from(shares), [[availableDexes[1][0], encodedPath]]]]);
+      const expectedMegaRoutes = [
+        {
+          shares: 1,
+          routes: [
+            {
+              to: testTokenA.address,
+              paths: [
+                {
+                  dexName: availableDexes[1][0],
+                  shares: BigNumber.from(shares),
+                  payload: encodedPath,
+                },
+              ],
+            },
+          ],
+        },
+      ];
+      parseArguments(response.megaRoutes, expectedMegaRoutes);
       expect(response.estimateGasAmount).to.equal(await dexAdapter.getGas(dex2Router));
       expect(response.returnAmount).to.equal(await getAmountsOut(dex2, amountToSellDefault, [testTokenB.address, testTokenA.address]));
     });
@@ -626,7 +669,7 @@ describe("BestDexLens", function () {
       expect(response.returnAmount.gte(await getAmountsOut(dex2, BigNumber.from(amount), [testTokenB.address, testTokenA.address])));
       expect(response.returnAmount.gte(await getAmountsOut(dexUni3, BigNumber.from(amount), [testTokenB.address, testTokenA.address])));
 
-      const sumAmountsFromDexes = await getSumAmountsFromDexes(amount, shares, response.routes);
+      const sumAmountsFromDexes = await getSumAmountsFromDexes(amount, shares, response.megaRoutes[0].routes[0].paths);
       expect(response.returnAmount).to.equal(sumAmountsFromDexes);
     });
 
@@ -655,7 +698,7 @@ describe("BestDexLens", function () {
       expect(response.returnAmount.gte(await getAmountsOut(dex2, BigNumber.from(amount), [testTokenB.address, testTokenA.address])));
       expect(response.returnAmount.gte(await getAmountsOut(dexUni3, BigNumber.from(amount), [testTokenB.address, testTokenA.address])));
 
-      const sumAmountsFromDexes = await getSumAmountsFromDexes(amount, shares, response.routes);
+      const sumAmountsFromDexes = await getSumAmountsFromDexes(amount, shares, response.megaRoutes[0].routes[0].paths);
       expect(response.returnAmount).to.equal(sumAmountsFromDexes);
     });
     it("Should choose the best dex considering the gas for the swap", async function () {
@@ -709,7 +752,7 @@ describe("BestDexLens", function () {
         ],
       });
       // check that the uniswapv3 is the best dex
-      expect(response.routes[0].paths[0].dexName).to.be.equal("uniswapv3");
+      expect(response.megaRoutes[0].routes[0].paths[0].dexName).to.be.equal("uniswapv3");
 
       // change the gas amount for uniswapv3
       await mockDexAdapter.mock.getGas.withArgs(uniswapv3Router).returns(10000);
@@ -729,7 +772,7 @@ describe("BestDexLens", function () {
       });
 
       // check that the uniswapv3 is not the best considering the gas
-      expect(response2.routes[0].paths[0].dexName).to.be.equal("uniswap");
+      expect(response2.megaRoutes[0].routes[0].paths[0].dexName).to.be.equal("uniswap");
     });
     it("Should return correct returnAmount when gasPriceInCheckedAsset is not zero", async function () {
       const amount = parseUnits("1", decimalsA);
@@ -791,7 +834,7 @@ describe("BestDexLens", function () {
       expect(response.returnAmount.gte(await getAmountsOut(dex2, BigNumber.from(amount), [testTokenB.address, testTokenA.address])));
       expect(response.returnAmount.gte(await getAmountsOut(dexUni3, BigNumber.from(amount), [testTokenB.address, testTokenA.address])));
 
-      const sumAmountsFromDexes = await getSumAmountsFromDexes(amount, shares, response.routes);
+      const sumAmountsFromDexes = await getSumAmountsFromDexes(amount, shares, response.megaRoutes[0].routes[0].paths);
       expect(response.returnAmount).to.equal(sumAmountsFromDexes);
     });
 
@@ -820,7 +863,7 @@ describe("BestDexLens", function () {
       expect(response.returnAmount.gte(await getAmountsOut(dex2, BigNumber.from(amount), [testTokenB.address, testTokenA.address])));
       expect(response.returnAmount.gte(await getAmountsOut(dexUni3, BigNumber.from(amount), [testTokenB.address, testTokenA.address])));
 
-      const sumAmountsFromDexes = await getSumAmountsFromDexes(amount, shares, response.routes);
+      const sumAmountsFromDexes = await getSumAmountsFromDexes(amount, shares, response.megaRoutes[0].routes[0].paths);
       expect(response.returnAmount).to.equal(sumAmountsFromDexes);
     });
 
@@ -878,7 +921,25 @@ describe("BestDexLens", function () {
 
       expect(response.returnAmount).to.equal(await getAmountsOut(dexUni3, amount, [testTokenB.address, testTokenA.address]));
       const encodedPath = await getEncodedPath([testTokenB.address, testTokenA.address], availableDexes[3][0]);
-      expect(response.routes).to.deep.equal([[BigNumber.from(shares), [[availableDexes[3][0], encodedPath]]]]);
+      const expectedMegaRoutes = [
+        {
+          shares: 1,
+          routes: [
+            {
+              to: testTokenA.address,
+              paths: [
+                {
+                  dexName: availableDexes[3][0],
+                  shares: BigNumber.from(shares),
+                  payload: encodedPath,
+                },
+              ],
+            },
+          ],
+        },
+      ];
+
+      parseArguments(response.megaRoutes, expectedMegaRoutes);
     });
   });
 
@@ -892,6 +953,7 @@ describe("BestDexLens", function () {
           0,
           { firstAssetShares: 1, depositInThirdAssetShares: 1, depositToBorrowedShares: 1 },
           dexesWithAncillaryData,
+          getEncodedChainlinkRouteViaUsd(testTokenA),
         ]),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
@@ -905,6 +967,7 @@ describe("BestDexLens", function () {
           0,
           { firstAssetShares: 1, depositInThirdAssetShares: 1, depositToBorrowedShares: 1 },
           dexesWithAncillaryData,
+          getEncodedChainlinkRouteViaUsd(testTokenA),
         ]),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
@@ -1080,12 +1143,12 @@ describe("BestDexLens", function () {
         _depositInThirdAssetReturnParams: {
           returnAmount: 0,
           estimateGasAmount: 0,
-          routes: [],
+          megaRoutes: [],
         },
         _depositToBorrowedReturnParams: {
           returnAmount: 0,
           estimateGasAmount: 0,
-          routes: [],
+          megaRoutes: [],
         },
       };
 
@@ -1119,12 +1182,12 @@ describe("BestDexLens", function () {
         _depositInThirdAssetReturnParams: {
           returnAmount: 0,
           estimateGasAmount: 0,
-          routes: [],
+          megaRoutes: [],
         },
         _depositToBorrowedReturnParams: {
           returnAmount: 0,
           estimateGasAmount: 0,
-          routes: [],
+          megaRoutes: [],
         },
       };
 
@@ -1190,219 +1253,10 @@ describe("BestDexLens", function () {
       ]);
       parseArguments(expectedValues, values);
     });
-    it("getPositionProfit return correct values", async function () {
-      // Since the quickswapv3 has a dynamic fee system the amount0Out from the Quoter may differ from the actual amountOut in swap in separate transactions
-      if (dex === "quickswapv3") this.skip();
-      // position 0
-      let returnedToTraderOnDex = (await getAmountsOut(dex, positionAmount0, [testTokenB.address, testTokenA.address])).sub(positionDebt0);
-      let profitOnDex = returnedToTraderOnDex.sub(depositAmountA);
-
-      let returnedToTraderOnDex2 = (await getAmountsOut(dex2, positionAmount0, [testTokenB.address, testTokenA.address])).sub(
-        positionDebt0,
-      );
-      let profitOnDex2 = returnedToTraderOnDex2.sub(depositAmountA);
-
-      expect(
-        await BestDexLens.callStatic.getPositionProfit(
-          positionManager.address,
-          0,
-          await getSingleRoute([testTokenB.address, testTokenA.address], dex),
-        ),
-      ).to.equal(profitOnDex);
-      expect(
-        await BestDexLens.callStatic.getPositionProfit(
-          positionManager.address,
-          0,
-          await getSingleRoute([testTokenB.address, testTokenA.address], dex2),
-        ),
-      ).to.equal(profitOnDex2);
-
-      // position 1
-      returnedToTraderOnDex = (await getAmountsOut(dex, positionAmount1, [testTokenB.address, testTokenA.address])).sub(positionDebt1);
-      profitOnDex = returnedToTraderOnDex.sub(depositAmountAFromB);
-
-      returnedToTraderOnDex2 = (await getAmountsOut(dex2, positionAmount1, [testTokenB.address, testTokenA.address])).sub(positionDebt1);
-      profitOnDex2 = returnedToTraderOnDex2.sub(depositAmountAFromB);
-
-      expect(
-        await BestDexLens.callStatic.getPositionProfit(
-          positionManager.address,
-          1,
-          await getSingleRoute([testTokenB.address, testTokenA.address], dex),
-        ),
-      ).to.equal(profitOnDex);
-      expect(
-        await BestDexLens.callStatic.getPositionProfit(
-          positionManager.address,
-          1,
-          await getSingleRoute([testTokenB.address, testTokenA.address], dex2),
-        ),
-      ).to.equal(profitOnDex2);
-
-      // position 2
-      returnedToTraderOnDex = (await getAmountsOut(dex, positionAmount2, [testTokenB.address, testTokenA.address])).sub(positionDebt2);
-      profitOnDex = returnedToTraderOnDex.sub(depositAmountAFromX);
-
-      returnedToTraderOnDex2 = (await getAmountsOut(dex2, positionAmount2, [testTokenB.address, testTokenA.address])).sub(positionDebt2);
-      profitOnDex2 = returnedToTraderOnDex2.sub(depositAmountAFromX);
-
-      expect(
-        await BestDexLens.callStatic.getPositionProfit(
-          positionManager.address,
-          2,
-          await getSingleRoute([testTokenB.address, testTokenA.address], dex),
-        ),
-      ).to.equal(profitOnDex);
-      expect(
-        await BestDexLens.callStatic.getPositionProfit(
-          positionManager.address,
-          2,
-          await getSingleRoute([testTokenB.address, testTokenA.address], dex2),
-        ),
-      ).to.equal(profitOnDex2);
-    });
-    it("getCurrentPriceAndProfitByPosition should be reverted when shares is equal zero", async function () {
-      await expect(
-        BestDexLens.callStatic.getCurrentPriceAndProfitByPosition(positionManager.address, 0, 0, dexesWithAncillaryData),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "ZERO_SHARES");
-    });
-    it("getCurrentPriceAndProfitByPosition should be reverted when the address of position manager does not match the its interface", async function () {
-      await expect(
-        BestDexLens.callStatic.getCurrentPriceAndProfitByPosition(PrimexDNS.address, 0, 1, dexesWithAncillaryData),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
-    });
-    it("getCurrentPriceAndProfitByPosition return correct values", async function () {
-      const profit = await BestDexLens.callStatic.getPositionProfit(positionManager.address, 0, bestShares0);
-
-      const expectedValues = [currentPrice0, profit];
-      parseArguments(
-        expectedValues,
-        await BestDexLens.callStatic.getCurrentPriceAndProfitByPosition(positionManager.address, 0, 1, dexesWithAncillaryData),
-      );
-    });
     it("Should be revert when shares is zero", async function () {
       await expect(
         BestDexLens.callStatic.getBestDexByPosition(positionManager.address, 0, 0, dexesWithAncillaryData),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "ZERO_SHARES");
     });
-    it("getCurrentPriceAndProfitByPosition return correct values when multiple dexes", async function () {
-      // Since the quickswapv3 has a dynamic fee system the amount0Out from the Quoter may differ from the actual amountOut in swap in separate transactions
-      if (dex === "quickswapv3") this.skip();
-      const bestShares = (await BestDexLens.callStatic.getBestDexByPosition(positionManager.address, 0, 2, dexesWithAncillaryData)).routes;
-
-      const amountBorrowed = (
-        await getAmountsOut(bestShares[0].paths[0].dexName, positionAmount0.div(2), [testTokenB.address, testTokenA.address])
-      ).add(await getAmountsOut(bestShares[1].paths[0].dexName, positionAmount0.div(2), [testTokenB.address, testTokenA.address]));
-      const amountBorrowedInWadDecimals = amountBorrowed.mul(multiplierA);
-      const positionAmount0InWadDecimals = positionAmount0.mul(multiplierB);
-      let currentPrice = wadDiv(amountBorrowedInWadDecimals.toString(), positionAmount0InWadDecimals.toString()).toString();
-      currentPrice = BigNumber.from(currentPrice).div(multiplierA);
-      const profit = await BestDexLens.callStatic.getPositionProfit(positionManager.address, 0, bestShares);
-
-      const expectedValues = [currentPrice, profit];
-      parseArguments(
-        expectedValues,
-        await BestDexLens.callStatic.getCurrentPriceAndProfitByPosition(positionManager.address, 0, 2, dexesWithAncillaryData),
-      );
-    });
-
-    it("getArrayCurrentPriceAndProfitByPosition return correct values when multiple dexes", async function () {
-      // Since the quickswapv3 has a dynamic fee system the amount0Out from the Quoter may differ from the actual amountOut in swap in separate transactions
-      if (dex === "quickswapv3") this.skip();
-      const bestShares0 = (await BestDexLens.callStatic.getBestDexByPosition(positionManager.address, 0, 2, dexesWithAncillaryData)).routes;
-      const bestShares1 = (await BestDexLens.callStatic.getBestDexByPosition(positionManager.address, 1, 2, dexesWithAncillaryData)).routes;
-      const bestShares2 = (await BestDexLens.callStatic.getBestDexByPosition(positionManager.address, 2, 2, dexesWithAncillaryData)).routes;
-
-      const amountBorrowed0 = (
-        await getAmountsOut(bestShares0[0].paths[0].dexName, positionAmount0.div(2), [testTokenB.address, testTokenA.address])
-      ).add(await getAmountsOut(bestShares0[1].paths[0].dexName, positionAmount0.div(2), [testTokenB.address, testTokenA.address]));
-      const amountBorrowed0InWadDecimals = amountBorrowed0.mul(multiplierA);
-
-      const amountBorrowed1 = (
-        await getAmountsOut(bestShares1[0].paths[0].dexName, positionAmount1.div(2), [testTokenB.address, testTokenA.address])
-      ).add(await getAmountsOut(bestShares1[1].paths[0].dexName, positionAmount1.div(2), [testTokenB.address, testTokenA.address]));
-      const amountBorrowed1InWadDecimals = amountBorrowed1.mul(multiplierA);
-
-      const amountBorrowed2 = (
-        await getAmountsOut(bestShares2[0].paths[0].dexName, positionAmount2.div(2), [testTokenB.address, testTokenA.address])
-      ).add(await getAmountsOut(bestShares2[1].paths[0].dexName, positionAmount2.div(2), [testTokenB.address, testTokenA.address]));
-      const amountBorrowed2InWadDecimals = amountBorrowed2.mul(multiplierA);
-
-      const positionAmount0InWadDecimals = positionAmount0.mul(multiplierB);
-      const positionAmount1InWadDecimals = positionAmount1.mul(multiplierB);
-      const positionAmount2InWadDecimals = positionAmount2.mul(multiplierB);
-
-      let currentPrice0 = wadDiv(amountBorrowed0InWadDecimals.toString(), positionAmount0InWadDecimals.toString()).toString();
-      currentPrice0 = BigNumber.from(currentPrice0).div(multiplierA);
-
-      let currentPrice1 = wadDiv(amountBorrowed1InWadDecimals.toString(), positionAmount1InWadDecimals.toString()).toString();
-      currentPrice1 = BigNumber.from(currentPrice1).div(multiplierA);
-
-      let currentPrice2 = wadDiv(amountBorrowed2InWadDecimals.toString(), positionAmount2InWadDecimals.toString()).plus(1).toString();
-      currentPrice2 = BigNumber.from(currentPrice2).div(multiplierA);
-      // Somewhere during rounding, one token was lost
-
-      const profit0 = await BestDexLens.callStatic.getPositionProfit(positionManager.address, 0, bestShares0);
-      const profit1 = await BestDexLens.callStatic.getPositionProfit(positionManager.address, 1, bestShares1);
-      const profit2 = await BestDexLens.callStatic.getPositionProfit(positionManager.address, 2, bestShares2);
-
-      const expectedValues = [
-        [currentPrice0, currentPrice1, currentPrice2],
-        [profit0, profit1, profit2],
-      ];
-
-      parseArguments(
-        expectedValues,
-        await BestDexLens.callStatic.getArrayCurrentPriceAndProfitByPosition(
-          positionManager.address,
-          [0, 1, 2],
-          [2, 2, 2],
-          [dexesWithAncillaryData, dexesWithAncillaryData, dexesWithAncillaryData],
-        ),
-      );
-    });
-
-    it("getArrayCurrentPriceAndProfitByPosition return correct values", async function () {
-      const expectedValues = [
-        [currentPrice0, currentPrice1, currentPrice2],
-        [
-          await BestDexLens.callStatic.getPositionProfit(positionManager.address, 0, bestShares0),
-          await BestDexLens.callStatic.getPositionProfit(positionManager.address, 1, bestShares1),
-          await BestDexLens.callStatic.getPositionProfit(positionManager.address, 2, bestShares2),
-        ],
-      ];
-
-      parseArguments(
-        expectedValues,
-        await BestDexLens.callStatic.getArrayCurrentPriceAndProfitByPosition(
-          positionManager.address,
-          [0, 1, 2],
-          [1, 1, 1],
-          [dexesWithAncillaryData, dexesWithAncillaryData, dexesWithAncillaryData],
-        ),
-      );
-    });
-    it("getArrayCurrentPriceAndProfitByPosition should be reverted when shares is equal zero", async function () {
-      await expect(
-        BestDexLens.callStatic.getArrayCurrentPriceAndProfitByPosition(
-          positionManager.address,
-          [0, 1, 2],
-          [0, 0, 0],
-          [dexesWithAncillaryData, dexesWithAncillaryData, dexesWithAncillaryData],
-        ),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "ZERO_SHARES");
-    });
-  });
-  it("should be revert if the length data differs", async function () {
-    const ancillaryData = [dexesWithAncillaryData, dexesWithAncillaryData];
-    let ids = [0, 1, 2];
-    await expect(
-      BestDexLens.callStatic.getArrayCurrentPriceAndProfitByPosition(positionManager.address, ids, [1, 1], ancillaryData),
-    ).to.be.revertedWithCustomError(ErrorsLibrary, "DIFFERENT_DATA_LENGTH");
-
-    ids = [0, 1];
-    await expect(
-      BestDexLens.callStatic.getArrayCurrentPriceAndProfitByPosition(positionManager.address, ids, [1, 1, 1], ancillaryData),
-    ).to.be.revertedWithCustomError(ErrorsLibrary, "DIFFERENT_DATA_LENGTH");
   });
 });

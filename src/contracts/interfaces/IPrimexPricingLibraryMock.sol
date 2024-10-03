@@ -1,33 +1,34 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
 import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
+import {IDexAdapter} from "../interfaces/IDexAdapter.sol";
 
 interface IPrimexPricingLibraryMock {
-    function getAmountOut(PrimexPricingLibrary.AmountParams memory _params) external returns (uint256);
-
-    function getAmountIn(PrimexPricingLibrary.AmountParams memory _params) external returns (uint256);
-
     function getOracleAmountsOut(
         address _tokenA,
         address _tokenB,
         uint256 _amountAssetA,
-        address _priceOracle
+        address _priceOracle,
+        bytes calldata _oracleData
     ) external returns (uint256);
 
     function getDepositAmountInBorrowed(
-        PrimexPricingLibrary.AmountParams memory _params,
+        IDexAdapter.AmountParams memory _params,
         bool _isThirdAsset,
-        address _priceOracle
+        address payable _dexAdapter,
+        address _priceOracle,
+        bytes calldata _oracleData
     ) external returns (uint256);
 
-    function multiSwap(
-        PrimexPricingLibrary.MultiSwapParams memory _params,
-        uint256 _oracleTolerableLimit,
-        address _primexDNS,
+    function megaSwap(
+        PrimexPricingLibrary.MegaSwapParams calldata _params,
+        uint256 _maximumOracleTolerableLimit,
+        address payable _dexAdapter,
         address _priceOracle,
-        bool _needCheck
+        bool _needOracleTolerableLimitCheck,
+        bytes calldata _oracleData
     ) external returns (uint256);
 
     function getLiquidationPrice(

@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -11,7 +11,7 @@ import "./LiquidityMiningRewardDistributorStorage.sol";
 import {EMERGENCY_ADMIN, MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN} from "../Constants.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
 import {ILiquidityMiningRewardDistributor, IPausable} from "./ILiquidityMiningRewardDistributor.sol";
-import {IBucket} from "../Bucket/IBucket.sol";
+import {IBucketV3} from "../Bucket/IBucket.sol";
 import {ITreasury} from "../Treasury/ITreasury.sol";
 
 contract LiquidityMiningRewardDistributor is
@@ -45,7 +45,7 @@ contract LiquidityMiningRewardDistributor is
      * @inheritdoc ILiquidityMiningRewardDistributor
      */
     function initialize(
-        IPrimexDNS _primexDNS,
+        IPrimexDNSV3 _primexDNS,
         IERC20 _pmx,
         ITraderBalanceVault _traderBalanceVault,
         address _registry,
@@ -58,7 +58,7 @@ contract LiquidityMiningRewardDistributor is
             IERC165Upgradeable(address(_pmx)).supportsInterface(type(IERC20).interfaceId) &&
                 IERC165Upgradeable(_registry).supportsInterface(type(IAccessControl).interfaceId) &&
                 IERC165Upgradeable(_treasury).supportsInterface(type(ITreasury).interfaceId) &&
-                IERC165Upgradeable(address(_primexDNS)).supportsInterface(type(IPrimexDNS).interfaceId) &&
+                IERC165Upgradeable(address(_primexDNS)).supportsInterface(type(IPrimexDNSV3).interfaceId) &&
                 IERC165Upgradeable(address(_traderBalanceVault)).supportsInterface(
                     type(ITraderBalanceVault).interfaceId
                 ) &&
@@ -136,7 +136,7 @@ contract LiquidityMiningRewardDistributor is
      */
     function claimReward(string memory _bucketName) external override nonReentrant notBlackListed {
         (address bucketAddress, , , ) = primexDNS.buckets(_bucketName);
-        _require(IBucket(bucketAddress).isBucketStable(), Errors.BUCKET_IS_NOT_STABLE.selector);
+        _require(IBucketV3(bucketAddress).isBucketStable(), Errors.BUCKET_IS_NOT_STABLE.selector);
         uint256 reward = _calculateRewardAndUpdateState(_bucketName, msg.sender, WadRayMath.WAD);
         _claimReward(reward, msg.sender, bucketAddress);
     }
@@ -187,9 +187,9 @@ contract LiquidityMiningRewardDistributor is
     function withdrawPmxByAdmin(string calldata _bucketFrom) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
         uint256 currentTimestamp = block.timestamp;
         (address bucketAddress, , , ) = primexDNS.buckets(_bucketFrom);
-        IBucket.LiquidityMiningParams memory lmParams = IBucket(bucketAddress).getLiquidityMiningParams();
+        IBucketV3.LiquidityMiningParams memory lmParams = IBucketV3(bucketAddress).getLiquidityMiningParams();
         _require(
-            IBucket(bucketAddress).isWithdrawAfterDelistingAvailable() ||
+            IBucketV3(bucketAddress).isWithdrawAfterDelistingAvailable() ||
                 (currentTimestamp > (lmParams.deadlineTimestamp + reinvestmentDuration) && !lmParams.isBucketLaunched),
             Errors.WITHDRAW_PMX_BY_ADMIN_FORBIDDEN.selector
         );
@@ -224,7 +224,7 @@ contract LiquidityMiningRewardDistributor is
 
         (address bucketAddress, , , ) = primexDNS.buckets(_bucketName);
         // solhint-disable-next-line var-name-mixedcase
-        IBucket.LiquidityMiningParams memory LMparams = IBucket(bucketAddress).getLiquidityMiningParams();
+        IBucketV3.LiquidityMiningParams memory LMparams = IBucketV3(bucketAddress).getLiquidityMiningParams();
 
         if (buckets[_bucketName].totalPoints == 0) {
             return (amountInMining, currentPercent, rewardsInPMX);
@@ -240,12 +240,12 @@ contract LiquidityMiningRewardDistributor is
             minExpectedPoints = buckets[_bucketName].totalPoints;
             multiplier = reinvestmentRate;
         } else if (
-            LMparams.isBucketLaunched || LMparams.accumulatingAmount <= IBucket(bucketAddress).availableLiquidity()
+            LMparams.isBucketLaunched || LMparams.accumulatingAmount <= IBucketV3(bucketAddress).availableLiquidity()
         ) {
             maxExpectedPoints = buckets[_bucketName].totalPoints;
             minExpectedPoints = buckets[_bucketName].totalPoints;
         } else {
-            uint256 tokensLeft = LMparams.accumulatingAmount - IBucket(bucketAddress).availableLiquidity();
+            uint256 tokensLeft = LMparams.accumulatingAmount - IBucketV3(bucketAddress).availableLiquidity();
             maxExpectedPoints =
                 buckets[_bucketName].totalPoints +
                 _calculatePoints(tokensLeft, LMparams.maxStabilizationEndTimestamp, LMparams.maxDuration, _timestamp);

@@ -12,6 +12,7 @@ module.exports = async function (
   },
 ) {
   const pairsConfig = getConfigByName("pairsConfig.json");
+  const { encodeFunctionData } = require("../utils/encodeFunctionData.js");
 
   if (!positionManager) {
     positionManager = (await getContract("PositionManager")).address;
@@ -52,9 +53,13 @@ module.exports = async function (
     const amount0 = parseUnits(pairsConfig[pair].maxSize[0].toString(), decimalsByAddress[pairContracts[0].address]);
     const amount1 = parseUnits(pairsConfig[pair].maxSize[1].toString(), decimalsByAddress[pairContracts[1].address]);
 
-    let tx = await contractPositionManager.setMaxPositionSize(pairContracts[0].address, pairContracts[1].address, amount0, amount1);
+    const { payload } = await encodeFunctionData(
+      "setMaxPositionSize",
+      [pairContracts[0].address, pairContracts[1].address, amount0, amount1],
+      "PositionManagerExtension",
+    );
+    let tx = await contractPositionManager.setProtocolParamsByAdmin(payload);
     await tx.wait();
-    //
 
     // set pair priceDrop
     const pairPriceDrop = pairsConfig[pair].pairPriceDrop.map(value => parseEther(value));
@@ -71,7 +76,12 @@ module.exports = async function (
     // set oracle tolerable limit
     if (pairsConfig[pair].oracleTolerableLimit !== "0") {
       const oracleTolerableLimit = parseEther(pairsConfig[pair].oracleTolerableLimit);
-      tx = await contractPositionManager.setOracleTolerableLimit(pairContracts[0].address, pairContracts[1].address, oracleTolerableLimit);
+      const { payload } = await encodeFunctionData(
+        "setOracleTolerableLimit",
+        [pairContracts[0].address, pairContracts[1].address, oracleTolerableLimit],
+        "PositionManagerExtension",
+      );
+      tx = await contractPositionManager.setProtocolParamsByAdmin(payload);
       await tx.wait();
     }
     //

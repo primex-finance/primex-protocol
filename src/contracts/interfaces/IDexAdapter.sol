@@ -1,13 +1,13 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
 import {IQuoter} from "@uniswap/v3-periphery/contracts/interfaces/IQuoter.sol";
 
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
 import {ICurveCalc} from "./routers/ICurveCalc.sol";
 import {ICurveRegistry} from "./routers/ICurveRegistry.sol";
+import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
 
 interface IDexAdapter {
     /**
@@ -20,7 +20,8 @@ interface IDexAdapter {
         Curve, // 3
         Balancer, // 4
         AlgebraV3, // 5
-        Meshswap // 6
+        Meshswap, // 6
+        Paraswap //7
     }
 
     /*
@@ -41,6 +42,8 @@ interface IDexAdapter {
      */
     struct SwapParams {
         bytes encodedPath;
+        address tokenIn;
+        address tokenOut;
         uint256 amountIn;
         uint256 amountOutMin;
         address to;
@@ -57,6 +60,20 @@ interface IDexAdapter {
         bytes encodedPath;
         uint256 amount; // amountIn or amountOut
         address dexRouter;
+    }
+
+    struct AmountParams {
+        address tokenA;
+        address tokenB;
+        uint256 amount;
+        PrimexPricingLibrary.MegaRoute[] megaRoutes;
+    }
+
+    struct MegaSwapVars {
+        uint256 sumOfShares;
+        uint256 amountOnMegaRoute;
+        uint256 totalAmount;
+        uint256 remainder;
     }
 
     event QuoterChanged(address indexed dexRouter, address indexed quoter);
@@ -79,7 +96,7 @@ interface IDexAdapter {
      * @notice Swap ERC20 tokens
      * @param _params SwapParams struct
      */
-    function swapExactTokensForTokens(SwapParams memory _params) external returns (uint256[3] memory);
+    function swapExactTokensForTokens(SwapParams memory _params) external payable returns (uint256[3] memory);
 
     /**
      * @notice Performs chained getAmountOut calculations
@@ -115,4 +132,113 @@ interface IDexAdapter {
      * @param dexRouter The address of a router
      */
     function getGas(address dexRouter) external view returns (uint256);
+
+    /**
+     * @notice perform swap of ERC20 tokens by Path structs
+     * @param tokenIn source token
+     * @param tokenOut destination token
+     * @param amountIn amount in the source token
+     * @param receiver destination address for swap
+     * @param paths Array of Path structs
+     */
+    function performPathsSwap(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        address receiver,
+        PrimexPricingLibrary.Path[] calldata paths
+    ) external payable returns (uint256);
+
+    /**
+      @notice Performs chained getAmountOut calculations by Path structs
+      @dev The function may not support some types of dex, e.g. the Paraswap
+     * @param amountIn amount in the source token
+     * @param paths Array of Path structs
+     */
+
+    function getAmountsOutByPaths(
+        uint256 amountIn,
+        PrimexPricingLibrary.Path[] calldata paths
+    ) external returns (uint256);
+
+    /**
+      @notice Performs chained getAmountsIn calculations by Path structs
+      @dev The function may not support some types of dex, e.g. the Paraswap
+     * @param amountOut amount in the destination token
+     * @param paths Array of Path structs
+     */
+
+    function getAmountsInByPaths(
+        uint256 amountOut,
+        PrimexPricingLibrary.Path[] calldata paths
+    ) external returns (uint256);
+
+    /**
+       @notice perform swap of ERC20 tokens by MegaRoute structs
+     * @param _params MegaSwapParams struct
+     */
+    function performMegaRoutesSwap(
+        PrimexPricingLibrary.MegaSwapParams calldata _params
+    ) external payable returns (uint256);
+
+    /**
+     * @notice perform swap of ERC20 tokens by Route structs
+     * @param tokenIn source token
+     * @param amountIn amount in the source token
+     * @param receiver destination address for swap
+     * @param routes Array of Route structs
+     */
+    function performRoutesSwap(
+        address tokenIn,
+        uint256 amountIn,
+        address receiver,
+        PrimexPricingLibrary.Route[] calldata routes
+    ) external payable returns (uint256);
+
+    /**
+    @notice Performs chained getAmountsOut calculations by Route structs
+      @dev The function may not support some types of dex, e.g. the Paraswap
+     * @param amountIn amount in the source token
+     * @param routes Array of Route structs
+     */
+
+    function getAmountsOutByRoutes(
+        uint256 amountIn,
+        PrimexPricingLibrary.Route[] calldata routes
+    ) external returns (uint256);
+
+    /**
+       @notice Performs chained getAmountsOut calculations by MegaRoute structs
+       @dev The function may not support some types of dex, e.g. the Paraswap
+     * @param _params AmountParams struct
+     */
+    function getAmountOutByMegaRoutes(AmountParams calldata _params) external returns (uint256);
+
+    /**
+      @notice Performs chained  getAmountsIn calculations by Route structs
+      @dev The function may not support some types of dex, e.g. the Paraswap
+     * @param amountOut amountin the destination token
+     * @param routes Array of Route structs
+     */
+
+    function getAmountsInByRoutes(
+        uint256 amountOut,
+        PrimexPricingLibrary.Route[] calldata routes
+    ) external returns (uint256);
+
+    /**
+       @notice Performs chained getAmountsIn calculations by MegaRoute structs
+       @dev The function may not support some types of dex, e.g. the Paraswap
+     * @param _params AmountParams struct
+     */
+    function getAmountInByMegaRoutes(AmountParams calldata _params) external returns (uint256);
+
+    receive() external payable;
+
+    /**
+     * @notice  Initializes the DexAdapter contract.
+     * @dev This function should only be called once during the initial setup of the contract.
+     * @param _primexDNS The address of the PrimexDNS contract.
+     */
+    function initialize(address _primexDNS) external;
 }

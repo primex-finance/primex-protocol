@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -14,22 +14,21 @@ import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
 import "../libraries/Errors.sol";
 
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
-import {IBucketStorage} from "./IBucketStorage.sol";
+import {IBucketStorage, IBucketStorageV2} from "./IBucketStorage.sol";
 import {IPToken} from "../PToken/IPToken.sol";
 import {IDebtToken} from "../DebtToken/IDebtToken.sol";
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
-import {IPriceOracle} from "../PriceOracle/IPriceOracle.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
+import {IPositionManagerV2} from "../PositionManager/IPositionManager.sol";
 import {IPrimexDNSStorage} from "../PrimexDNS/IPrimexDNSStorage.sol";
+import {IPriceOracleV2} from "../PriceOracle/IPriceOracle.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
 import {IReserve} from "../Reserve/IReserve.sol";
 import {IInterestRateStrategy} from "../interfaces/IInterestRateStrategy.sol";
-import {ISwapManager} from "../interfaces/ISwapManager.sol";
 import {ILiquidityMiningRewardDistributor} from "../LiquidityMiningRewardDistributor/ILiquidityMiningRewardDistributor.sol";
 
 abstract contract BucketStorage is IBucketStorage, ReentrancyGuardUpgradeable, ERC165Upgradeable {
     string public override name;
     address public override registry;
-    IPositionManager public override positionManager;
+    IPositionManagerV2 public override positionManager;
     IReserve public override reserve;
     IPToken public override pToken;
     IDebtToken public override debtToken;
@@ -59,6 +58,10 @@ abstract contract BucketStorage is IBucketStorage, ReentrancyGuardUpgradeable, E
     address[] internal assets;
     // solhint-disable-next-line var-name-mixedcase
     LiquidityMiningParams internal LMparams;
-    IPrimexDNS internal dns;
-    IPriceOracle internal priceOracle;
+    IPrimexDNSV3 internal dns;
+    IPriceOracleV2 internal priceOracle;
+}
+
+abstract contract BucketStorageV2 is IBucketStorageV2, BucketStorage {
+    address public override bucketExtension;
 }

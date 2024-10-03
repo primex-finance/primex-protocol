@@ -24,12 +24,8 @@ module.exports = async function (
   const limitOrderLibrary = await getContract("LimitOrderLibrary");
 
   // immutable contracts
-  const positionManager = await getContract("PositionManager");
-  const priceOracle = await getContract("PriceOracle");
-  const whiteBlackList = await getContract("WhiteBlackList");
   const primexRegistry = await getContract("Registry");
   const primexDNS = await getContract("PrimexDNS");
-  const traderBalanceVault = await getContract("TraderBalanceVault");
   const bigTimeLock = await getContract("BigTimelockAdmin");
 
   let tx, args;
@@ -152,7 +148,7 @@ module.exports = async function (
       isBeacon: "true",
     },
     {
-      proxyAddress: (await getContract("BucketsFactory")).address,
+      proxyAddress: (await getContract("BucketsFactoryV2")).address,
       oldImplContractArtifactName: "Bucket",
       newImplContractArtifactName: "BucketV2",
       isBeacon: "true",
@@ -175,6 +171,34 @@ module.exports = async function (
       oldImplContractLibraries: {},
       newImplContractLibraries: {},
     },
+    {
+      proxyAddress: (await getContract("BatchManager")).address,
+      oldImplContractArtifactName: "BatchManager",
+      newImplContractArtifactName: "BatchManagerV2",
+      isBeacon: "false",
+      oldImplContractLibraries: {
+        PositionLibrary: positionLibrary.address,
+        PrimexPricingLibrary: primexPricingLibrary.address,
+      },
+      newImplContractLibraries: {
+        PositionLibrary: positionLibrary.address,
+        PrimexPricingLibrary: primexPricingLibrary.address,
+      },
+    },
+    {
+      proxyAddress: (await getContract("SwapManager")).address,
+      oldImplContractArtifactName: "SwapManager",
+      newImplContractArtifactName: "SwapManagerV2",
+      isBeacon: "false",
+      oldImplContractLibraries: {
+        TokenTransfersLibrary: tokenTransfersLibrary.address,
+        PrimexPricingLibrary: primexPricingLibrary.address,
+      },
+      newImplContractLibraries: {
+        TokenTransfersLibrary: tokenTransfersLibrary.address,
+        PrimexPricingLibrary: primexPricingLibrary.address,
+      },
+    },
   ];
 
   if (deployContracts) {
@@ -195,35 +219,6 @@ module.exports = async function (
     } else {
       throw Error("The caller does not have the PROPOSER_ROLE. Upgrade is not executed");
     }
-    /// BatchManager
-    const batchManager = await getContract("BatchManager");
-    await run("deploy:BatchManager", {
-      contractName: "BatchManagerV2",
-      positionManager: positionManager.address,
-      priceOracle: priceOracle.address,
-      primexPricingLibrary: primexPricingLibrary.address,
-      positionLibrary: positionLibrary.address,
-      whiteBlackList: whiteBlackList.address,
-      registry: primexRegistry.address,
-      errorsLibrary: errorsLibrary.address,
-    });
-
-    const BATCH_MANAGER_ROLE = keccak256(toUtf8Bytes("BATCH_MANAGER_ROLE"));
-    const VAULT_ACCESS_ROLE = keccak256(toUtf8Bytes("VAULT_ACCESS_ROLE"));
-    const NO_FEE_ROLE = keccak256(toUtf8Bytes("NO_FEE_ROLE"));
-
-    // revoke role
-    tx = await whiteBlackList.removeAddressFromWhitelist(batchManager.address);
-    await tx.wait();
-
-    tx = await primexRegistry.revokeRole(BATCH_MANAGER_ROLE, batchManager.address);
-    await tx.wait();
-
-    tx = await primexRegistry.revokeRole(VAULT_ACCESS_ROLE, batchManager.address);
-    await tx.wait();
-
-    tx = await primexRegistry.revokeRole(NO_FEE_ROLE, batchManager.address);
-    await tx.wait();
 
     const routers = [];
     const name = [];
@@ -253,30 +248,6 @@ module.exports = async function (
     });
 
     tx = await primexDNS.setDexAdapter(newDexAdapter.address);
-    await tx.wait();
-
-    // swap manager
-    const swapManager = await getContract("SwapManager");
-    const newSwapManager = await run("deploy:SwapManager", {
-      contractName: "SwapManagerV2",
-      registry: primexRegistry.address,
-      primexDNS: primexDNS.address,
-      traderBalanceVault: traderBalanceVault.address,
-      priceOracle: priceOracle.address,
-      primexPricingLibrary: primexPricingLibrary.address,
-      tokenTransfersLibrary: tokenTransfersLibrary.address,
-      whiteBlackList: whiteBlackList.address,
-      errorsLibrary: errorsLibrary.address,
-    });
-    tx = await whiteBlackList.removeAddressFromWhitelist(swapManager.address);
-    await tx.wait();
-
-    tx = await primexRegistry.revokeRole(VAULT_ACCESS_ROLE, swapManager.address);
-    await tx.wait();
-
-    const LimitOrderManager = await getContract("LimitOrderManager");
-
-    tx = await LimitOrderManager.setSwapManager(newSwapManager.address);
     await tx.wait();
   }
 

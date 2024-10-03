@@ -14,28 +14,35 @@ const {
   },
   deployments: { fixture },
 } = require("hardhat");
-const assert = require("assert");
 const {
   addLiquidity,
   checkIsDexSupported,
   getAmountsOut,
-  getAmountsIn,
   getEncodedPath,
-  getSingleRoute,
+  getMegaRoutes,
+  getSingleMegaRoute,
   getAncillaryDexData,
 } = require("../utils/dexOperations");
 const { wadDiv, wadMul } = require("../utils/math");
-const { WAD, MAX_TOKEN_DECIMALITY } = require("../utils/constants");
+const { WAD, MAX_TOKEN_DECIMALITY, USD_DECIMALS, USD_MULTIPLIER } = require("../utils/constants");
+const {
+  setupUsdOraclesForToken,
+  setupUsdOraclesForTokens,
+  getEncodedChainlinkRouteViaUsd,
+  setOraclePrice,
+  reversePrice,
+} = require("../utils/oracleUtils");
 
 process.env.TEST = true;
 
 describe("PrimexPricingLibrary_integration", function () {
   let dex, dex2, primexPricingLibrary, primexPricingLibraryMock, testTokenA, testTokenB, testTokenX;
-  let priceFeed, priceOracle, primexDNS, dexAdapter, bucket, bucketAddress, positionManager;
+  let priceOracle, primexDNS, dexAdapter, bucket, bucketAddress, positionManager;
   let deployer, trader, lender;
   let decimalsA, decimalsB;
   let multiplierA, multiplierB;
   let ErrorsLibrary;
+  let ttaPriceInETH;
 
   before(async function () {
     await fixture(["Test"]);
@@ -78,10 +85,12 @@ describe("PrimexPricingLibrary_integration", function () {
     await addLiquidity({ dex: dex2, from: "lender", tokenA: testTokenA, tokenB: testTokenB });
     await addLiquidity({ dex: dex, from: "lender", tokenA: testTokenA, tokenB: testTokenB });
 
-    priceFeed = await getContract("PrimexAggregatorV3TestService TEST price feed");
-    await priceFeed.setDecimals(decimalsB);
     priceOracle = await getContract("PriceOracle");
-    await priceOracle.updatePriceFeed(testTokenA.address, testTokenB.address, priceFeed.address);
+    ttaPriceInETH = parseUnits("0.3", USD_DECIMALS); // 1 tta=0.3 ETH
+    await setupUsdOraclesForTokens(testTokenA, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForTokens(testTokenX, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForToken(testTokenB, parseUnits("1", USD_DECIMALS));
+
     primexDNS = await getContract("PrimexDNS");
     dexAdapter = await getContract("DexAdapter");
     bucketAddress = (await primexDNS.buckets("bucket1")).bucketAddress;
@@ -103,7 +112,7 @@ describe("PrimexPricingLibrary_integration", function () {
 
   describe("getOracleAmountsOut", function () {
     let snapshotId;
-    let testToken8, testToken6, testTokenSecond8, testTokenSecond6, priceFeed8to6, priceFeed6to8, multiplier;
+    let testToken8, testToken6, testTokenSecond8, testTokenSecond6, multiplier;
     before(async function () {
       multiplier = "2";
 
@@ -140,23 +149,8 @@ describe("PrimexPricingLibrary_integration", function () {
 
       testTokenSecond8 = await getContract("testTokenSecond8");
       testTokenSecond6 = await getContract("testTokenSecond6");
-
-      const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
-      priceFeed8to6 = await PrimexAggregatorV3TestServiceFactory.deploy(
-        "PrimexAggregatorV3TestService asset 8 to asset 6 decimals",
-        deployer.address,
-      );
-      priceFeed6to8 = await PrimexAggregatorV3TestServiceFactory.deploy(
-        "PrimexAggregatorV3TestService asset 6 to asset 8 decimals",
-        deployer.address,
-      );
-
-      await priceOracle.updatePriceFeed(testToken8.address, testToken6.address, priceFeed8to6.address);
-      await priceOracle.updatePriceFeed(testTokenSecond6.address, testTokenSecond8.address, priceFeed6to8.address);
-      await priceFeed8to6.setAnswer(parseUnits("2", 6));
-      await priceFeed8to6.setDecimals("6");
-      await priceFeed6to8.setAnswer(parseUnits("2", 8));
-      await priceFeed6to8.setDecimals("8");
+      await setupUsdOraclesForTokens(testToken8, testToken6, parseUnits("2", USD_DECIMALS));
+      await setupUsdOraclesForTokens(testTokenSecond6, testTokenSecond8, parseUnits("2", USD_DECIMALS));
     });
     beforeEach(async function () {
       snapshotId = await network.provider.request({
@@ -174,24 +168,42 @@ describe("PrimexPricingLibrary_integration", function () {
     it("Should return the correct amount2. In PriceFeed, the direction of tokens is token x, token y. The decimals of tokens x>y. Call getOracleAmountsOut(x,y,amount1)", async function () {
       const amount1 = parseUnits("10", 8);
       const amount2 = parseUnits("10", 6).mul(multiplier);
-      expect(await primexPricingLibrary.getOracleAmountsOut(testToken8.address, testToken6.address, amount1, priceOracle.address)).to.equal(
-        amount2,
-      );
+      expect(
+        await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+          testToken8.address,
+          testToken6.address,
+          amount1,
+          priceOracle.address,
+          getEncodedChainlinkRouteViaUsd(testToken6),
+        ),
+      ).to.equal(amount2);
     });
 
     it("should return the correct amount2. In PriceFeed, the direction of tokens is token x, token y. The decimals of tokens x>y. Call getOracleAmountsOut(y,x,amount1)", async function () {
       const amount1 = parseUnits("10", 6);
       const amount2 = parseUnits("10", 8).div(multiplier);
-      expect(await primexPricingLibrary.getOracleAmountsOut(testToken6.address, testToken8.address, amount1, priceOracle.address)).to.equal(
-        amount2,
-      );
+      expect(
+        await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+          testToken6.address,
+          testToken8.address,
+          amount1,
+          priceOracle.address,
+          getEncodedChainlinkRouteViaUsd(testToken8),
+        ),
+      ).to.equal(amount2);
     });
 
     it("should return the correct amount2. In PriceFeed, the direction of tokens is token y, token x. The decimals of tokens x>y. Call getOracleAmountsOut(y,x,amount1)", async function () {
       const amount1 = parseUnits("10", 6);
       const amount2 = parseUnits("10", 8).mul(multiplier);
       expect(
-        await primexPricingLibrary.getOracleAmountsOut(testTokenSecond6.address, testTokenSecond8.address, amount1, priceOracle.address),
+        await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+          testTokenSecond6.address,
+          testTokenSecond8.address,
+          amount1,
+          priceOracle.address,
+          getEncodedChainlinkRouteViaUsd(testTokenSecond8),
+        ),
       ).to.equal(amount2);
     });
 
@@ -199,196 +211,14 @@ describe("PrimexPricingLibrary_integration", function () {
       const amount1 = parseUnits("10", 8);
       const amount2 = parseUnits("10", 6).div(multiplier);
       expect(
-        await primexPricingLibrary.getOracleAmountsOut(testTokenSecond8.address, testTokenSecond6.address, amount1, priceOracle.address),
+        await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+          testTokenSecond8.address,
+          testTokenSecond6.address,
+          amount1,
+          priceOracle.address,
+          getEncodedChainlinkRouteViaUsd(testTokenSecond6),
+        ),
       ).to.equal(amount2);
-    });
-  });
-
-  describe("getAmountOut", function () {
-    let tokenPairs = [];
-    const tokenPairsLength = 6;
-    let dexes = [];
-    const dexesLength = 2;
-
-    // eslint-disable-next-line mocha/no-hooks-for-single-case
-    before(async function () {
-      tokenPairs = [
-        [testTokenA, testTokenB],
-        [testTokenA, testTokenX],
-        [testTokenB, testTokenA],
-        [testTokenB, testTokenX],
-        [testTokenX, testTokenA],
-        [testTokenX, testTokenB],
-      ];
-      expect(tokenPairs.length).to.be.equal(tokenPairsLength);
-      dexes = [dex, dex2];
-      expect(dexes.length).to.be.equal(dexesLength);
-
-      await addLiquidity({
-        dex: dex,
-        amountADesired: parseUnits("500", MAX_TOKEN_DECIMALITY.sub(decimalsA)).toString(),
-        amountBDesired: parseUnits("500", MAX_TOKEN_DECIMALITY.sub(decimalsB)).toString(),
-        tokenA: testTokenA,
-        tokenB: testTokenB,
-      });
-      await addLiquidity({
-        dex: dex,
-        amountADesired: parseUnits("500", MAX_TOKEN_DECIMALITY.sub(decimalsA)).toString(),
-        amountBDesired: "500",
-        tokenA: testTokenA,
-        tokenB: testTokenX,
-      });
-      await addLiquidity({
-        dex: dex,
-        amountADesired: parseUnits("500", MAX_TOKEN_DECIMALITY.sub(decimalsB)).toString(),
-        amountBDesired: "500",
-        tokenA: testTokenB,
-        tokenB: testTokenX,
-      });
-
-      await addLiquidity({
-        dex: dex2,
-        amountADesired: parseUnits("500", MAX_TOKEN_DECIMALITY.sub(decimalsA)).toString(),
-        amountBDesired: parseUnits("500", MAX_TOKEN_DECIMALITY.sub(decimalsB)).toString(),
-        tokenA: testTokenA,
-        tokenB: testTokenB,
-      });
-      await addLiquidity({
-        dex: dex2,
-        amountADesired: parseUnits("500", MAX_TOKEN_DECIMALITY.sub(decimalsA)).toString(),
-        amountBDesired: "500",
-        tokenA: testTokenA,
-        tokenB: testTokenX,
-      });
-      await addLiquidity({
-        dex: dex2,
-        amountADesired: parseUnits("500", MAX_TOKEN_DECIMALITY.sub(decimalsB)).toString(),
-        amountBDesired: "500",
-        tokenA: testTokenB,
-        tokenB: testTokenX,
-      });
-    });
-    for (let i = 0; i < tokenPairsLength; i++) {
-      for (let j = 0; j < dexesLength; j++) {
-        it("getAmountOut", async function () {
-          // naming configuration hack
-          const input = ` ${await tokenPairs[i][0].name()} to ${await tokenPairs[i][1].name()} on ${dexes[j]}`;
-          this._runnable.title = this._runnable.title + input;
-          assert(typeof input === "string");
-          const amountOut = await getAmountsOut(dexes[j], parseUnits("1", await tokenPairs[i][0].decimals()), [
-            tokenPairs[i][0].address,
-            tokenPairs[i][1].address,
-          ]);
-          expect(
-            await primexPricingLibraryMock.callStatic.getAmountOut({
-              tokenA: tokenPairs[i][0].address,
-              tokenB: tokenPairs[i][1].address,
-              amount: parseUnits("1", await tokenPairs[i][0].decimals()),
-              routes: await getSingleRoute([tokenPairs[i][0].address, tokenPairs[i][1].address], dexes[j], 1),
-              dexAdapter: dexAdapter.address,
-              primexDNS: primexDNS.address,
-            }),
-          ).to.be.equal(amountOut);
-        });
-        it("getAmountIn", async function () {
-          // naming configuration hack
-          const input = ` ${await tokenPairs[i][0].name()} to ${await tokenPairs[i][1].name()} on ${dexes[j]}`;
-          this._runnable.title = this._runnable.title + input;
-          assert(typeof input === "string");
-          const amountIn = await getAmountsIn(dexes[j], parseUnits("1", await tokenPairs[i][0].decimals()), [
-            tokenPairs[i][0].address,
-            tokenPairs[i][1].address,
-          ]);
-          expect(
-            await primexPricingLibraryMock.callStatic.getAmountIn({
-              tokenA: tokenPairs[i][0].address,
-              tokenB: tokenPairs[i][1].address,
-              amount: parseUnits("1", await tokenPairs[i][0].decimals()),
-              routes: await getSingleRoute([tokenPairs[i][0].address, tokenPairs[i][1].address], dexes[j], 1),
-              dexAdapter: dexAdapter.address,
-              primexDNS: primexDNS.address,
-            }),
-          ).to.be.equal(amountIn);
-        });
-      }
-    }
-
-    it("should getAmountOut when path length > 2", async function () {
-      const amountIn = parseUnits("1", await testTokenA.decimals());
-
-      const amountOut = await getAmountsOut(dex, amountIn, [testTokenA.address, testTokenX.address, testTokenB.address]);
-      expect(
-        await primexPricingLibraryMock.callStatic.getAmountOut({
-          tokenA: testTokenA.address,
-          tokenB: testTokenB.address,
-          amount: amountIn,
-          routes: await getSingleRoute([testTokenA.address, testTokenX.address, testTokenB.address], dex, 1),
-          dexAdapter: dexAdapter.address,
-          primexDNS: primexDNS.address,
-        }),
-      ).to.be.equal(amountOut);
-    });
-
-    it("should getAmountOut when path has different dexes", async function () {
-      const amountIn = parseUnits("1", await testTokenA.decimals());
-
-      const amountOutAB = await getAmountsOut(dex, amountIn, [testTokenA.address, testTokenX.address, testTokenB.address]);
-      const amountOut = await getAmountsOut(dex2, amountOutAB, [testTokenB.address, testTokenX.address]);
-      expect(
-        await primexPricingLibraryMock.callStatic.getAmountOut({
-          tokenA: testTokenA.address,
-          tokenB: testTokenX.address,
-          amount: amountIn,
-          routes: [
-            {
-              shares: 1,
-              paths: [
-                {
-                  dexName: dex,
-                  encodedPath: await getEncodedPath([testTokenA.address, testTokenX.address, testTokenB.address], dex),
-                },
-                {
-                  dexName: dex2,
-                  encodedPath: await getEncodedPath([testTokenB.address, testTokenX.address], dex2),
-                },
-              ],
-            },
-          ],
-          dexAdapter: dexAdapter.address,
-          primexDNS: primexDNS.address,
-        }),
-      ).to.be.equal(amountOut);
-    });
-
-    it("should getAmountIn when path has different dexes", async function () {
-      const amountOut = parseUnits("1", await testTokenA.decimals());
-
-      const amountInBX = await getAmountsIn(dex2, amountOut, [testTokenB.address, testTokenX.address]);
-      const amountIn = await getAmountsIn(dex, amountInBX, [testTokenA.address, testTokenX.address, testTokenB.address]);
-      expect(
-        await primexPricingLibraryMock.callStatic.getAmountIn({
-          tokenA: testTokenA.address,
-          tokenB: testTokenX.address,
-          amount: amountOut,
-          routes: [
-            {
-              shares: 1,
-              paths: [
-                {
-                  dexName: dex,
-                  encodedPath: await getEncodedPath([testTokenA.address, testTokenX.address, testTokenB.address], dex),
-                },
-                {
-                  dexName: dex2,
-                  encodedPath: await getEncodedPath([testTokenB.address, testTokenX.address], dex2),
-                },
-              ],
-            },
-          ],
-          dexAdapter: dexAdapter.address,
-          primexDNS: primexDNS.address,
-        }),
-      ).to.be.equal(amountIn);
     });
   });
 
@@ -408,18 +238,18 @@ describe("PrimexPricingLibrary_integration", function () {
             tokenA: testTokenA.address,
             tokenB: testTokenB.address,
             amount: amountToConvert,
-            routes: await getSingleRoute([testTokenA.address, testTokenB.address], dex, 1),
-            dexAdapter: dexAdapter.address,
-            primexDNS: primexDNS.address,
+            megaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
           },
           false,
+          dexAdapter.address,
           priceOracle.address,
+          getEncodedChainlinkRouteViaUsd(testTokenB),
         ),
       ).to.be.equal(amountOut);
     });
   });
 
-  describe("multiSwap", function () {
+  describe("megaSwap", function () {
     let amountToConvert, amountOut;
     let snapshotId;
     // eslint-disable-next-line mocha/no-hooks-for-single-case
@@ -442,9 +272,8 @@ describe("PrimexPricingLibrary_integration", function () {
       const amountOutInWadDecimals = amountOut.mul(multiplierB);
 
       let limitPrice = wadDiv(amountOutInWadDecimals.toString(), amountToConvertInWadDecimals.toString()).toString();
-      limitPrice = BigNumber.from(limitPrice).div(multiplierB);
-
-      await priceFeed.setAnswer(limitPrice);
+      limitPrice = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, reversePrice(limitPrice.toString()));
     });
     beforeEach(async function () {
       snapshotId = await network.provider.request({
@@ -459,40 +288,41 @@ describe("PrimexPricingLibrary_integration", function () {
       });
     });
     it("Should return correct amount", async function () {
-      const actualAmount = await primexPricingLibraryMock.callStatic.multiSwap(
+      const actualAmount = await primexPricingLibraryMock.callStatic.megaSwap(
         {
           tokenA: testTokenA.address,
           tokenB: testTokenB.address,
           amountTokenA: amountToConvert,
-          routes: [
+          megaRoutes: await getMegaRoutes([
             {
               shares: 1,
-              paths: [
+              routesData: [
                 {
-                  dexName: dex,
-                  encodedPath: await getEncodedPath([testTokenA.address, testTokenB.address], dex),
+                  to: testTokenB.address,
+                  pathData: [
+                    {
+                      dex: dex,
+                      path: [testTokenA.address, testTokenB.address],
+                      shares: 1,
+                    },
+                    {
+                      dex: dex2,
+                      path: [testTokenA.address, testTokenB.address],
+                      shares: 1,
+                    },
+                  ],
                 },
               ],
             },
-            {
-              shares: 1,
-              paths: [
-                {
-                  dexName: dex2,
-                  encodedPath: await getEncodedPath([testTokenA.address, testTokenB.address], dex2),
-                },
-              ],
-            },
-          ],
-          dexAdapter: dexAdapter.address,
-          primexDNS: primexDNS.address,
+          ]),
           receiver: trader.address,
           deadline: new Date().getTime() + 600,
         },
-        parseEther("0.001"),
-        primexDNS.address,
+        parseEther("0.5"),
+        dexAdapter.address,
         priceOracle.address,
         true,
+        getEncodedChainlinkRouteViaUsd(testTokenB),
       );
 
       if (dex === "quickswapv3") {
@@ -505,40 +335,41 @@ describe("PrimexPricingLibrary_integration", function () {
 
     it("should revert if first asset in path is incorrect", async function () {
       await expect(
-        primexPricingLibraryMock.callStatic.multiSwap(
+        primexPricingLibraryMock.callStatic.megaSwap(
           {
-            tokenA: testTokenA.address,
+            tokenA: testTokenX.address,
             tokenB: testTokenB.address,
-            amountTokenA: parseUnits("1", await testTokenA.decimals()),
-            routes: await getSingleRoute([testTokenX.address, testTokenB.address], dex),
+            amountTokenA: parseUnits("1", await testTokenX.decimals()),
+            megaRoutes: await getSingleMegaRoute([testTokenX.address, testTokenB.address], dex),
             dexAdapter: dexAdapter.address,
             receiver: trader.address,
             deadline: new Date().getTime() + 600,
           },
           0,
-          primexDNS.address,
+          dexAdapter.address,
           priceOracle.address,
           true,
+          getEncodedChainlinkRouteViaUsd(testTokenB),
         ),
       ).to.be.revertedWith("TransferHelper: TRANSFER_FROM_FAILED");
     });
 
     it("should revert if last asset in path is incorrect", async function () {
       await expect(
-        primexPricingLibraryMock.callStatic.multiSwap(
+        primexPricingLibraryMock.callStatic.megaSwap(
           {
             tokenA: testTokenA.address,
             tokenB: testTokenB.address,
             amountTokenA: parseUnits("1", await testTokenA.decimals()),
-            routes: await getSingleRoute([testTokenA.address, testTokenX.address], dex),
-            dexAdapter: dexAdapter.address,
+            megaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenX.address], dex),
             receiver: trader.address,
             deadline: new Date().getTime() + 600,
           },
           1,
-          primexDNS.address,
+          dexAdapter.address,
           priceOracle.address,
           true,
+          getEncodedChainlinkRouteViaUsd(testTokenB),
         ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "DIFFERENT_PRICE_DEX_AND_ORACLE");
     });
@@ -549,20 +380,21 @@ describe("PrimexPricingLibrary_integration", function () {
       const amountOut = await getAmountsOut(dex, amountIn, [testTokenA.address, testTokenX.address, testTokenB.address]);
 
       expect(
-        await primexPricingLibraryMock.callStatic.multiSwap(
+        await primexPricingLibraryMock.callStatic.megaSwap(
           {
             tokenA: testTokenA.address,
             tokenB: testTokenB.address,
             amountTokenA: amountIn,
-            routes: await getSingleRoute([testTokenA.address, testTokenX.address, testTokenB.address], dex, 1),
+            megaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenX.address, testTokenB.address], dex),
             dexAdapter: dexAdapter.address,
             receiver: trader.address,
             deadline: new Date().getTime() + 600,
           },
           0,
-          primexDNS.address,
+          dexAdapter.address,
           priceOracle.address,
           false,
+          getEncodedChainlinkRouteViaUsd(testTokenB),
         ),
       ).to.be.equal(amountOut);
     });
@@ -574,34 +406,46 @@ describe("PrimexPricingLibrary_integration", function () {
       const amountOut = await getAmountsOut(dex2, amountOutAB, [testTokenB.address, testTokenX.address]);
 
       expect(
-        await primexPricingLibraryMock.callStatic.multiSwap(
+        await primexPricingLibraryMock.callStatic.megaSwap(
           {
             tokenA: testTokenA.address,
             tokenB: testTokenX.address,
             amountTokenA: amountIn,
-            routes: [
+            megaRoutes: await getMegaRoutes([
               {
                 shares: 1,
-                paths: [
+                routesData: [
                   {
-                    dexName: dex,
-                    encodedPath: await getEncodedPath([testTokenA.address, testTokenX.address, testTokenB.address], dex),
+                    to: testTokenB.address,
+                    pathData: [
+                      {
+                        dex: dex,
+                        path: [testTokenA.address, testTokenX.address, testTokenB.address],
+                        shares: 1,
+                      },
+                    ],
                   },
                   {
-                    dexName: dex2,
-                    encodedPath: await getEncodedPath([testTokenB.address, testTokenX.address], dex2),
+                    to: testTokenX.address,
+                    pathData: [
+                      {
+                        dex: dex2,
+                        path: [testTokenB.address, testTokenX.address],
+                        shares: 1,
+                      },
+                    ],
                   },
                 ],
               },
-            ],
-            dexAdapter: dexAdapter.address,
+            ]),
             receiver: trader.address,
             deadline: new Date().getTime() + 600,
           },
           0,
-          primexDNS.address,
+          dexAdapter.address,
           priceOracle.address,
           false,
+          getEncodedChainlinkRouteViaUsd(testTokenX),
         ),
       ).to.be.equal(amountOut);
     });
@@ -615,20 +459,20 @@ describe("PrimexPricingLibrary_integration", function () {
       await run("DexAdapter:setDexType", { dexType: "1", router: MaliciousDexMock.address, dexAdapter: dexAdapter.address });
 
       await expect(
-        primexPricingLibraryMock.callStatic.multiSwap(
+        primexPricingLibraryMock.callStatic.megaSwap(
           {
             tokenA: testTokenA.address,
             tokenB: testTokenB.address,
             amountTokenA: parseUnits("1", await testTokenA.decimals()),
-            routes: await getSingleRoute([testTokenA.address, testTokenB.address], dexName),
-            dexAdapter: dexAdapter.address,
+            megaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dexName),
             receiver: trader.address,
             deadline: new Date().getTime() + 600,
           },
           1,
-          primexDNS.address,
+          dexAdapter.address,
           priceOracle.address,
           true,
+          getEncodedChainlinkRouteViaUsd(testTokenB),
         ),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "DIFFERENT_PRICE_DEX_AND_ORACLE");
     });

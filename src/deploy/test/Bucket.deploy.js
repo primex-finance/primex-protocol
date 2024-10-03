@@ -1,5 +1,4 @@
 const { barCalcParams } = require("../../test/utils/defaultBarCalcParams");
-const { USD } = require("../../test/utils/constants.js");
 
 // SPDX-License-Identifier: BUSL-1.1
 module.exports = async ({
@@ -21,8 +20,11 @@ module.exports = async ({
     const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
     const priceFeedTTAUSD = await PrimexAggregatorV3TestServiceFactory.deploy("TTA_USD", deployer.address);
     const priceFeedTTBUSD = await PrimexAggregatorV3TestServiceFactory.deploy("TTB_USD", deployer.address);
-    await priceOracle.updatePriceFeed(TokenA.address, USD, priceFeedTTAUSD.address);
-    await priceOracle.updatePriceFeed(TokenB.address, USD, priceFeedTTBUSD.address);
+    const priceFeeds = { tokens: [TokenA.address, TokenB.address], feeds: [priceFeedTTAUSD.address, priceFeedTTBUSD.address] };
+    await run("priceOracle:updateChainlinkPriceFeedsUsd", {
+      priceOracle: priceOracle.address,
+      updatePriceFeeds: JSON.stringify(priceFeeds),
+    });
 
     await run("deploy:Bucket", {
       nameBucket: "bucket1",
@@ -52,4 +54,5 @@ module.exports.dependencies = [
   "InterestRateStrategy",
   "ActivityRewardDistributor",
   "PrimexAggregatorV3TestService",
+  "BucketExtension",
 ];

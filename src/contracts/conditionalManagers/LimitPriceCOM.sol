@@ -1,8 +1,10 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
 
@@ -10,133 +12,64 @@ import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
 import {LimitOrderLibrary} from "../libraries/LimitOrderLibrary.sol";
 import "./../libraries/Errors.sol";
 
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
-import {IPriceOracle} from "../PriceOracle/IPriceOracle.sol";
-import {ILimitPriceCOM} from "../interfaces/ILimitPriceCOM.sol";
+import {IPositionManagerV2} from "../PositionManager/IPositionManager.sol";
+import {IKeeperRewardDistributorV3} from "../KeeperRewardDistributor/IKeeperRewardDistributor.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
+import {IDexAdapter} from "../interfaces/IDexAdapter.sol";
+import {IPriceOracleV2} from "../PriceOracle/IPriceOracle.sol";
+import {ILimitPriceCOM, IPrimexDNSStorageV3} from "../interfaces/ILimitPriceCOM.sol";
 import {IConditionalOpeningManager} from "../interfaces/IConditionalOpeningManager.sol";
 import {ITakeProfitStopLossCCM} from "../interfaces/ITakeProfitStopLossCCM.sol";
+import {BIG_TIMELOCK_ADMIN} from "../Constants.sol";
 
-contract LimitPriceCOM is IConditionalOpeningManager, ILimitPriceCOM, IERC165 {
+contract LimitPriceCOM is IConditionalOpeningManager, ILimitPriceCOM, IERC165, Initializable {
     using WadRayMath for uint256;
 
     uint256 private constant CM_TYPE = 1;
+    address public immutable registry;
 
-    address public immutable primexDNS;
-    address public immutable priceOracle;
-    address public immutable pm;
+    address public primexDNS;
+    address public priceOracle;
+    address public pm;
+    address public keeperRewardDistributor;
 
-    constructor(address _primexDNS, address _priceOracle, address _pm) {
+    constructor(address _registry) {
         _require(
-            IERC165(address(_primexDNS)).supportsInterface(type(IPrimexDNS).interfaceId) &&
-                IERC165(_priceOracle).supportsInterface(type(IPriceOracle).interfaceId) &&
-                IERC165(_pm).supportsInterface(type(IPositionManager).interfaceId),
+            IERC165(_registry).supportsInterface(type(IAccessControl).interfaceId),
+            Errors.ADDRESS_NOT_SUPPORTED.selector
+        );
+        registry = _registry;
+    }
+
+    /**
+     * @dev Modifier that checks if the caller has a specific role.
+     * @param _role The role identifier to check.
+     */
+    modifier onlyRole(bytes32 _role) {
+        _require(IAccessControl(registry).hasRole(_role, msg.sender), Errors.FORBIDDEN.selector);
+        _;
+    }
+
+    /**
+     * @inheritdoc ILimitPriceCOM
+     */
+    function initialize(
+        address _primexDNS,
+        address _priceOracle,
+        address _pm,
+        address _keeperRewardDistributor
+    ) external override initializer onlyRole(BIG_TIMELOCK_ADMIN) {
+        _require(
+            IERC165(_primexDNS).supportsInterface(type(IPrimexDNSV3).interfaceId) &&
+                IERC165(_priceOracle).supportsInterface(type(IPriceOracleV2).interfaceId) &&
+                IERC165(_pm).supportsInterface(type(IPositionManagerV2).interfaceId) &&
+                IERC165(_keeperRewardDistributor).supportsInterface(type(IKeeperRewardDistributorV3).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
         primexDNS = _primexDNS;
         priceOracle = _priceOracle;
         pm = _pm;
-    }
-
-    /**
-     * @inheritdoc IConditionalOpeningManager
-     */
-    function canBeFilledBeforeSwap(
-        LimitOrderLibrary.LimitOrder calldata _order,
-        bytes calldata _params,
-        bytes calldata _additionalParams
-    ) external override returns (bool) {
-        if (_params.length == 0) return false;
-
-        CanBeFilledVars memory vars;
-        vars.params = abi.decode(_params, (CanBeFilledParams));
-        vars.additionalParams = abi.decode(_additionalParams, (AdditionalParams));
-
-        vars.borrowedAsset = _order.leverage == WadRayMath.WAD
-            ? _order.depositAsset
-            : address(_order.bucket.borrowedAsset());
-
-        vars.dexAdapter = address(IPrimexDNS(primexDNS).dexAdapter());
-        vars.isThirdAsset = _order.depositAsset != vars.borrowedAsset && _order.depositAsset != _order.positionAsset;
-        if (!vars.isThirdAsset) {
-            _require(
-                vars.additionalParams.depositInThirdAssetRoutes.length == 0,
-                Errors.DEPOSIT_IN_THIRD_ASSET_ROUTES_LENGTH_SHOULD_BE_0.selector
-            );
-        } else {
-            vars.depositInPositionAsset = PrimexPricingLibrary.getAmountOut(
-                PrimexPricingLibrary.AmountParams({
-                    tokenA: _order.depositAsset,
-                    tokenB: _order.positionAsset,
-                    amount: _order.depositAmount,
-                    routes: vars.additionalParams.depositInThirdAssetRoutes,
-                    dexAdapter: vars.dexAdapter,
-                    primexDNS: primexDNS
-                })
-            );
-        }
-
-        if (_order.depositAsset == vars.borrowedAsset) {
-            vars.amountIn = _order.depositAmount.wmul(_order.leverage);
-            vars.amountToTransfer = vars.amountIn;
-        } else {
-            if (_order.depositAsset == _order.positionAsset) vars.depositInPositionAsset = _order.depositAmount;
-            uint256 depositAmountInBorrowed = PrimexPricingLibrary.getOracleAmountsOut(
-                _order.depositAsset,
-                vars.borrowedAsset,
-                _order.depositAmount,
-                priceOracle
-            );
-            vars.amountIn = depositAmountInBorrowed.wmul(_order.leverage);
-            vars.amountToTransfer = vars.amountIn - depositAmountInBorrowed;
-        }
-        vars.borrowedAmountInPositionAsset = PrimexPricingLibrary.getAmountOut(
-            PrimexPricingLibrary.AmountParams({
-                tokenA: vars.borrowedAsset,
-                tokenB: _order.positionAsset,
-                amount: vars.amountToTransfer,
-                routes: vars.additionalParams.firstAssetRoutes,
-                dexAdapter: vars.dexAdapter,
-                primexDNS: primexDNS
-            })
-        );
-
-        vars.amountOut = vars.depositInPositionAsset + vars.borrowedAmountInPositionAsset;
-
-        vars.borrowedAssetMultiplier = (10 ** (18 - IERC20Metadata(vars.borrowedAsset).decimals()));
-
-        vars.exchangeRate =
-            (vars.amountIn * vars.borrowedAssetMultiplier).wdiv(
-                vars.amountOut * (10 ** (18 - IERC20Metadata(_order.positionAsset).decimals()))
-            ) /
-            vars.borrowedAssetMultiplier;
-
-        if (vars.exchangeRate > vars.params.limitPrice) return false;
-
-        if (_order.leverage > WadRayMath.WAD) {
-            uint256 leverage;
-            if (_order.depositAsset == vars.borrowedAsset) {
-                leverage = _order.leverage;
-            } else {
-                leverage = (vars.borrowedAmountInPositionAsset + vars.depositInPositionAsset).wdiv(
-                    vars.depositInPositionAsset
-                );
-            }
-            if (leverage > _order.bucket.maxAssetLeverage(_order.positionAsset)) return false;
-
-            if (vars.amountOut > IPositionManager(pm).maxPositionSize(vars.borrowedAsset, _order.positionAsset)) {
-                return false;
-            }
-        }
-
-        return
-            PrimexPricingLibrary.isCorrespondsMinPositionSize(
-                IPositionManager(pm).minPositionSize(),
-                IPositionManager(pm).minPositionAsset(),
-                vars.borrowedAsset,
-                vars.amountIn,
-                priceOracle
-            );
+        keeperRewardDistributor = _keeperRewardDistributor;
     }
 
     /**

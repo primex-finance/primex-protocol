@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -7,10 +7,10 @@ import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/intro
 
 import "../libraries/Errors.sol";
 
-import {IDebtTokenStorage, IBucket, IFeeExecutor, IActivityRewardDistributor} from "./IDebtTokenStorage.sol";
+import {IDebtTokenStorage, IBucketV3, IFeeExecutor, IActivityRewardDistributor} from "./IDebtTokenStorage.sol";
 
 abstract contract DebtTokenStorage is IDebtTokenStorage, ERC20Upgradeable, ERC165Upgradeable {
-    IBucket public override bucket;
+    IBucketV3 public override bucket;
     IFeeExecutor public override feeDecreaser;
     IActivityRewardDistributor public override traderRewardDistributor;
     address internal bucketsFactory;

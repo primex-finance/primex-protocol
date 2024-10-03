@@ -1,10 +1,13 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 
-import {IPriceOracleStorage} from "./IPriceOracleStorage.sol";
+import {IPriceOracleStorage, IPriceOracleStorageV2} from "./IPriceOracleStorage.sol";
+
+import {IPyth} from "@pythnetwork/pyth-sdk-solidity/IPyth.sol";
+import {PythStructs} from "@pythnetwork/pyth-sdk-solidity/PythStructs.sol";
 
 abstract contract PriceOracleStorage is IPriceOracleStorage, ERC165Upgradeable {
     address public override registry;
@@ -25,4 +28,20 @@ abstract contract PriceOracleStorage is IPriceOracleStorage, ERC165Upgradeable {
      * @dev 'base currency address' -> 'quote currency address' -> 'price feed address'
      */
     mapping(address => mapping(address => address)) internal chainLinkPriceFeeds;
+}
+
+abstract contract PriceOracleStorageV2 is IPriceOracleStorageV2, PriceOracleStorage {
+    IPyth public override pyth;
+    uint256 public override timeTolerance;
+    // baseToken => chainlink usd price feed;
+    mapping(address => address) public override chainlinkPriceFeedsUsd;
+
+    // baseToken => the pyth ID of the price feed to get an update for
+    mapping(address => bytes32) public override pythPairIds;
+
+    // oracleType => corresponding oracle address
+    mapping(uint256 => address) public override univ3TypeOracles;
+
+    // univ3TypeOracles => tokenA => tokenB
+    mapping(uint256 => mapping(address => mapping(address => bool))) public override univ3TrustedPairs;
 }

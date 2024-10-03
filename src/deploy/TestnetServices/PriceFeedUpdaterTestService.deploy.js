@@ -9,7 +9,10 @@ module.exports = async ({ run, ethers: { getContract } }) => {
 
   const dexes = await primexDNS.getAllDexes();
   for (const dex of dexes) {
-    routers.push((await primexDNS.dexes(dex)).routerAddress);
+    // because the paraswap can't handle getAmountsOut/In
+    if (dex !== "paraswap") {
+      routers.push((await primexDNS.dexes(dex)).routerAddress);
+    }
   }
 
   // we need a separate account that will update the price channels

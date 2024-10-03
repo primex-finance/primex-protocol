@@ -13,7 +13,8 @@ async function getPhase2Arguments(rewardPerPeriod) {
 }
 
 async function setSpotTradingRewardDistributrInPM(distributorAddress) {
-  const data = await encodeFunctionData("setSpotTradingRewardDistributor", [distributorAddress], "PositionManager");
+  const { payload } = await encodeFunctionData("setSpotTradingRewardDistributor", [distributorAddress], "PositionManagerExtension");
+  const data = await encodeFunctionData("setProtocolParamsByAdmin", [payload], "PositionManager");
   return [data.contractAddress, 0, data.payload, HashZero, HashZero];
 }
 

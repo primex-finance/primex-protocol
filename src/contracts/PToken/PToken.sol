@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -6,6 +6,7 @@ import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
 
 import "./PTokenStorage.sol";
 import {BIG_TIMELOCK_ADMIN} from "../Constants.sol";
+import {IBucket, IBucketV3} from "../Bucket/IBucket.sol";
 import {IPToken, IAccessControl, IERC165Upgradeable, IERC20Upgradeable, IERC20MetadataUpgradeable, IActivityRewardDistributor} from "./IPToken.sol";
 
 contract PToken is IPToken, PTokenStorage {
@@ -77,10 +78,10 @@ contract PToken is IPToken, PTokenStorage {
         _require(msg.sender == bucketsFactory, Errors.FORBIDDEN.selector);
         _require(address(bucket) == address(0), Errors.BUCKET_IS_IMMUTABLE.selector);
         _require(
-            IERC165Upgradeable(address(_bucket)).supportsInterface(type(IBucket).interfaceId),
+            IERC165Upgradeable(address(_bucket)).supportsInterface(type(IBucketV3).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
-        bucket = _bucket;
+        bucket = IBucketV3(address(_bucket));
     }
 
     /**
@@ -341,7 +342,7 @@ contract PToken is IPToken, PTokenStorage {
         result = balanceOf(_user) - lockedBalances[_user].totalLockedBalance;
         if (!bucket.isBucketStable()) {
             // solhint-disable-next-line var-name-mixedcase
-            IBucket.LiquidityMiningParams memory LMparams = bucket.getLiquidityMiningParams();
+            IBucketV3.LiquidityMiningParams memory LMparams = bucket.getLiquidityMiningParams();
             result -= LMparams.liquidityMiningRewardDistributor.getLenderAmountInMining(bucket.name(), _user);
         }
     }
@@ -434,7 +435,7 @@ contract PToken is IPToken, PTokenStorage {
             lockedBalances[_user].totalLockedBalance;
         if (!bucket.isBucketStable()) {
             // solhint-disable-next-line var-name-mixedcase
-            IBucket.LiquidityMiningParams memory LMparams = bucket.getLiquidityMiningParams();
+            IBucketV3.LiquidityMiningParams memory LMparams = bucket.getLiquidityMiningParams();
             availableBalance -= LMparams.liquidityMiningRewardDistributor.getLenderAmountInMining(bucket.name(), _user);
         }
 

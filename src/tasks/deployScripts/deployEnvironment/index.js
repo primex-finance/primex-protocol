@@ -22,7 +22,9 @@ task("setup:deployEnv", "Deploy environment with the specified parameters", requ
   .addFlag("deployMeshswap", "Deploy meshswap and add liquidity on it")
   .addFlag("addLiquidityMeshswap", "Add liquidity on meshswap dex")
 
-  .addFlag("deployUniswapMulticall", "Deploy UniswapMulticall contract");
+  .addFlag("deployUniswapMulticall", "Deploy UniswapMulticall contract")
+
+  .addFlag("deployMockPyth", "Deploy MockPyth contract");
 
 task(
   "deployEnv:devnode1",

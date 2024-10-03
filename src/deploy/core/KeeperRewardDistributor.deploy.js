@@ -19,8 +19,8 @@ module.exports = async function ({
 
   const pmxPartInReward = parseUnits(keeperRewardConfig.pmxPartInReward, 18).toString();
   const nativePartInReward = parseUnits(keeperRewardConfig.nativePartInReward, 18).toString();
-  const positionSizeCoefficientA = parseUnits(keeperRewardConfig.positionSizeCoefficientA, 18).toString();
-  const positionSizeCoefficientB = parseUnits(keeperRewardConfig.positionSizeCoefficientB, 18).toString();
+
+  const positionSizeCoefficient = parseUnits(keeperRewardConfig.positionSizeCoefficient, 18).toString();
   const defaultMaxGasPrice = parseUnits(keeperRewardConfig.defaultMaxGasPriceGwei, 9).toString();
   const oracleGasPriceTolerance = parseUnits(keeperRewardConfig.oracleGasPriceTolerance, 18).toString();
   const paymentModel = PaymentModel[keeperRewardConfig.paymentModel];
@@ -45,12 +45,10 @@ module.exports = async function ({
   const primexPricingLibrary = await getContract("PrimexPricingLibrary");
   const tokenTransfersLibrary = await getContract("TokenTransfersLibrary");
   const errorsLibrary = await getContract("Errors");
-
   await run("deploy:KeeperRewardDistributor", {
     pmxPartInReward: pmxPartInReward,
     nativePartInReward: nativePartInReward,
-    positionSizeCoefficientA: positionSizeCoefficientA,
-    positionSizeCoefficientB: positionSizeCoefficientB,
+    positionSizeCoefficient: positionSizeCoefficient,
     additionalGas: keeperRewardConfig.additionalGas,
     maxGasPerPositionParams: JSON.stringify(maxGasPerPositionParams),
     decreasingGasByReasonParams: JSON.stringify(decreasingGasByReasonParams),

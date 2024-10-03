@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -12,19 +12,14 @@ import {TokenTransfersLibrary} from "../libraries/TokenTransfersLibrary.sol";
 
 import "./KeeperRewardDistributorStorage.sol";
 import "../Constants.sol";
-import {IKeeperRewardDistributor, IKeeperRewardDistributorV2} from "./IKeeperRewardDistributor.sol";
-import {IPriceOracle} from "../PriceOracle/IPriceOracle.sol";
+import {IKeeperRewardDistributorV3} from "./IKeeperRewardDistributor.sol";
+import {IPriceOracleV2} from "../PriceOracle/IPriceOracle.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
 import {ITreasury} from "../Treasury/ITreasury.sol";
 import {IPausable} from "../interfaces/IPausable.sol";
-import {IArbGasInfo} from "../interfaces/IArbGasInfo.sol";
 
-contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDistributorStorageV2 {
+contract KeeperRewardDistributor is IKeeperRewardDistributorV3, KeeperRewardDistributorStorageV2 {
     using WadRayMath for uint256;
-    IArbGasInfo internal constant ARB_NITRO_ORACLE = IArbGasInfo(0x000000000000000000000000000000000000006C);
-    uint256 internal constant GAS_FOR_BYTE = 16;
-    uint256 internal constant TRASNSACTION_METADATA_BYTES = 140;
 
     constructor() {
         _disableInitializers();
@@ -61,12 +56,12 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDist
     }
 
     /**
-     * @inheritdoc IKeeperRewardDistributor
+     * @inheritdoc IKeeperRewardDistributorV3
      */
     function initialize(InitParams calldata _params) external override initializer {
         _require(
             IERC165Upgradeable(_params.registry).supportsInterface(type(IAccessControl).interfaceId) &&
-                IERC165Upgradeable(_params.priceOracle).supportsInterface(type(IPriceOracle).interfaceId) &&
+                IERC165Upgradeable(_params.priceOracle).supportsInterface(type(IPriceOracleV2).interfaceId) &&
                 IERC165Upgradeable(_params.treasury).supportsInterface(type(ITreasury).interfaceId) &&
                 IERC165Upgradeable(_params.pmx).supportsInterface(type(IERC20).interfaceId) &&
                 IERC165Upgradeable(_params.whiteBlackList).supportsInterface(type(IWhiteBlackList).interfaceId),
@@ -79,8 +74,7 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDist
         whiteBlackList = IWhiteBlackList(_params.whiteBlackList);
         pmxPartInReward = _params.pmxPartInReward;
         nativePartInReward = _params.nativePartInReward;
-        positionSizeCoefficientA = _params.positionSizeCoefficientA;
-        positionSizeCoefficientB = _params.positionSizeCoefficientB;
+        positionSizeCoefficient = _params.positionSizeCoefficient;
         additionalGas = _params.additionalGas;
         defaultMaxGasPrice = _params.defaultMaxGasPrice;
         oracleGasPriceTolerance = _params.oracleGasPriceTolerance;
@@ -103,20 +97,18 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDist
     }
 
     /**
-     * @inheritdoc IKeeperRewardDistributor
+     * @inheritdoc IKeeperRewardDistributorV3
      */
     function updateReward(UpdateRewardParams calldata _params) external override onlyManagerRole {
-        int256 positionSizeMultiplier = int256(
-            (
-                PrimexPricingLibrary.getOracleAmountsOut(
-                    _params.positionAsset,
-                    NATIVE_CURRENCY,
-                    _params.positionSize,
-                    priceOracle
-                )
-            ).wmul(positionSizeCoefficientA)
-        ) + positionSizeCoefficientB;
-        if (positionSizeMultiplier <= 0) return;
+        uint256 positionSizeMultiplier = (
+            PrimexPricingLibrary.getOracleAmountsOut(
+                _params.positionAsset,
+                NATIVE_CURRENCY,
+                _params.positionSize,
+                priceOracle,
+                _params.positionNativeAssetOracleData
+            )
+        ).wmul(positionSizeCoefficient);
         if (positionSizeMultiplier < minPositionSizeMultiplier) positionSizeMultiplier = minPositionSizeMultiplier;
 
         uint256 gasAmount = additionalGas + _pureGasSpent(_params.gasSpent, _params.decreasingCounter);
@@ -125,7 +117,7 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDist
             gasAmount = maxGasAmount;
         }
         uint256 gasPrice = tx.gasprice;
-        int256 oracleGasPrice = IPriceOracle(priceOracle).getGasPrice();
+        int256 oracleGasPrice = IPriceOracleV2(priceOracle).getGasPrice();
         uint256 maxGasPriceForReward = oracleGasPrice > 0
             ? uint256(oracleGasPrice).wmul(WadRayMath.WAD + oracleGasPriceTolerance)
             : defaultMaxGasPrice;
@@ -158,14 +150,14 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDist
                 l1CostWei =
                     ARB_NITRO_ORACLE.getL1BaseFeeEstimate() *
                     GAS_FOR_BYTE *
-                    (variableLength + restrictions.baseLength + TRASNSACTION_METADATA_BYTES);
+                    (variableLength + restrictions.baseLength + TRANSACTION_METADATA_BYTES);
             }
 
-            uint256 reward = (gasAmount * gasPrice + l1CostWei).wmul(uint256(positionSizeMultiplier));
+            uint256 reward = gasAmount * gasPrice + l1CostWei + positionSizeMultiplier;
             rewardInNativeCurrency = reward.wmul(nativePartInReward);
-            rewardInPmx = PrimexPricingLibrary.getOracleAmountsOut(NATIVE_CURRENCY, pmx, reward, priceOracle).wmul(
-                pmxPartInReward
-            );
+            rewardInPmx = PrimexPricingLibrary
+                .getOracleAmountsOut(NATIVE_CURRENCY, pmx, reward, priceOracle, _params.nativePmxOracleData)
+                .wmul(pmxPartInReward);
         }
         keeperBalance[_params.keeper].pmxBalance += rewardInPmx;
         keeperBalance[_params.keeper].nativeBalance += rewardInNativeCurrency;
@@ -176,7 +168,7 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDist
     }
 
     /**
-     * @inheritdoc IKeeperRewardDistributor
+     * @inheritdoc IKeeperRewardDistributorV3
      */
     function claim(
         uint256 _pmxAmount,
@@ -201,7 +193,7 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDist
     }
 
     /**
-     * @inheritdoc IKeeperRewardDistributor
+     * @inheritdoc IKeeperRewardDistributorV3
      */
 
     function setDecreasingGasByReason(
@@ -212,14 +204,14 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDist
     }
 
     /**
-     * @inheritdoc IKeeperRewardDistributorV2
+     * @inheritdoc IKeeperRewardDistributorV3
      */
 
     function setMinPositionSizeMultiplier(
-        int256 _minPositionSizeMultiplier
+        uint256 _minPositionSizeMultiplier
     ) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
         _require(
-            _minPositionSizeMultiplier > 0 && uint256(_minPositionSizeMultiplier) <= WadRayMath.WAD * 2,
+            _minPositionSizeMultiplier > 0 && _minPositionSizeMultiplier <= WadRayMath.WAD * 2,
             Errors.INCORRECT_MULTIPLIER.selector
         );
         minPositionSizeMultiplier = _minPositionSizeMultiplier;
@@ -227,7 +219,7 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDist
     }
 
     /**
-     * @inheritdoc IKeeperRewardDistributor
+     * @inheritdoc IKeeperRewardDistributorV3
      */
 
     function setMaxGasPerPosition(
@@ -249,7 +241,7 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDist
     }
 
     /**
-     * @inheritdoc IKeeperRewardDistributor
+     * @inheritdoc IKeeperRewardDistributorV3
      */
     function setDefaultMaxGasPrice(uint256 _defaultMaxGasPrice) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
         defaultMaxGasPrice = _defaultMaxGasPrice;
@@ -257,7 +249,7 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDist
     }
 
     /**
-     * @inheritdoc IKeeperRewardDistributor
+     * @inheritdoc IKeeperRewardDistributorV3
      */
     function setOracleGasPriceTolerance(
         uint256 _oracleGasPriceTolerance
@@ -267,7 +259,7 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDist
     }
 
     /**
-     * @inheritdoc IKeeperRewardDistributor
+     * @inheritdoc IKeeperRewardDistributorV3
      */
     function setPmxPartInReward(uint256 _pmxPartInReward) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
         _require(_pmxPartInReward <= TEN_WAD, Errors.INCORRECT_PART_IN_REWARD.selector);
@@ -276,7 +268,7 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDist
     }
 
     /**
-     * @inheritdoc IKeeperRewardDistributor
+     * @inheritdoc IKeeperRewardDistributorV3
      */
     function setNativePartInReward(uint256 _nativePartInReward) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
         _require(_nativePartInReward <= TEN_WAD, Errors.INCORRECT_PART_IN_REWARD.selector);
@@ -285,23 +277,28 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDist
     }
 
     /**
-     * @inheritdoc IKeeperRewardDistributor
+     * @inheritdoc IKeeperRewardDistributorV3
      */
-    function setPositionSizeCoefficients(
-        uint256 _positionSizeCoefficientA,
-        int256 _positionSizeCoefficientB
+    function setPositionSizeCoefficient(
+        uint256 _positionSizeCoefficient
     ) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
-        positionSizeCoefficientA = _positionSizeCoefficientA;
-        positionSizeCoefficientB = _positionSizeCoefficientB;
-        emit PositionSizeCoefficientsChanged(_positionSizeCoefficientA, _positionSizeCoefficientB);
+        positionSizeCoefficient = _positionSizeCoefficient;
+        emit PositionSizeCoefficientChanged(_positionSizeCoefficient);
     }
 
     /**
-     * @inheritdoc IKeeperRewardDistributor
+     * @inheritdoc IKeeperRewardDistributorV3
      */
     function setAdditionalGas(uint256 _additionalGas) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
         additionalGas = _additionalGas;
         emit AdditionalGasChanged(_additionalGas);
+    }
+
+    /**
+     * @inheritdoc IKeeperRewardDistributorV3
+     */
+    function getGasCalculationParams() external view override returns (uint256, uint256) {
+        return (oracleGasPriceTolerance, defaultMaxGasPrice);
     }
 
     /**
@@ -323,10 +320,7 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV2, KeeperRewardDist
      * @param _interfaceId The interface id to check
      */
     function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
-        return
-            _interfaceId == type(IKeeperRewardDistributorV2).interfaceId ||
-            _interfaceId == type(IKeeperRewardDistributor).interfaceId ||
-            super.supportsInterface(_interfaceId);
+        return _interfaceId == type(IKeeperRewardDistributorV3).interfaceId || super.supportsInterface(_interfaceId);
     }
 
     function _setMaxGasPerPosition(KeeperActionType _actionType, KeeperActionRewardConfig calldata _config) internal {

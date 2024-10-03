@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -8,7 +8,7 @@ import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/
 
 import "../libraries/Errors.sol";
 
-import {IActivityRewardDistributorStorage, IERC20, IPrimexDNS, ITraderBalanceVault} from "./IActivityRewardDistributorStorage.sol";
+import {IActivityRewardDistributorStorage, IERC20, IPrimexDNSV3, ITraderBalanceVault} from "./IActivityRewardDistributorStorage.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
 
 abstract contract ActivityRewardDistributorStorage is
@@ -18,7 +18,7 @@ abstract contract ActivityRewardDistributorStorage is
     ERC165Upgradeable
 {
     IERC20 public override pmx;
-    IPrimexDNS public override dns;
+    IPrimexDNSV3 public override dns;
     address public override registry;
     address public override treasury;
     ITraderBalanceVault public override traderBalanceVault;

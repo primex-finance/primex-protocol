@@ -1,10 +1,10 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
-import {IActivityRewardDistributorStorage, IERC20, IPrimexDNS, ITraderBalanceVault} from "./IActivityRewardDistributorStorage.sol";
+import {IActivityRewardDistributorStorage, IERC20, IPrimexDNSV3, ITraderBalanceVault} from "./IActivityRewardDistributorStorage.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
-import {IBucket} from "../Bucket/IBucket.sol";
+import {IBucketV3} from "../Bucket/IBucket.sol";
 import {IPausable} from "../interfaces/IPausable.sol";
 
 interface IActivityRewardDistributor is IActivityRewardDistributorStorage, IPausable {
@@ -39,7 +39,7 @@ interface IActivityRewardDistributor is IActivityRewardDistributorStorage, IPaus
      */
     function initialize(
         IERC20 _pmx,
-        IPrimexDNS _dns,
+        IPrimexDNSV3 _dns,
         address _registry,
         address _treasury,
         ITraderBalanceVault _traderBalanceVault,
@@ -53,7 +53,7 @@ interface IActivityRewardDistributor is IActivityRewardDistributorStorage, IPaus
      * @param   newBalance  User balance after action
      * @param   role  User role - TRADER or LENDER
      */
-    function updateUserActivity(IBucket bucket, address user, uint256 newBalance, Role role) external;
+    function updateUserActivity(IBucketV3 bucket, address user, uint256 newBalance, Role role) external;
 
     /**
      * @notice  Saves activity of multiple users in the protocol for reward calculation
@@ -64,7 +64,7 @@ interface IActivityRewardDistributor is IActivityRewardDistributorStorage, IPaus
      * @param   role  User role - TRADER or LENDER
      */
     function updateUsersActivities(
-        IBucket bucket,
+        IBucketV3 bucket,
         address[] calldata users,
         uint256[] calldata newBalances,
         uint256 length,

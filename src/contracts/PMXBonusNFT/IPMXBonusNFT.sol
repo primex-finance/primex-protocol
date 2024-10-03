@@ -1,14 +1,13 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
 import {IERC721EnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/IERC721EnumerableUpgradeable.sol";
 
-import {IBucket} from "../Bucket/IBucket.sol";
 import {IBonusExecutor} from "../BonusExecutor/IBonusExecutor.sol";
 import {IPMXBonusNFTStorage} from "./IPMXBonusNFTStorage.sol";
 import {IPausable} from "../interfaces/IPausable.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
 
 interface IPMXBonusNFT is IPMXBonusNFTStorage, IERC721EnumerableUpgradeable, IPausable {
@@ -31,7 +30,7 @@ interface IPMXBonusNFT is IPMXBonusNFTStorage, IERC721EnumerableUpgradeable, IPa
      * @param _registry The address of the Registry contract.
      * @param _whiteBlackList The address of the WhiteBlacklist contract.
      */
-    function initialize(IPrimexDNS _primexDNS, address _registry, IWhiteBlackList _whiteBlackList) external;
+    function initialize(IPrimexDNSV3 _primexDNS, address _registry, IWhiteBlackList _whiteBlackList) external;
 
     /**
      * @notice Mints an NFT with the provided signature and parameters.

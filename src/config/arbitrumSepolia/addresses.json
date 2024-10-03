@@ -8,7 +8,9 @@
     "uni": "0x4064DCc3A9DE3E8b8DE6C080740F1Dea7B1aff63",
     "usdt": "0xEE17bAee6B4EFd6a8cD2db1999bEF7d550267b9D"
   },
+  "wrappedNativeToken": "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73",
   "aave": "0xB8111839Eec95ead49faf4f63062647FC91990ff",
+  "pyth": "0x4374e5a8b9C22271E9EB878A2AA31DE97DF15DAF",
   "dexes": {
     "uniswapv3": {
       "router": "0x540E87754362D88b5f898eBf6288a59BA94A590A",

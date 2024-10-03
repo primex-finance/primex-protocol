@@ -1,8 +1,152 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
-import {IPriceOracleStorage} from "./IPriceOracleStorage.sol";
+import {IPriceOracleStorage, IPriceOracleStorageV2} from "./IPriceOracleStorage.sol";
+
+interface IPriceOracleV2 is IPriceOracleStorageV2 {
+    event ChainlinkPriceFeedUpdated(address indexed token, address indexed priceFeed);
+    event PairPriceDropChanged(address indexed assetA, address indexed assetB, uint256 pairPriceDrop);
+    event PriceFeedUpdated(address indexed assetA, address indexed assetB, address indexed priceFeed);
+    event PriceDropFeedUpdated(address indexed assetA, address indexed assetB, address indexed priceDropFeed);
+    event GasPriceFeedChanged(address priceFeed);
+    event PythPairIdUpdated(address indexed token, bytes32 indexed priceFeedId);
+    event Univ3OracleUpdated(uint256 indexed oracleType, address indexed oracle);
+    event TimeToleranceUpdated(uint256 timeTolerance);
+
+    event Univ3TrustedPairUpdated(
+        uint256 indexed oracleType,
+        address indexed tokenA,
+        address indexed tokenB,
+        bool isTrusted
+    );
+
+    struct UpdateUniv3TrustedPairParams {
+        uint256 oracleType;
+        address tokenA;
+        address tokenB;
+        bool isTrusted;
+    }
+
+    /**
+     * @param assetA The address of the first asset in the pair.
+     * @param assetB The address of the second asset in the pair.
+     * @param priceDropFeed The chain link priceDrop feed address for the pair assetA/assetB
+     */
+    struct UpdatePriceDropFeedsParams {
+        address assetA;
+        address assetB;
+        address priceDropFeed;
+    }
+
+    /**
+     * @param _registry The address of PrimexRegistry contract
+     * @param _eth Weth address if eth isn't native token of network. Otherwise set to zero address.
+     */
+    function initialize(address _registry, address _eth) external;
+
+    /**
+     * @notice Function to set (change) the pair priceDrop of the trading assets
+     * @dev Only callable by the SMALL_TIMELOCK_ADMIN.
+     * @param _assetA The address of position asset
+     * @param _assetB The address of borrowed asset
+     * @param _pairPriceDrop The pair priceDrop (in wad)
+     */
+    function setPairPriceDrop(address _assetA, address _assetB, uint256 _pairPriceDrop) external;
+
+    /**
+     * @notice Increases the priceDrop of a pair of assets in the system.
+     * @dev Only callable by the EMERGENCY_ADMIN role.
+     * The _pairPriceDrop value must be greater than the current priceDrop value for the pair
+     * and less than the maximum allowed priceDrop (WadRayMath.WAD / 2).
+     * @param _assetA The address of position asset
+     * @param _assetB The address of borrowed asset
+     * @param _pairPriceDrop The new priceDrop value for the pair (in wad)
+     */
+    function increasePairPriceDrop(address _assetA, address _assetB, uint256 _pairPriceDrop) external;
+
+    /**
+     * @notice Sets the gas price feed contract address.
+     * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
+     * @param priceFeed The address of the gas price feed contract.
+     */
+    function setGasPriceFeed(address priceFeed) external;
+
+    /**
+     * @notice Updates the priceDrop feed for a specific pair of assets.
+     * @dev Add or update priceDrop feed for assets pair.
+     * Only callable by the MEDIUM_TIMELOCK_ADMIN role.
+     * @param _updateParams The array of the UpdatePriceDropFeedsParams structs
+     */
+    function updatePriceDropFeeds(UpdatePriceDropFeedsParams[] calldata _updateParams) external;
+
+    /**
+     * @notice Updates the priceDrop feed for a specific pair of assets.
+     * @dev Add or update priceDrop feed for assets pair.
+     * Only callable by the MEDIUM_TIMELOCK_ADMIN role.
+     * @param assetA The address of the first asset in the pair.
+     * @param assetB The address of the second asset in the pair.
+     * @param priceDropFeed The chain link priceDrop feed address for the pair assetA/assetB
+     */
+    function updatePriceDropFeed(address assetA, address assetB, address priceDropFeed) external;
+
+    /**
+     * @notice Retrieves the current gas price from the specified gas price feed.
+     * @return The current gas price.
+     */
+    function getGasPrice() external view returns (int256);
+
+    /**
+     * @notice For a given asset pair retrieves the priceDrop rate which is the higher
+     * of the oracle pair priceDrop and the historical pair priceDrop.
+     * @param _assetA The address of asset A.
+     * @param _assetB The address of asset B.
+     * @return The priceDrop rate.
+     */
+    function getPairPriceDrop(address _assetA, address _assetB) external view returns (uint256);
+
+    /**
+     * @notice Retrieves the priceDrop rate between two assets based on the oracle pair priceDrop.
+     * @param assetA The address of the first asset.
+     * @param assetB The address of the second asset.
+     * @return The priceDrop rate as a uint256 value.
+     */
+    function getOraclePriceDrop(address assetA, address assetB) external view returns (uint256);
+
+    /**
+     * @notice Retreives a priceDrop feed address from the oraclePriceDropFeeds mapping
+     * @param assetA The address of the first asset in the pair.
+     * @param assetB The address of the second asset in the pair.
+     * @return priceDropFeed The address of the priceDrop feed associated with the asset pair.
+     */
+    function getOraclePriceDropFeed(address assetA, address assetB) external view returns (address);
+
+    function getExchangeRate(
+        address assetA,
+        address assetB,
+        bytes calldata oracleData
+    ) external payable returns (uint256);
+
+    function updateChainlinkPriceFeedsUsd(address[] calldata _tokens, address[] calldata _feeds) external;
+
+    function updatePythPairId(address[] calldata _tokens, bytes32[] calldata _priceFeedIds) external;
+
+    function updateUniv3TypeOracle(uint256[] calldata _oracleTypes, address[] calldata _oracles) external;
+
+    function updateUniv3TrustedPair(UpdateUniv3TrustedPairParams[] calldata _updateParams) external;
+
+    function setPyth(address _pyth) external;
+
+    function updatePullOracle(bytes[] calldata _pullOracleData) external payable;
+
+    /**
+     * @notice Sets the time tolerance
+     * @dev Only callable by the MEDIUM_TIMELOCK_ADMIN role.
+     * @param _timeTolerance Time tolerance in seconds
+     */
+
+    function setTimeTolerance(uint256 _timeTolerance) external;
+}
 
 interface IPriceOracle is IPriceOracleStorage {
     event PairPriceDropChanged(address indexed assetA, address indexed assetB, uint256 pairPriceDrop);

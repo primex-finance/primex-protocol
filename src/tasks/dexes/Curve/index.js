@@ -17,10 +17,22 @@ task("curve:createPool", "create curve pool for 2 tokens", require("./createPool
   .addOptionalParam("curveRegistry", "The address of curve registry")
   .addParam("assets", "Array of assets containing addresses and amounts of tokens");
 
+task("curve:createEtherPool", "create curve pool with native currency", require("./createEthPool"))
+  .addOptionalParam("curveRegistry", "The address of curve registry")
+  .addOptionalParam("secondToken", "The second asset for the ether pool");
+
 task("curve:addLiquidity", "Adds liquidity to curve pool", require("./addLiquidity.js"))
   .addOptionalParam("from", "The name of the tx sender", defaultValues.from)
   .addParam("pool", "Pool where to add liquidity")
   .addParam("assets", "Array of assets containing addresses and amounts of tokens")
+  .addParam("liquidityMin", "Minimal amount of LP token to receive", defaultValues.liquidityMin)
+  .addOptionalParam("lpTokenReceiver", "An account to receive LP tokens");
+
+task("curve:addLiquidityEthPool", "Adds liquidity to curve pool", require("./addLiquidityEthPool"))
+  .addOptionalParam("from", "The name of the tx sender", defaultValues.from)
+  .addParam("pool", "Pool where to add liquidity")
+  .addParam("secondToken", "")
+  .addParam("amounts", "Minimal amount of LP token to receive")
   .addParam("liquidityMin", "Minimal amount of LP token to receive", defaultValues.liquidityMin)
   .addOptionalParam("lpTokenReceiver", "An account to receive LP tokens");
 

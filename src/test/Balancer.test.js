@@ -5,7 +5,6 @@ const {
   ethers: {
     getContract,
     getContractAt,
-    getContractFactory,
     BigNumber,
     getNamedSigners,
     constants: { MaxUint256, HashZero },
@@ -13,9 +12,17 @@ const {
   },
   deployments: { fixture },
 } = require("hardhat");
-const { getAmountsOut, addLiquidity, getEncodedPath } = require("./utils/dexOperations");
-const { wadMul } = require("./utils/math");
-const { OrderType, MAX_TOKEN_DECIMALITY, NATIVE_CURRENCY } = require("./utils/constants");
+const { wadDiv } = require("./utils/math");
+const { checkIsDexSupported, getAmountsOut, addLiquidity, getSinglePath, getSingleMegaRoute } = require("./utils/dexOperations");
+const { encodeFunctionData } = require("../tasks/utils/encodeFunctionData");
+const { MAX_TOKEN_DECIMALITY, USD_DECIMALS, USD_MULTIPLIER } = require("./utils/constants");
+const {
+  setupUsdOraclesForToken,
+  setupUsdOraclesForTokens,
+  getEncodedChainlinkRouteViaUsd,
+  getEncodedChainlinkRouteToUsd,
+  setOraclePrice,
+} = require("./utils/oracleUtils");
 
 process.env.TEST = true;
 
@@ -31,15 +38,16 @@ describe("Balancer", function () {
     testTokenA,
     decimalsA,
     decimalsB,
+    swapSize,
+    dex,
     multiplierA,
-    primexPricingLibrary,
-    primexPricingLibraryMock,
+    multiplierB,
     testTokenB,
     testTokenY,
     testTokenX,
     marginParams,
     pool;
-  let depositAmount, amountOutMin, feeAmountInEth, deadline, takeDepositFromWallet;
+  let depositAmount, amountOutMin, deadline, takeDepositFromWallet;
 
   before(async function () {
     await fixture(["Test"]);
@@ -60,24 +68,17 @@ describe("Balancer", function () {
       initialAccounts: JSON.stringify([trader.address]),
       initialBalances: JSON.stringify([parseEther("100").toString()]),
     });
-
     DNS = await getContract("PrimexDNS");
     dexAdapter = await getContract("DexAdapter");
     PositionManager = await getContract("PositionManager");
     testTokenA = await getContract("TestTokenA");
     decimalsA = await testTokenA.decimals();
-    multiplierA = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsA));
     testTokenB = await getContract("TestTokenB");
     decimalsB = await testTokenB.decimals();
-    primexPricingLibrary = await getContract("PrimexPricingLibrary");
     testTokenY = await getContract("TestTokenY");
-    const PrimexPricingLibraryMockFactory = await getContractFactory("PrimexPricingLibraryMock", {
-      libraries: {
-        PrimexPricingLibrary: primexPricingLibrary.address,
-      },
-    });
-    primexPricingLibraryMock = await PrimexPricingLibraryMockFactory.deploy();
     testTokenX = await getContract("TestTokenX");
+    dex = "balancer";
+    checkIsDexSupported(dex);
     pool = await addLiquidity({
       dex: "balancer",
       amountADesired: "100",
@@ -94,25 +95,33 @@ describe("Balancer", function () {
     const bucketAddress = (await DNS.buckets("bucket1")).bucketAddress;
     bucket = await getContractAt("Bucket", bucketAddress);
 
-    await PositionManager.setMaxPositionSize(testTokenA.address, testTokenB.address, 0, MaxUint256);
+    const { payload } = await encodeFunctionData(
+      "setMaxPositionSize",
+      [testTokenA.address, testTokenB.address, 0, MaxUint256],
+      "PositionManagerExtension",
+    );
+    await PositionManager.setProtocolParamsByAdmin(payload);
 
-    const priceFeed = await getContract("PrimexAggregatorV3TestService TEST price feed");
     const priceOracle = await getContract("PriceOracle");
-    await priceOracle.updatePriceFeed(testTokenA.address, testTokenB.address, priceFeed.address);
-    // a stub so that the tests do not fail.
-    // It is important in it that the position has opened and not the conditions for its opening
-    await priceFeed.setAnswer(1);
-    await priceFeed.setDecimals(decimalsB);
-    await PositionManager.setMaintenanceBuffer(parseEther("0.01"));
+    const ttaPriceInETH = parseUnits("0.3", USD_DECIMALS); // 1 tta=0.3 ETH
+    await setupUsdOraclesForTokens(testTokenA, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForTokens(testTokenX, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForTokens(testTokenY, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForToken(testTokenB, parseUnits("1", USD_DECIMALS));
+    const { payload: payload1 } = await encodeFunctionData("setMaintenanceBuffer", [parseEther("0.01")], "PositionManagerExtension");
+    await PositionManager.setProtocolParamsByAdmin(payload1);
+    depositAmount = parseUnits("10", decimalsA);
+    const borrowedAmount = parseUnits("20", decimalsA);
+    swapSize = depositAmount.add(borrowedAmount);
+    multiplierA = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsA));
+    multiplierB = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB));
 
     marginParams = {
       bucket: "bucket1",
-      borrowedAmount: parseUnits("20", decimalsA),
-      depositInThirdAssetRoutes: [],
+      borrowedAmount: borrowedAmount,
+      depositInThirdAssetMegaRoutes: [],
     };
 
-    depositAmount = parseUnits("10", decimalsA);
-    const swapSize = depositAmount.add(marginParams.borrowedAmount);
     const lenderAmount = parseUnits("100", decimalsA);
     amountOutMin = 0;
     deadline = new Date().getTime() + 600;
@@ -123,36 +132,19 @@ describe("Balancer", function () {
 
     await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
     await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, lenderAmount, true);
-
-    const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
-    const priceFeedTTAETH = await PrimexAggregatorV3TestServiceFactory.deploy("TTA_ETH", deployer.address);
-    const ttaPriceInETH = parseUnits("0.3", "18"); // 1 tta=0.3 eth
-    await priceFeedTTAETH.setDecimals("18");
-    await priceFeedTTAETH.setAnswer(ttaPriceInETH);
-    await priceOracle.updatePriceFeed(testTokenA.address, await priceOracle.eth(), priceFeedTTAETH.address);
-
-    const feeAmountCalculateWithETHRate = wadMul(
-      swapSize.mul(multiplierA).toString(),
-      (await DNS.feeRates(OrderType.MARKET_ORDER, NATIVE_CURRENCY)).toString(),
-    ).toString();
-    feeAmountInEth = wadMul(feeAmountCalculateWithETHRate.toString(), ttaPriceInETH.toString()).toString();
-    await traderBalanceVault.connect(trader).deposit(NATIVE_CURRENCY, 0, { value: BigNumber.from(feeAmountInEth).mul("2") });
   });
 
   it("Creating position through Balancer should work", async function () {
+    const swap = swapSize.mul(multiplierA);
+    const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address], [pool]);
+    const amountB = amount0Out.mul(multiplierB);
+    const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+    const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+    await setOraclePrice(testTokenA, testTokenB, price);
+
     await PositionManager.connect(trader).openPosition({
       marginParams: marginParams,
-      firstAssetRoutes: [
-        {
-          shares: 1,
-          paths: [
-            {
-              dexName: "balancer",
-              encodedPath: getEncodedPath([testTokenA.address, testTokenB.address], "balancer", [pool]),
-            },
-          ],
-        },
-      ],
+      firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], "balancer", [pool]),
       depositAsset: testTokenA.address,
       depositAmount: depositAmount,
       positionAsset: testTokenB.address,
@@ -160,6 +152,14 @@ describe("Balancer", function () {
       deadline: deadline,
       takeDepositFromWallet: takeDepositFromWallet,
       closeConditions: [],
+      firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      thirdAssetOracleData: [],
+      depositSoldAssetOracleData: [],
+      positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+      nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      pullOracleData: [],
     });
   });
 
@@ -167,16 +167,22 @@ describe("Balancer", function () {
     await expect(
       PositionManager.connect(trader).openPosition({
         marginParams: marginParams,
-        firstAssetRoutes: [
+        firstAssetMegaRoutes: [
           {
             shares: 1,
-            paths: [
+            routes: [
               {
-                dexName: "balancer",
-                encodedPath: defaultAbiCoder.encode(
-                  ["address[]", "bytes32[]", "int256[]"],
-                  [[testTokenA.address, testTokenB.address], [HashZero], [depositAmount, 0]],
-                ),
+                to: testTokenB.address,
+                paths: [
+                  {
+                    dexName: "balancer",
+                    shares: BigNumber.from(1),
+                    payload: defaultAbiCoder.encode(
+                      ["address[]", "bytes32[]", "int256[]"],
+                      [[testTokenA.address, testTokenB.address], [HashZero], [depositAmount, 0]],
+                    ),
+                  },
+                ],
               },
             ],
           },
@@ -188,30 +194,26 @@ describe("Balancer", function () {
         deadline: deadline,
         takeDepositFromWallet: takeDepositFromWallet,
         closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
       }),
     ).to.be.revertedWith("BAL#500"); // Internal balancer error number
   });
 
-  it("getAmountOut return correct value ", async function () {
+  it("getAmountOut return correct value", async function () {
     expect(await getAmountsOut("balancer", parseUnits("1", decimalsA), [testTokenA.address, testTokenB.address], [pool])).to.be.equal(
-      await primexPricingLibraryMock.connect(deployer).callStatic.getAmountOut({
-        tokenA: testTokenA.address,
-        tokenB: testTokenB.address,
-        amount: parseUnits("1", decimalsA),
-        routes: [
-          {
-            shares: 1,
-            paths: [
-              {
-                dexName: "balancer",
-                encodedPath: getEncodedPath([testTokenA.address, testTokenB.address], "balancer", [pool]),
-              },
-            ],
-          },
-        ],
-        dexAdapter: dexAdapter.address,
-        primexDNS: DNS.address,
-      }),
+      await dexAdapter
+        .connect(deployer)
+        .callStatic.getAmountsOutByPaths(
+          parseUnits("1", decimalsA),
+          await getSinglePath([testTokenA.address, testTokenB.address], "balancer", [pool]),
+        ),
     );
   });
 });

@@ -6,13 +6,14 @@ const {
     getSigners,
     provider,
     getContract,
-    utils: { keccak256, defaultAbiCoder },
+    utils: { keccak256, defaultAbiCoder, parseEther },
     constants: { HashZero, MaxUint256 },
   },
   deployments: { fixture },
 } = require("hardhat");
 const { BIG_TIMELOCK_ADMIN, MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN, GUARDIAN_ADMIN } = require("../../Constants");
-const { OrderType, NATIVE_CURRENCY } = require("../utils/constants");
+const { FeeRateType } = require("../utils/constants");
+const { encodeFunctionData } = require("../../tasks/utils/encodeFunctionData");
 process.env.TEST = true;
 
 describe("PrimexTimelocks_integration", function () {
@@ -34,7 +35,8 @@ describe("PrimexTimelocks_integration", function () {
 
   it("GUARDIAN_ADMIN can cancel operations in each timelock", async function () {
     const newTolerableLimit = "1000";
-    const data = positionManager.interface.encodeFunctionData("setDefaultOracleTolerableLimit", [newTolerableLimit]);
+    const { payload } = await encodeFunctionData("setDefaultOracleTolerableLimit", [newTolerableLimit], "PositionManagerExtension");
+    const data = positionManager.interface.encodeFunctionData("setProtocolParamsByAdmin", [payload]);
     const delay = await bigTimelock.getMinDelay();
 
     const args = [positionManager.address, 0, data, HashZero, HashZero, delay];
@@ -85,8 +87,9 @@ describe("PrimexTimelocks_integration", function () {
     it("BigTimelockAdmin can call admin method", async function () {
       const primexDNS = await getContract("PrimexDNS");
 
-      const newProtocolRate = "1000";
-      const data = primexDNS.interface.encodeFunctionData("setFeeRate", [[OrderType.MARKET_ORDER, NATIVE_CURRENCY, newProtocolRate]]);
+      const feeRateType = FeeRateType.SpotPositionClosedByTrader;
+      const feeRate = parseEther("0.01");
+      const data = primexDNS.interface.encodeFunctionData("setProtocolFeeRate", [[feeRateType, feeRate]]);
       const delay = await bigTimelock.getMinDelay();
 
       const args = [primexDNS.address, 0, data, HashZero, MaxUint256, delay];
@@ -99,7 +102,7 @@ describe("PrimexTimelocks_integration", function () {
       args.pop();
       await bigTimelock.execute(...args);
 
-      expect(await primexDNS.feeRates(OrderType.MARKET_ORDER, NATIVE_CURRENCY)).to.equal(newProtocolRate);
+      expect(await primexDNS.protocolFeeRates(feeRateType)).to.equal(feeRate);
     });
   });
 
@@ -110,7 +113,12 @@ describe("PrimexTimelocks_integration", function () {
 
     it("MediumTimelockAdmin can call method with MEDIUM_TIMELOCK_ADMIN", async function () {
       const newDefaultOracleTolerableLimit = "1000";
-      const data = positionManager.interface.encodeFunctionData("setDefaultOracleTolerableLimit", [newDefaultOracleTolerableLimit]);
+      const { payload } = await encodeFunctionData(
+        "setDefaultOracleTolerableLimit",
+        [newDefaultOracleTolerableLimit],
+        "PositionManagerExtension",
+      );
+      const data = positionManager.interface.encodeFunctionData("setProtocolParamsByAdmin", [payload]);
       const delay = await mediumTimelock.getMinDelay();
 
       const args = [positionManager.address, 0, data, HashZero, MaxUint256, delay];

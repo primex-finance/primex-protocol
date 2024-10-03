@@ -223,6 +223,9 @@ async function addLiquidity({
       });
     }
     return meshswapPoolAddress;
+  case 7:
+    await tokenA.mint(router, parseUnits(amountADesired, await tokenA.decimals()));
+    await tokenB.mint(router, parseUnits(amountBDesired, await tokenB.decimals()));
   }
 }
 
@@ -637,21 +640,81 @@ async function getEncodedPath(assetAddresses, dex, pools = ["3000"]) {
   case 5: {
     return hexConcat(assetAddresses);
   }
+  case 7: {
+    return pools[0];
+  }
   }
 }
 
-async function getSingleRoute(path, dex, shares = 1, pools) {
+async function getPaths(pathData = []) {
+  const paths = [];
+  for (let i = 0; i < pathData.length; i++) {
+    const { dex, path, shares, pool } = pathData[i];
+    paths.push({
+      dexName: dex,
+      shares: shares,
+      payload: await getEncodedPath(path, dex, pool),
+    });
+  }
+  return paths;
+}
+
+async function getRoutes(routesData = []) {
+  const routes = [];
+  for (let i = 0; i < routesData.length; i++) {
+    const { to, pathData } = routesData[i];
+    routes.push({
+      to: to,
+      paths: await getPaths(pathData),
+    });
+  }
+  return routes;
+}
+
+async function getSinglePath(path, dex, pools) {
+  return [
+    {
+      dexName: dex,
+      shares: 1,
+      payload: await getEncodedPath(path, dex, pools),
+    },
+  ];
+}
+
+async function getSingleRoute(path, dex, pools) {
+  return [
+    {
+      to: path[path.length - 1],
+      paths: await getSinglePath(path, dex, pools),
+    },
+  ];
+}
+
+async function getSingleMegaRoute(path, dex, pools, shares = 1) {
   return [
     {
       shares: shares,
-      paths: [
-        {
-          dexName: dex,
-          encodedPath: await getEncodedPath(path, dex, pools),
-        },
-      ],
+      routes: await getSingleRoute(path, dex, pools),
     },
   ];
+}
+
+async function getMegaRoutes(megaRoutesData = []) {
+  const megaRoutes = [];
+  for (let i = 0; i < megaRoutesData.length; i++) {
+    const { shares, routesData } = megaRoutesData[i];
+    megaRoutes.push({
+      shares: shares,
+      routes: await getRoutes(routesData),
+    });
+  }
+  return megaRoutes;
+}
+async function getEmptyMegaRoute() {
+  return {
+    shares: 0,
+    routes: [],
+  };
 }
 
 module.exports = {
@@ -659,6 +722,10 @@ module.exports = {
   getAmountsOut,
   getAmountsIn,
   getPair,
+  getRoutes,
+  getEmptyMegaRoute,
+  getMegaRoutes,
+  getPaths,
   swapExactTokensForTokens,
   checkIsDexSupported,
   getAncillaryDexData,
@@ -666,4 +733,6 @@ module.exports = {
   getGas,
   getEncodedPath,
   getSingleRoute,
+  getSingleMegaRoute,
+  getSinglePath,
 };

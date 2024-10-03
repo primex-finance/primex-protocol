@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -8,14 +8,17 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {BytesLib} from "./utils/BytesLib.sol";
 import {WadRayMath} from "./utils/WadRayMath.sol";
 
-import {NATIVE_CURRENCY, USD, USD_MULTIPLIER} from "../Constants.sol";
+import {NATIVE_CURRENCY, USD, USD_MULTIPLIER, ARB_NITRO_ORACLE, GAS_FOR_BYTE, TRANSACTION_METADATA_BYTES} from "../Constants.sol";
 import {IDexAdapter} from "../interfaces/IDexAdapter.sol";
 import {IPriceOracle} from "../PriceOracle/IPriceOracle.sol";
-import {IPrimexDNS, IPrimexDNSV2, IPrimexDNSStorage} from "../PrimexDNS/IPrimexDNS.sol";
-import {IBucket} from "../Bucket/IBucket.sol";
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
+import {IKeeperRewardDistributorStorage, IKeeperRewardDistributorV3} from "../KeeperRewardDistributor/IKeeperRewardDistributor.sol";
+import {IPrimexDNSV3, IPrimexDNSStorageV3} from "../PrimexDNS/IPrimexDNS.sol";
+import {IBucketV3} from "../Bucket/IBucket.sol";
+import {IPositionManagerV2} from "../PositionManager/IPositionManager.sol";
 import {ITraderBalanceVault} from "../TraderBalanceVault/ITraderBalanceVault.sol";
 import {TokenTransfersLibrary} from "./TokenTransfersLibrary.sol";
+import {IPriceOracleStorageV2} from "../PriceOracle/IPriceOracleStorage.sol";
+import {IPriceOracleV2} from "../PriceOracle/IPriceOracle.sol";
 
 import "./Errors.sol";
 
@@ -23,62 +26,63 @@ library PrimexPricingLibrary {
     using WadRayMath for uint256;
     using BytesLib for bytes;
 
-    struct Route {
-        uint256 shares;
-        SwapPath[] paths;
-    }
+    /**
+     * @param dexName The name of the DEX.
+     * @param shares the share that will be allocated from the total amount for the route
+     * @param payload payload data encoded in bytes
+     */
 
-    struct SwapPath {
+    struct Path {
         string dexName;
-        bytes encodedPath;
+        uint256 shares;
+        bytes payload;
     }
 
-    struct MultiSwapParams {
+    /**
+     * @param to the destination token of the route
+     * @param paths path array through which the swap will be made up to the destination token this the route
+     */
+
+    struct Route {
+        address to;
+        Path[] paths;
+    }
+
+    /**
+     * @param shares the share that will be allocated from the total amount for this MegaRoute
+     * @param routes array of routes through which the swap will be made up to TokenB
+     */
+    struct MegaRoute {
+        uint256 shares;
+        Route[] routes;
+    }
+
+    struct MegaSwapParams {
         address tokenA;
         address tokenB;
         uint256 amountTokenA;
-        Route[] routes;
-        address dexAdapter;
+        MegaRoute[] megaRoutes;
         address receiver;
         uint256 deadline;
-    }
-
-    struct MultiSwapVars {
-        uint256 sumOfShares;
-        uint256 balance;
-        uint256 amountOnDex;
-        uint256 remainder;
-        Route route;
     }
 
     struct AmountParams {
         address tokenA;
         address tokenB;
         uint256 amount;
-        Route[] routes;
+        MegaRoute[] megaRoutes;
         address dexAdapter;
         address primexDNS;
     }
 
-    struct LiquidationPriceCalculationParams {
-        address bucket;
-        address positionAsset;
-        uint256 limitPrice;
-        uint256 leverage;
-    }
-
     struct DepositData {
-        uint256 protocolFee;
         address depositAsset;
         uint256 depositAmount;
         uint256 leverage;
     }
 
     /**
-     * @param depositData the deposit data through which the protocol fee can be calculated
-     * if the position is opened through an order using deposit asset
      * @param feeToken An asset in which the fee will be paid. At this point it could be the pmx, the epmx or a native currency
-     * @param isSwapFromWallet bool, the protocol fee is taken from the user wallet or from the Vault
      * @param trader trader address
      * @param priceOracle PriceOracle contract address
      * @param orderType Type of possible order in Primex protocol
@@ -86,32 +90,131 @@ library PrimexPricingLibrary {
      * @param primexDNS PrimexDNS contract address
      */
     struct ProtocolFeeParams {
-        DepositData depositData;
         address feeToken;
-        bool isSwapFromWallet;
         address trader;
         address priceOracle;
-        IPrimexDNSStorage.OrderType orderType;
-        bool calculateFee;
+        IPrimexDNSStorageV3.FeeRateType feeRateType;
         ITraderBalanceVault traderBalanceVault;
-        IPrimexDNS primexDNS;
+        address swapManager;
+        address keeperRewardDistributor;
+        IPrimexDNSV3 primexDNS;
+        address positionAsset;
+        uint256 positionSize;
+        uint256 gasSpent;
+        bool isFeeOnlyInPositionAsset;
+        bytes pmxPositionAssetOracleData;
+        bytes nativePositionAssetOracleData;
+    }
+
+    struct ProtocolFeeParamsBatchClose {
+        uint256 numberOfPositions;
+        address[] feeTokens;
+        address[] traders;
+        uint256[] positionSizes;
+        address positionAsset;
+        address priceOracle;
+        IPrimexDNSStorageV3.FeeRateType feeRateType;
+        ITraderBalanceVault traderBalanceVault;
+        address keeperRewardDistributor;
+        IPrimexDNSV3 primexDNS;
+        uint256 estimatedGasAmount;
+        bool isFeeOnlyInPositionAsset;
+        uint256 estimatedBaseLength;
+        bytes nativePositionAssetOracleData;
+        bytes pmxPositionAssetOracleData;
+    }
+
+    struct CalculateFeeInPositionAssetParams {
+        IPrimexDNSV3 primexDNS;
+        address priceOracle;
+        IPrimexDNSStorageV3.FeeRateType feeRateType;
+        address positionAsset;
+        uint256 positionSize;
+        address keeperRewardDistributor;
+        uint256 gasSpent;
+        bool isFeeOnlyInPositionAsset;
+        bytes nativePositionAssetOracleData;
+    }
+
+    struct MinProtocolFeeParams {
+        uint256 restrictedGasSpent;
+        address positionAsset;
+        address priceOracle;
+        IKeeperRewardDistributorV3 keeperRewardDistributor;
+        IPrimexDNSV3 primexDNS;
+        bool isFeeOnlyInPositionAsset;
+        IPrimexDNSStorageV3.FeeRateType feeRateType;
+        bytes nativePositionAssetOracleData;
     }
 
     /**
      * The struct for payProtocolFee function
      */
     struct ProtocolFeeVars {
-        bool fromLocked;
+        address pmx;
         address treasury;
+        uint256 feeInPositionAssetWithDiscount;
+        uint256 pmxTraderBalance;
+        uint256 pmxTraderBalanceInPositionAsset;
+        uint256 pmxDiscountMultiplier;
+    }
+
+    /**
+     * The struct for calculateFeeInPositionAssetVars function
+     */
+    struct FeeInPositionAssetVars {
+        uint256 protocolFeeRate;
+        uint256 maxProtocolFee;
+        uint256 feeInPositionAsset;
+        uint256 maxProtocolFeeInPositionAsset;
+        uint256 minProtocolFeeInPositionAsset;
+    }
+
+    /**
+     * The struct for minProtocolFee function
+     */
+    struct MinProtocolFeeVars {
+        uint256 maxGasAmount;
+        uint256 restrictedGasPrice;
+        uint256 l1CostWei;
+        uint256 liquidationGasAmount;
+        uint256 protocolFeeCoefficient;
+        uint256 additionalGasSpent;
+        uint256 minProtocolFeeInNativeAsset;
+        uint256 totalGasSpent;
+        uint256 baseLength;
+        IPrimexDNSStorageV3.CallingMethod callingMethod;
+        IKeeperRewardDistributorStorage.PaymentModel paymentModel;
+    }
+
+    /**
+     * The struct for calculateFeeInPositionAssetBatchClose function
+     */
+    struct CalculateFeeInPositionAssetBatchCloseVars {
+        uint256[] feeInPositionAsset;
+        uint256 protocolFeeRate;
+        uint256 maxProtocolFee;
+        uint256 maxProtocolFeeInPositionAsset;
+        uint256 minProtocolFeeInPositionAsset;
+    }
+
+    /**
+     * The struct for calculateRestrictedGasPrice function
+     */
+    struct RestrictedGasPriceVars {
+        int256 oracleGasPrice;
+        uint256 maxGasPrice;
+        uint256 defaultMaxGasPrice;
+        uint256 oracleGasPriceTolerance;
     }
 
     /**
      * The struct for getLiquidationPrice and getLiquidationPriceByOrder functions
      */
     struct LiquidationPriceData {
-        IBucket bucket;
-        IPositionManager positionManager;
-        IPriceOracle priceOracle;
+        IBucketV3 bucket;
+        IPositionManagerV2 positionManager;
+        IPriceOracleV2 priceOracle;
         IERC20Metadata borrowedAsset;
     }
 
@@ -137,7 +240,7 @@ library PrimexPricingLibrary {
         address[] memory path,
         address dexRouter,
         bytes32 ancillaryData,
-        address dexAdapter,
+        address payable dexAdapter,
         bool isAmountToBuy
     ) external view returns (bytes memory) {
         IDexAdapter.DexType type_ = IDexAdapter(dexAdapter).dexType(dexRouter);
@@ -170,95 +273,6 @@ library PrimexPricingLibrary {
     }
 
     /**
-     * @notice Wrapped getAmountsOut to the dex
-     * @param _params parameters necessary to get amount out
-     * @return the amount of `tokenB` by the amount of 'tokenA' on dexes
-     */
-    function getAmountOut(AmountParams memory _params) public returns (uint256) {
-        _require(_params.tokenA != _params.tokenB, Errors.IDENTICAL_ASSETS.selector);
-        _require(
-            IERC165(address(_params.primexDNS)).supportsInterface(type(IPrimexDNS).interfaceId),
-            Errors.ADDRESS_NOT_SUPPORTED.selector
-        );
-
-        uint256 sumOfShares;
-        for (uint256 i; i < _params.routes.length; i++) {
-            sumOfShares += _params.routes[i].shares;
-        }
-        _require(sumOfShares > 0, Errors.SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO.selector);
-
-        uint256 remainder = _params.amount;
-        uint256 sum;
-        uint256 amountOnDex;
-        Route memory route;
-        IDexAdapter.GetAmountsParams memory getAmountsParams;
-        address[] memory path;
-
-        for (uint256 i; i < _params.routes.length; i++) {
-            route = _params.routes[i];
-            amountOnDex = i == _params.routes.length - 1 ? remainder : (_params.amount * route.shares) / sumOfShares;
-            remainder -= amountOnDex;
-
-            for (uint256 j; j < route.paths.length; j++) {
-                getAmountsParams.encodedPath = route.paths[j].encodedPath;
-                getAmountsParams.amount = amountOnDex;
-                getAmountsParams.dexRouter = IPrimexDNS(_params.primexDNS).getDexAddress(route.paths[j].dexName);
-                path = decodePath(getAmountsParams.encodedPath, getAmountsParams.dexRouter, _params.dexAdapter);
-                _require(path.length >= 2, Errors.INCORRECT_PATH.selector);
-                amountOnDex = IDexAdapter(_params.dexAdapter).getAmountsOut(getAmountsParams)[1];
-            }
-            sum += amountOnDex;
-        }
-
-        return sum;
-    }
-
-    /**
-     * @notice Wrapped getAmountIn to the dex
-     * @param _params parameters necessary to get amount in
-     * @return the amount of `tokenA` by the amount of 'tokenB' on dexes
-     */
-    function getAmountIn(AmountParams memory _params) public returns (uint256) {
-        _require(_params.tokenA != _params.tokenB, Errors.IDENTICAL_ASSETS.selector);
-        _require(
-            IERC165(address(_params.primexDNS)).supportsInterface(type(IPrimexDNS).interfaceId),
-            Errors.ADDRESS_NOT_SUPPORTED.selector
-        );
-
-        uint256 sumOfShares;
-        for (uint256 i; i < _params.routes.length; i++) {
-            sumOfShares += _params.routes[i].shares;
-        }
-        _require(sumOfShares > 0, Errors.SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO.selector);
-
-        uint256 remainder = _params.amount;
-        uint256 sum;
-        uint256 amountOnDex;
-        Route memory route;
-        IDexAdapter.GetAmountsParams memory getAmountsParams;
-        address[] memory path;
-
-        for (uint256 i; i < _params.routes.length; i++) {
-            route = _params.routes[i];
-            amountOnDex = i == _params.routes.length - 1 ? remainder : (_params.amount * route.shares) / sumOfShares;
-            remainder -= amountOnDex;
-            for (uint256 j; j < route.paths.length; j++) {
-                getAmountsParams.encodedPath = route.paths[route.paths.length - 1 - j].encodedPath;
-                getAmountsParams.amount = amountOnDex;
-                getAmountsParams.dexRouter = IPrimexDNS(_params.primexDNS).getDexAddress(
-                    route.paths[route.paths.length - 1 - j].dexName
-                );
-                path = decodePath(getAmountsParams.encodedPath, getAmountsParams.dexRouter, _params.dexAdapter);
-                _require(path.length >= 2, Errors.INCORRECT_PATH.selector);
-                amountOnDex = IDexAdapter(_params.dexAdapter).getAmountsIn(getAmountsParams)[0];
-            }
-            sum += amountOnDex;
-        }
-
-        return sum;
-    }
-
-    /**
      * @notice Calculates the amount of deposit assets in borrowed assets.
      * @param _params The parameters for the calculation.
      * @param _isThirdAsset A flag indicating if deposit is in a third asset.
@@ -266,27 +280,29 @@ library PrimexPricingLibrary {
      * @return The amount of deposit assets is measured in borrowed assets.
      */
     function getDepositAmountInBorrowed(
-        AmountParams memory _params,
+        IDexAdapter.AmountParams calldata _params,
         bool _isThirdAsset,
-        address _priceOracle
+        address payable _dexAdapter,
+        address _priceOracle,
+        bytes calldata _oracleData
     ) public returns (uint256) {
         _require(
-            IERC165(_params.primexDNS).supportsInterface(type(IPrimexDNS).interfaceId) &&
-                IERC165(_priceOracle).supportsInterface(type(IPriceOracle).interfaceId),
+            IERC165(_priceOracle).supportsInterface(type(IPriceOracleV2).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
         if (_params.tokenA == _params.tokenB) {
-            _require(_params.routes.length == 0, Errors.DEPOSITED_TO_BORROWED_ROUTES_LENGTH_SHOULD_BE_0.selector);
+            _require(_params.megaRoutes.length == 0, Errors.DEPOSITED_TO_BORROWED_ROUTES_LENGTH_SHOULD_BE_0.selector);
             return _params.amount;
         }
 
-        uint256 depositAmountInBorrowed = getAmountOut(_params);
+        uint256 depositAmountInBorrowed = IDexAdapter(_dexAdapter).getAmountOutByMegaRoutes(_params);
         if (_isThirdAsset) {
             uint256 oracleDepositAmountOut = getOracleAmountsOut(
                 _params.tokenA,
                 _params.tokenB,
                 _params.amount,
-                _priceOracle
+                _priceOracle,
+                _oracleData
             );
             if (depositAmountInBorrowed > oracleDepositAmountOut) depositAmountInBorrowed = oracleDepositAmountOut;
         }
@@ -300,197 +316,432 @@ library PrimexPricingLibrary {
      * @param _params The struct containing all the necessary parameters for the multi-hop swap.
      * @param _maximumOracleTolerableLimit The maximum tolerable limit in WAD format (1 WAD = 100%)
      * for the price difference between DEX and the oracle.
-     * @param _primexDNS The address of the Primex DNS contract.
+     * @param _dexAdapter The address of the Dex adapter contract.
      * @param _priceOracle The address of the price oracle contract.
      * @param _needOracleTolerableLimitCheck Flag indicating whether to perform an oracle tolerable limit check.
      * @return The final balance of the _params.tokenB in the receiver's address after the multi-hop swap.
      */
-    function multiSwap(
-        MultiSwapParams memory _params,
+    function megaSwap(
+        MegaSwapParams calldata _params,
         uint256 _maximumOracleTolerableLimit,
-        address _primexDNS,
+        address payable _dexAdapter,
         address _priceOracle,
-        bool _needOracleTolerableLimitCheck
+        bool _needOracleTolerableLimitCheck,
+        bytes calldata _oracleData
     ) public returns (uint256) {
-        _require(
-            IERC165(_primexDNS).supportsInterface(type(IPrimexDNS).interfaceId) &&
-                IERC165(_priceOracle).supportsInterface(type(IPriceOracle).interfaceId),
-            Errors.ADDRESS_NOT_SUPPORTED.selector
-        );
-        MultiSwapVars memory vars;
-        vars.balance = IERC20Metadata(_params.tokenB).balanceOf(_params.receiver);
-        for (uint256 i; i < _params.routes.length; i++) {
-            vars.sumOfShares += _params.routes[i].shares;
-        }
-        _require(vars.sumOfShares > 0, Errors.SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO.selector);
+        uint256 balance = IERC20Metadata(_params.tokenB).balanceOf(_params.receiver);
+        IDexAdapter(_dexAdapter).performMegaRoutesSwap(_params);
 
-        vars.remainder = _params.amountTokenA;
-        IDexAdapter.SwapParams memory swapParams;
-        swapParams.deadline = _params.deadline;
-
-        for (uint256 i; i < _params.routes.length; i++) {
-            vars.route = _params.routes[i];
-            vars.amountOnDex = i == _params.routes.length - 1
-                ? vars.remainder
-                : (_params.amountTokenA * vars.route.shares) / vars.sumOfShares;
-            vars.remainder -= vars.amountOnDex;
-            swapParams.to = _params.dexAdapter;
-
-            for (uint256 j; j < vars.route.paths.length; j++) {
-                swapParams.encodedPath = vars.route.paths[j].encodedPath;
-                swapParams.amountIn = vars.amountOnDex;
-                swapParams.dexRouter = IPrimexDNS(_primexDNS).getDexAddress(vars.route.paths[j].dexName);
-                if (j == vars.route.paths.length - 1) {
-                    swapParams.to = _params.receiver;
-                }
-                vars.amountOnDex = IDexAdapter(_params.dexAdapter).swapExactTokensForTokens(swapParams)[1];
-            }
-        }
-
-        vars.balance = IERC20Metadata(_params.tokenB).balanceOf(_params.receiver) - vars.balance;
+        balance = IERC20Metadata(_params.tokenB).balanceOf(_params.receiver) - balance;
         if (_needOracleTolerableLimitCheck) {
             _require(
-                vars.balance >=
-                    getOracleAmountsOut(_params.tokenA, _params.tokenB, _params.amountTokenA, _priceOracle).wmul(
-                        WadRayMath.WAD - _maximumOracleTolerableLimit
-                    ),
+                balance >=
+                    getOracleAmountsOut(_params.tokenA, _params.tokenB, _params.amountTokenA, _priceOracle, _oracleData)
+                        .wmul(WadRayMath.WAD - _maximumOracleTolerableLimit),
                 Errors.DIFFERENT_PRICE_DEX_AND_ORACLE.selector
             );
         }
 
-        return vars.balance;
+        return balance;
     }
 
     /**
      * @notice Pays the protocol fee.
      * @dev This function transfers the protocol fee from the trader to the protocol treasury.
      * @param params The parameters for paying the protocol fee.
-     * @return protocolFee The amount of the protocol fee in PMX or NATIVE_CURRENCY paid.
+     * @return feeInPositionAsset The amount of the protocol fee in position asset paid.
+     * @return feeInPmx The amount of the protocol fee in pmx asset paid.
      */
-    function payProtocolFee(ProtocolFeeParams memory params) public returns (uint256 protocolFee) {
-        if (!params.isSwapFromWallet || params.feeToken != NATIVE_CURRENCY) {
-            _require(msg.value == 0, Errors.DISABLED_TRANSFER_NATIVE_CURRENCY.selector);
+    function payProtocolFee(
+        ProtocolFeeParams memory params
+    ) public returns (uint256 feeInPositionAsset, uint256 feeInPmx) {
+        // This is done to ensure that after upgrading the contracts, positions that have already been opened
+        // and had fees paid for them will not incur additional fees upon closure
+        if (params.feeToken == address(0)) {
+            return (0, 0);
         }
+
         ProtocolFeeVars memory vars;
-        vars.treasury = params.primexDNS.treasury();
-        vars.fromLocked = true;
-
-        protocolFee = params.depositData.protocolFee;
-        if (params.calculateFee) {
-            protocolFee = calculateProtocolFee(
-                params.depositData,
-                params.primexDNS,
-                params.priceOracle,
-                params.orderType,
-                params.feeToken
-            );
-            if (protocolFee == 0) return 0;
-            vars.fromLocked = false;
-            if (params.isSwapFromWallet) {
-                if (params.feeToken == NATIVE_CURRENCY) {
-                    _require(msg.value >= protocolFee, Errors.INSUFFICIENT_DEPOSIT.selector);
-                    TokenTransfersLibrary.doTransferOutETH(vars.treasury, protocolFee);
-                    if (msg.value > protocolFee) {
-                        uint256 rest = msg.value - protocolFee;
-                        params.traderBalanceVault.topUpAvailableBalance{value: rest}(msg.sender, NATIVE_CURRENCY, rest);
-                    }
-                } else {
-                    TokenTransfersLibrary.doTransferFromTo(params.feeToken, params.trader, vars.treasury, protocolFee);
-                }
-                return protocolFee;
-            }
-        }
-
-        params.traderBalanceVault.withdrawFrom(
-            params.trader,
-            vars.treasury,
-            params.feeToken,
-            protocolFee,
-            vars.fromLocked
+        (vars.pmx, vars.treasury, , , vars.pmxDiscountMultiplier) = params.primexDNS.getPrimexDNSParams(
+            params.feeRateType
         );
+        feeInPositionAsset = calculateFeeInPositionAsset(
+            CalculateFeeInPositionAssetParams({
+                primexDNS: params.primexDNS,
+                priceOracle: params.priceOracle,
+                feeRateType: params.feeRateType,
+                positionAsset: params.positionAsset,
+                positionSize: params.positionSize,
+                keeperRewardDistributor: params.keeperRewardDistributor,
+                gasSpent: params.gasSpent,
+                isFeeOnlyInPositionAsset: params.isFeeOnlyInPositionAsset,
+                nativePositionAssetOracleData: params.nativePositionAssetOracleData
+            })
+        );
+        (vars.pmxTraderBalance, ) = params.traderBalanceVault.balances(params.trader, vars.pmx);
+        if (params.feeToken == vars.pmx && vars.pmxTraderBalance > 0 && !params.isFeeOnlyInPositionAsset) {
+            // pmx => position asset data
+            uint256 pmxTraderBalanceInPositionAsset = getOracleAmountsOut(
+                vars.pmx,
+                params.positionAsset,
+                vars.pmxTraderBalance,
+                params.priceOracle,
+                params.pmxPositionAssetOracleData
+            );
+
+            uint256 feeInPositionAssetWithDiscount = feeInPositionAsset.wmul(vars.pmxDiscountMultiplier);
+
+            feeInPmx = (feeInPositionAssetWithDiscount * vars.pmxTraderBalance) / pmxTraderBalanceInPositionAsset;
+
+            if (pmxTraderBalanceInPositionAsset >= feeInPositionAssetWithDiscount) {
+                feeInPositionAsset = 0;
+                params.traderBalanceVault.withdrawFrom(params.trader, vars.treasury, vars.pmx, feeInPmx, false);
+            } else {
+                feeInPmx = vars.pmxTraderBalance;
+                feeInPositionAsset -= pmxTraderBalanceInPositionAsset.wdiv(vars.pmxDiscountMultiplier);
+                params.traderBalanceVault.withdrawFrom(
+                    params.trader,
+                    vars.treasury,
+                    vars.pmx,
+                    vars.pmxTraderBalance,
+                    false
+                );
+                TokenTransfersLibrary.doTransferOut(params.positionAsset, vars.treasury, feeInPositionAsset);
+            }
+        } else {
+            TokenTransfersLibrary.doTransferOut(params.positionAsset, vars.treasury, feeInPositionAsset);
+        }
     }
 
     /**
      * @notice Calculate and return protocol fee
-     * @param _depositData The deposit data through which the protocol fee can be calculated.
-     * @param _primexDNS The address of the PrimexDNS contract.
-     * @param _priceOracle The address of the PriceOracle contract.
-     * @param _orderType Type of possible order in Primex protocol
-     * @param _feeToken An asset in which the fee will be paid. At this point it could be the pmx, the epmx or a native currency
      * @return The amount of the protocol fee in '_feeToken' which needs to be paid according to the specified deposit parameters.
      */
-    function calculateProtocolFee(
-        DepositData memory _depositData,
-        IPrimexDNS _primexDNS,
-        address _priceOracle,
-        IPrimexDNSStorage.OrderType _orderType,
-        address _feeToken
-    ) public view returns (uint256) {
-        uint256 feeRate = _primexDNS.feeRates(_orderType, _feeToken);
-        if (feeRate == 0) return 0;
-        uint256 nativeFeeRate = _feeToken == NATIVE_CURRENCY
-            ? feeRate
-            : _primexDNS.feeRates(_orderType, NATIVE_CURRENCY);
+    function calculateFeeInPositionAsset(CalculateFeeInPositionAssetParams memory params) public returns (uint256) {
+        FeeInPositionAssetVars memory vars;
+        (, , vars.protocolFeeRate, vars.maxProtocolFee, ) = params.primexDNS.getPrimexDNSParams(params.feeRateType);
+        // Calculate protocol fee in position asset
+        vars.feeInPositionAsset = params.positionSize.wmul(vars.protocolFeeRate);
 
-        _depositData.protocolFee = getOracleAmountsOut(
-            _depositData.depositAsset,
-            NATIVE_CURRENCY,
-            _depositData.depositAmount.wmul(_depositData.leverage).wmul(nativeFeeRate),
-            _priceOracle
-        );
-
-        (uint256 minFee, uint256 maxFee) = IPrimexDNSV2(address(_primexDNS)).feeRestrictions(_orderType);
-        if (minFee > _depositData.protocolFee) {
-            _depositData.protocolFee = minFee;
-        } else if (maxFee < _depositData.protocolFee) {
-            _depositData.protocolFee = maxFee;
-        }
-
-        if (_feeToken != NATIVE_CURRENCY) {
-            _require(nativeFeeRate != 0, Errors.FEE_RATE_IN_NATIVE_IS_ZERO.selector);
-            uint256 discountMultiplier = feeRate.wdiv(nativeFeeRate);
-            _depositData.protocolFee = getOracleAmountsOut(
+        // Calculate max protocol fee in position asset
+        vars.maxProtocolFeeInPositionAsset = vars.maxProtocolFee == type(uint256).max
+            ? type(uint256).max
+            : getOracleAmountsOut(
                 NATIVE_CURRENCY,
-                _feeToken,
-                _depositData.protocolFee.wmul(discountMultiplier),
-                _priceOracle
+                params.positionAsset,
+                vars.maxProtocolFee,
+                params.priceOracle,
+                params.nativePositionAssetOracleData
+            );
+
+        // The minProtocolFee is applied only if the order/position is processed by Keepers
+
+        if (
+            params.feeRateType == IPrimexDNSStorageV3.FeeRateType.MarginPositionClosedByTrader ||
+            params.feeRateType == IPrimexDNSStorageV3.FeeRateType.SpotPositionClosedByTrader ||
+            params.feeRateType == IPrimexDNSStorageV3.FeeRateType.SwapMarketOrder
+        ) {
+            vars.feeInPositionAsset = min(vars.feeInPositionAsset, vars.maxProtocolFeeInPositionAsset);
+        } else {
+            vars.minProtocolFeeInPositionAsset = minProtocolFee(
+                MinProtocolFeeParams({
+                    restrictedGasSpent: params.gasSpent,
+                    positionAsset: params.positionAsset,
+                    priceOracle: params.priceOracle,
+                    keeperRewardDistributor: IKeeperRewardDistributorV3(params.keeperRewardDistributor),
+                    primexDNS: params.primexDNS,
+                    isFeeOnlyInPositionAsset: params.isFeeOnlyInPositionAsset,
+                    feeRateType: params.feeRateType,
+                    nativePositionAssetOracleData: params.nativePositionAssetOracleData
+                })
+            );
+            _require(
+                vars.minProtocolFeeInPositionAsset < params.positionSize,
+                Errors.MIN_PROTOCOL_FEE_IS_GREATER_THAN_POSITION_SIZE.selector
+            );
+
+            vars.feeInPositionAsset = min(
+                max(vars.feeInPositionAsset, vars.minProtocolFeeInPositionAsset),
+                vars.maxProtocolFeeInPositionAsset
             );
         }
+        return vars.feeInPositionAsset;
+    }
 
-        return _depositData.protocolFee;
+    function payProtocolFeeBatchClose(
+        ProtocolFeeParamsBatchClose calldata params
+    ) public returns (uint256[] memory, uint256[] memory) {
+        ProtocolFeeVars memory vars;
+        uint256[] memory feeInPositionAsset = new uint256[](params.numberOfPositions);
+        uint256[] memory feeInPmx = new uint256[](params.numberOfPositions);
+
+        (vars.pmx, vars.treasury, , , vars.pmxDiscountMultiplier) = params.primexDNS.getPrimexDNSParams(
+            params.feeRateType
+        );
+        feeInPositionAsset = calculateFeeInPositionAssetBatchClose(
+            params.numberOfPositions,
+            params.primexDNS,
+            params.priceOracle,
+            params.feeRateType,
+            params.positionAsset,
+            params.positionSizes,
+            params.keeperRewardDistributor,
+            params.estimatedGasAmount,
+            params.estimatedBaseLength,
+            params.nativePositionAssetOracleData
+        );
+        for (uint256 i; i < params.numberOfPositions; i++) {
+            // This is done to ensure that after upgrading the contracts, positions that have already been opened
+            // and had fees paid for them will not incur additional fees upon closure
+            if (params.feeTokens[i] == address(0)) {
+                feeInPositionAsset[i] = 0;
+                feeInPmx[i] = 0;
+                continue;
+            }
+
+            (vars.pmxTraderBalance, ) = params.traderBalanceVault.balances(params.traders[i], vars.pmx);
+
+            if (!params.isFeeOnlyInPositionAsset && params.feeTokens[i] == vars.pmx && vars.pmxTraderBalance > 0) {
+                vars.pmxTraderBalanceInPositionAsset = getOracleAmountsOut(
+                    vars.pmx,
+                    params.positionAsset,
+                    vars.pmxTraderBalance,
+                    params.priceOracle,
+                    params.pmxPositionAssetOracleData
+                );
+
+                vars.feeInPositionAssetWithDiscount = feeInPositionAsset[i].wmul(vars.pmxDiscountMultiplier);
+                feeInPmx[i] =
+                    (vars.feeInPositionAssetWithDiscount * vars.pmxTraderBalance) /
+                    vars.pmxTraderBalanceInPositionAsset;
+                if (vars.pmxTraderBalanceInPositionAsset >= vars.feeInPositionAssetWithDiscount) {
+                    feeInPositionAsset[i] = 0;
+                    params.traderBalanceVault.withdrawFrom(
+                        params.traders[i],
+                        vars.treasury,
+                        vars.pmx,
+                        feeInPmx[i],
+                        false
+                    );
+                } else {
+                    feeInPmx[i] = vars.pmxTraderBalance;
+                    feeInPositionAsset[i] -= vars.pmxTraderBalanceInPositionAsset.wdiv(vars.pmxDiscountMultiplier);
+                    params.traderBalanceVault.withdrawFrom(
+                        params.traders[i],
+                        vars.treasury,
+                        vars.pmx,
+                        vars.pmxTraderBalance,
+                        false
+                    );
+                }
+            }
+        }
+        return (feeInPositionAsset, feeInPmx);
     }
 
     /**
-     * @param _tokenA asset for sell
-     * @param _tokenB asset to buy
-     * @param _amountAssetA Amount tokenA to sell
-     * @param _priceOracle PriceOracle contract address
-     * @return returns the amount of `tokenB` by the `amountAssetA` by the price of the oracle
+     * @notice Calculate and return protocol fee
+     * @return The amount of the protocol fee in '_feeToken' which needs to be paid according to the specified deposit parameters.
      */
+    function calculateFeeInPositionAssetBatchClose(
+        uint256 numberOfPositions,
+        IPrimexDNSV3 primexDNS,
+        address priceOracle,
+        IPrimexDNSStorageV3.FeeRateType feeRateType,
+        address positionAsset,
+        uint256[] memory positionSizes,
+        address keeperRewardDistributor,
+        uint256 estimatedGasAmount,
+        uint256 estimatedBaseLength,
+        bytes calldata _nativePositionAssetOracleData
+    ) public returns (uint256[] memory) {
+        CalculateFeeInPositionAssetBatchCloseVars memory vars;
+        (, , vars.protocolFeeRate, vars.maxProtocolFee, ) = primexDNS.getPrimexDNSParams(feeRateType);
+        // Calculate max protocol fee in position asset
+        vars.maxProtocolFeeInPositionAsset = vars.maxProtocolFee == type(uint256).max
+            ? type(uint256).max
+            : getOracleAmountsOut(
+                NATIVE_CURRENCY,
+                positionAsset,
+                vars.maxProtocolFee,
+                priceOracle,
+                _nativePositionAssetOracleData
+            );
+
+        vars.minProtocolFeeInPositionAsset = minProtocolFeeCloseBatch(
+            positionAsset,
+            priceOracle,
+            IKeeperRewardDistributorV3(keeperRewardDistributor),
+            estimatedGasAmount,
+            estimatedBaseLength,
+            _nativePositionAssetOracleData
+        );
+        vars.feeInPositionAsset = new uint256[](numberOfPositions);
+        // Calculate protocol fee in position asset
+        for (uint256 i; i < numberOfPositions; i++) {
+            vars.feeInPositionAsset[i] = positionSizes[i].wmul(vars.protocolFeeRate);
+            _require(
+                vars.minProtocolFeeInPositionAsset < positionSizes[i],
+                Errors.MIN_PROTOCOL_FEE_IS_GREATER_THAN_POSITION_SIZE.selector
+            );
+            vars.feeInPositionAsset[i] = min(
+                max(vars.feeInPositionAsset[i], vars.minProtocolFeeInPositionAsset),
+                vars.maxProtocolFeeInPositionAsset
+            );
+        }
+
+        return vars.feeInPositionAsset;
+    }
+
+    /**
+     * @notice Calculate minProtocolFee based on the gas price
+     */
+    function minProtocolFee(MinProtocolFeeParams memory params) public returns (uint256 minProtocolFeeInPositionAsset) {
+        MinProtocolFeeVars memory vars;
+        (vars.restrictedGasPrice) = calculateRestrictedGasPrice(params.priceOracle, params.keeperRewardDistributor);
+        if (
+            params.feeRateType == IPrimexDNSStorageV3.FeeRateType.MarginPositionClosedByKeeper ||
+            params.feeRateType == IPrimexDNSStorageV3.FeeRateType.SpotPositionClosedByKeeper
+        ) {
+            vars.callingMethod = IPrimexDNSStorageV3.CallingMethod.ClosePositionByCondition;
+        } else {
+            vars.callingMethod = IPrimexDNSStorageV3.CallingMethod.OpenPositionByOrder;
+        }
+        (
+            vars.liquidationGasAmount,
+            vars.protocolFeeCoefficient,
+            vars.additionalGasSpent,
+            vars.maxGasAmount,
+            vars.baseLength
+        ) = params.primexDNS.getParamsForMinProtocolFee(vars.callingMethod);
+
+        vars.paymentModel = params.keeperRewardDistributor.paymentModel();
+        vars.l1CostWei = vars.paymentModel == IKeeperRewardDistributorStorage.PaymentModel.ARBITRUM
+            ? ARB_NITRO_ORACLE.getL1BaseFeeEstimate() * GAS_FOR_BYTE * (vars.baseLength + TRANSACTION_METADATA_BYTES)
+            : 0;
+
+        if (params.isFeeOnlyInPositionAsset) {
+            vars.minProtocolFeeInNativeAsset =
+                vars.liquidationGasAmount *
+                vars.restrictedGasPrice +
+                vars.l1CostWei +
+                vars.protocolFeeCoefficient;
+        } else {
+            if (vars.callingMethod == IPrimexDNSStorageV3.CallingMethod.ClosePositionByCondition) {
+                vars.minProtocolFeeInNativeAsset =
+                    vars.maxGasAmount *
+                    vars.restrictedGasPrice +
+                    vars.l1CostWei +
+                    vars.protocolFeeCoefficient;
+            } else {
+                vars.totalGasSpent = params.restrictedGasSpent + vars.additionalGasSpent;
+                vars.totalGasSpent = min(vars.totalGasSpent, vars.maxGasAmount);
+
+                vars.minProtocolFeeInNativeAsset =
+                    vars.totalGasSpent *
+                    vars.restrictedGasPrice +
+                    vars.l1CostWei +
+                    vars.protocolFeeCoefficient;
+            }
+        }
+        minProtocolFeeInPositionAsset = getOracleAmountsOut(
+            NATIVE_CURRENCY,
+            params.positionAsset,
+            vars.minProtocolFeeInNativeAsset,
+            params.priceOracle,
+            params.nativePositionAssetOracleData
+        );
+    }
+
+    /**
+     * @notice Calculate minProtocolFee based on the gas price in closeBatchPositions
+     */
+    function minProtocolFeeCloseBatch(
+        address _positionAsset,
+        address _priceOracle,
+        IKeeperRewardDistributorV3 _keeperRewardDistributor,
+        uint256 _estimatedGasAmount,
+        uint256 _estimatedBaseLength,
+        bytes calldata _nativePositionAssetOracleData
+    ) public returns (uint256 minProtocolFeeInPositionAsset) {
+        uint256 restrictedGasPrice = calculateRestrictedGasPrice(_priceOracle, _keeperRewardDistributor);
+
+        IKeeperRewardDistributorStorage.PaymentModel paymentModel = _keeperRewardDistributor.paymentModel();
+        uint256 l1CostWei = paymentModel == IKeeperRewardDistributorStorage.PaymentModel.ARBITRUM
+            ? ARB_NITRO_ORACLE.getL1BaseFeeEstimate() *
+                GAS_FOR_BYTE *
+                (_estimatedBaseLength + TRANSACTION_METADATA_BYTES)
+            : 0;
+
+        uint256 minProtocolFeeInNativeAsset = _estimatedGasAmount * restrictedGasPrice + l1CostWei;
+
+        minProtocolFeeInPositionAsset = getOracleAmountsOut(
+            NATIVE_CURRENCY,
+            _positionAsset,
+            minProtocolFeeInNativeAsset,
+            _priceOracle,
+            _nativePositionAssetOracleData
+        );
+    }
+
+    /**
+     * @notice Calculate minPositionSize based on the gas price
+     */
+    function minPositionSize(
+        address _priceOracle,
+        IKeeperRewardDistributorV3 _keeperRewardDistributor,
+        IPrimexDNSV3 _primexDNS,
+        IPrimexDNSStorageV3.TradingOrderType _tradingOrderType
+    ) public view returns (uint256 minPositionSizeInNativeAsset) {
+        uint256 restrictedGasPrice = calculateRestrictedGasPrice(_priceOracle, _keeperRewardDistributor);
+
+        IKeeperRewardDistributorStorage.PaymentModel paymentModel = _keeperRewardDistributor.paymentModel();
+
+        uint256 l1CostWei = paymentModel == IKeeperRewardDistributorStorage.PaymentModel.ARBITRUM
+            ? ARB_NITRO_ORACLE.getL1BaseFeeEstimate() *
+                GAS_FOR_BYTE *
+                (_primexDNS.getArbitrumBaseLengthForTradingOrderType(_tradingOrderType) + TRANSACTION_METADATA_BYTES)
+            : 0;
+
+        minPositionSizeInNativeAsset = (_primexDNS.averageGasPerAction(_tradingOrderType) *
+            restrictedGasPrice +
+            l1CostWei).wmul(_primexDNS.gasPriceBuffer());
+    }
+
+    function calculateRestrictedGasPrice(
+        address _priceOracle,
+        IKeeperRewardDistributorV3 _keeperRewardDistributor
+    ) internal view returns (uint256 restrictedGasPrice) {
+        RestrictedGasPriceVars memory vars;
+        restrictedGasPrice = tx.gasprice;
+        vars.oracleGasPrice = IPriceOracle(_priceOracle).getGasPrice();
+        (vars.oracleGasPriceTolerance, vars.defaultMaxGasPrice) = _keeperRewardDistributor.getGasCalculationParams();
+
+        vars.maxGasPrice = vars.oracleGasPrice > 0
+            ? uint256(vars.oracleGasPrice).wmul(WadRayMath.WAD + vars.oracleGasPriceTolerance)
+            : vars.defaultMaxGasPrice;
+
+        if (restrictedGasPrice > vars.maxGasPrice || restrictedGasPrice == 0) {
+            restrictedGasPrice = vars.maxGasPrice;
+        }
+    }
+
     function getOracleAmountsOut(
         address _tokenA,
         address _tokenB,
         uint256 _amountAssetA,
-        address _priceOracle
-    ) public view returns (uint256) {
+        address _priceOracle,
+        bytes memory _oracleData
+    ) public returns (uint256) {
         _require(
-            IERC165(_priceOracle).supportsInterface(type(IPriceOracle).interfaceId),
+            IERC165(_priceOracle).supportsInterface(type(IPriceOracleV2).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
         if (_tokenA == _tokenB) {
             return _amountAssetA;
         }
-        (uint256 exchangeRate, bool isForward) = IPriceOracle(_priceOracle).getExchangeRate(_tokenA, _tokenB);
-        uint256 amountAssetB;
-        uint256 multiplier1 = _getAssetMultiplier(_tokenA);
-        uint256 multiplier2 = _getAssetMultiplier(_tokenB);
-
-        if (isForward) {
-            amountAssetB = (_amountAssetA * multiplier1).wmul(exchangeRate) / multiplier2;
-        } else {
-            amountAssetB = (_amountAssetA * multiplier1).wdiv(exchangeRate) / multiplier2;
-        }
-        return amountAssetB;
+        uint256 exchangeRate = IPriceOracleV2(_priceOracle).getExchangeRate(_tokenA, _tokenB, _oracleData);
+        return (_amountAssetA * _getAssetMultiplier(_tokenA)).wmul(exchangeRate) / _getAssetMultiplier(_tokenB);
     }
 
     /**
@@ -504,28 +755,22 @@ library PrimexPricingLibrary {
         address _tokenA,
         address _tokenB,
         uint256[] memory _amountsAssetA,
-        address _priceOracle
-    ) public view returns (uint256[] memory) {
+        address _priceOracle,
+        bytes calldata _oracleData
+    ) public returns (uint256[] memory) {
         _require(
-            IERC165(_priceOracle).supportsInterface(type(IPriceOracle).interfaceId),
+            IERC165(_priceOracle).supportsInterface(type(IPriceOracleV2).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
         if (_tokenA == _tokenB) {
             return _amountsAssetA;
         }
         uint256[] memory amountsAssetB = new uint256[](_amountsAssetA.length);
-        (uint256 exchangeRate, bool isForward) = IPriceOracle(_priceOracle).getExchangeRate(_tokenA, _tokenB);
+        uint256 exchangeRate = IPriceOracleV2(_priceOracle).getExchangeRate(_tokenA, _tokenB, _oracleData);
         uint256 multiplier1 = 10 ** (18 - IERC20Metadata(_tokenA).decimals());
         uint256 multiplier2 = 10 ** (18 - IERC20Metadata(_tokenB).decimals());
-
-        if (isForward) {
-            for (uint256 i; i < _amountsAssetA.length; i++) {
-                amountsAssetB[i] = (_amountsAssetA[i] * multiplier1).wmul(exchangeRate) / multiplier2;
-            }
-        } else {
-            for (uint256 i; i < _amountsAssetA.length; i++) {
-                amountsAssetB[i] = (_amountsAssetA[i] * multiplier1).wdiv(exchangeRate) / multiplier2;
-            }
+        for (uint256 i; i < _amountsAssetA.length; i++) {
+            amountsAssetB[i] = (_amountsAssetA[i] * multiplier1).wmul(exchangeRate) / multiplier2;
         }
         return amountsAssetB;
     }
@@ -548,7 +793,7 @@ library PrimexPricingLibrary {
     ) public view returns (uint256) {
         _require(_positionAsset != address(0), Errors.ADDRESS_NOT_SUPPORTED.selector);
         LiquidationPriceData memory data;
-        data.bucket = IBucket(_bucket);
+        data.bucket = IBucketV3(_bucket);
 
         (, bool tokenAllowed) = data.bucket.allowedAssets(_positionAsset);
         _require(tokenAllowed, Errors.TOKEN_NOT_SUPPORTED.selector);
@@ -571,21 +816,30 @@ library PrimexPricingLibrary {
 
     /**
      * @notice Validates if a position meets the minimum size requirement.
-     * @param _minPositionSize The minimum position size.
-     * @param _minPositionAsset The asset associated with the minimum position size.
      * @param _amount The amount of the asset in the position.
      * @param _asset The asset associated with the position.
      * @param _priceOracle The address of the price oracle contract.
+     * @param _nativeAssetOracleData NativeCurrency => Asset
      */
     function validateMinPositionSize(
-        uint256 _minPositionSize,
-        address _minPositionAsset,
         uint256 _amount,
         address _asset,
-        address _priceOracle
-    ) public view {
+        address _priceOracle,
+        IKeeperRewardDistributorV3 _keeperRewardDistributor,
+        IPrimexDNSV3 _primexDNS,
+        IPrimexDNSStorageV3.TradingOrderType _tradingOrderType,
+        bytes calldata _nativeAssetOracleData
+    ) public {
         _require(
-            isCorrespondsMinPositionSize(_minPositionSize, _minPositionAsset, _asset, _amount, _priceOracle),
+            isGreaterThanMinPositionSize(
+                _asset,
+                _amount,
+                _priceOracle,
+                _keeperRewardDistributor,
+                _primexDNS,
+                _tradingOrderType,
+                _nativeAssetOracleData
+            ),
             Errors.INSUFFICIENT_POSITION_SIZE.selector
         );
     }
@@ -594,24 +848,34 @@ library PrimexPricingLibrary {
      * @notice Checks if the given amount of _asset corresponds to the minimum position size _minPositionSize,
      * based on the _minPositionAsset and the provided _priceOracle.
      * Returns true if the amount corresponds to or exceeds the minimum position size, otherwise returns false.
-     * @param _minPositionSize The minimum position size required.
-     * @param _minPositionAsset The address of the asset used for determining the minimum position size.
      * @param _asset The address of the asset being checked.
      * @param _amount The amount of _asset being checked.
      * @param _priceOracle The address of the price oracle contract.
      * @return A boolean value indicating whether the amount corresponds to or exceeds the minimum position size.
      */
-    function isCorrespondsMinPositionSize(
-        uint256 _minPositionSize,
-        address _minPositionAsset,
+    function isGreaterThanMinPositionSize(
         address _asset,
         uint256 _amount,
-        address _priceOracle
-    ) public view returns (bool) {
-        if (_minPositionSize == 0) return true;
-
-        uint256 amountInMinPositionAsset = getOracleAmountsOut(_asset, _minPositionAsset, _amount, _priceOracle);
-        return amountInMinPositionAsset >= _minPositionSize;
+        address _priceOracle,
+        IKeeperRewardDistributorV3 _keeperRewardDistributor,
+        IPrimexDNSV3 _primexDNS,
+        IPrimexDNSStorageV3.TradingOrderType _tradingOrderType,
+        bytes calldata _nativeAssetOracleData
+    ) public returns (bool) {
+        uint256 minPositionSizeInNativeCurrency = minPositionSize(
+            _priceOracle,
+            _keeperRewardDistributor,
+            _primexDNS,
+            _tradingOrderType
+        );
+        uint256 minPositionSizeInAsset = getOracleAmountsOut(
+            NATIVE_CURRENCY,
+            _asset,
+            minPositionSizeInNativeCurrency,
+            _priceOracle,
+            _nativeAssetOracleData
+        );
+        return _amount >= minPositionSizeInAsset;
     }
 
     /**
@@ -624,7 +888,7 @@ library PrimexPricingLibrary {
     function decodePath(
         bytes memory encodedPath,
         address dexRouter,
-        address dexAdapter
+        address payable dexAdapter
     ) public view returns (address[] memory path) {
         IDexAdapter.DexType type_ = IDexAdapter(dexAdapter).dexType(dexRouter);
 
@@ -717,5 +981,19 @@ library PrimexPricingLibrary {
         if (_asset == USD) return USD_MULTIPLIER;
 
         return 10 ** (18 - IERC20Metadata(_asset).decimals());
+    }
+
+    /**
+     * @notice Utility function to get the minimum of two values
+     */
+    function min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
+    }
+
+    /**
+     * @notice Utility function to get the maximum of two values
+     */
+    function max(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a > b ? a : b;
     }
 }

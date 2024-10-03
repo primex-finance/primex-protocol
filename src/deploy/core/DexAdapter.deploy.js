@@ -6,6 +6,7 @@ module.exports = async ({ run, ethers: { getContract } }) => {
   const name = [];
   const dexTypes = [];
   const quoters = {};
+  let WNative;
 
   if (process.env.TEST) {
     const UniswapV2Router = await getContract("uniswapV2Router02");
@@ -15,6 +16,8 @@ module.exports = async ({ run, ethers: { getContract } }) => {
     const CurveRouter = await getContract("CurveSwapRouter");
     const BalancerVault = await getContract("Vault");
     const MeshswapRouter = await getContract("MeshswapRouter");
+    const ParaSwap = await getContract("ParaswapMock");
+    WNative = (await getContract("MockWETH")).address;
 
     routers.push(
       UniswapV2Router.address,
@@ -24,13 +27,15 @@ module.exports = async ({ run, ethers: { getContract } }) => {
       BalancerVault.address,
       QuickswapRouterV3.address,
       MeshswapRouter.address,
+      ParaSwap.address,
     );
     quoters["2"] = (await getContract("QuoterUniswapV3")).address;
     quoters["5"] = (await getContract("QuoterQuickswapV3")).address;
-    name.push("uniswap", "sushiswap", "uniswapv3", "curve", "balancer", "quickswapv3", "meshswap");
-    dexTypes.push("1", "1", "2", "3", "4", "5", "6");
+    name.push("uniswap", "sushiswap", "uniswapv3", "curve", "balancer", "quickswapv3", "meshswap", "paraswap");
+    dexTypes.push("1", "1", "2", "3", "4", "5", "6", "7");
   } else {
-    const { dexes } = getConfig();
+    const { dexes, wrappedNativeToken } = getConfig();
+    WNative = wrappedNativeToken;
     for (const dex in dexes) {
       name.push(dex);
       dexTypes.push(dexes[dex].type);
@@ -45,6 +50,7 @@ module.exports = async ({ run, ethers: { getContract } }) => {
   const primexDNS = await getContract("PrimexDNS");
   const errorsLibrary = await getContract("Errors");
   const tokenApproveLibrary = await getContract("TokenApproveLibrary");
+
   await run("deploy:DexAdapter", {
     registry: registry.address,
     primexDNS: primexDNS.address,
@@ -55,11 +61,12 @@ module.exports = async ({ run, ethers: { getContract } }) => {
     errorsLibrary: errorsLibrary.address,
     tokenApproveLibrary: tokenApproveLibrary.address,
     addDexesToDns: true,
+    wNative: WNative,
   });
 };
 
 const dependencies = ["PrimexDNS", "PositionManager", "WhiteBlackList", "Errors", "TokenApproveLibrary"];
-if (process.env.TEST) dependencies.push("Dexes");
+if (process.env.TEST) dependencies.push("Dexes", "MockWETH");
 
 module.exports.tags = ["DexAdapter", "Test", "PrimexCore"];
 module.exports.dependencies = dependencies;

@@ -11,6 +11,7 @@ module.exports = async function (
     },
   },
 ) {
+  const { encodeFunctionData } = require("../../utils/encodeFunctionData.js");
   const { deployer } = await getNamedAccounts();
   if (!args.primexDNS) {
     args.primexDNS = (await getContract("PrimexDNS")).address;
@@ -36,6 +37,7 @@ module.exports = async function (
             args.priceOracle,
             args.keeperRewardDistributor,
             args.whiteBlackList,
+            args.positionManagerExtension,
           ],
         },
       },
@@ -47,22 +49,44 @@ module.exports = async function (
       Errors: args.errorsLibrary,
     },
   });
-
   if (positionManager.newlyDeployed) {
     let tx;
     const pmContract = await getContractAt("PositionManager", positionManager.address);
-    if (!process.env.TEST) {
-      const tx = await pmContract.setMinPositionSize(args.minPositionSize, args.minPositionAsset);
-      await tx.wait();
-    }
 
-    tx = await pmContract.setDefaultOracleTolerableLimit(args.defaultOracleTolerableLimit);
+    const { payload: payload1 } = await encodeFunctionData(
+      "setDefaultOracleTolerableLimit",
+      [args.defaultOracleTolerableLimit],
+      "PositionManagerExtension",
+      args.positionManagerExtension,
+    );
+    tx = await pmContract.setProtocolParamsByAdmin(payload1);
     await tx.wait();
-    tx = await pmContract.setOracleTolerableLimitMultiplier(args.oracleTolerableLimitMultiplier);
+
+    const { payload: payload2 } = await encodeFunctionData(
+      "setOracleTolerableLimitMultiplier",
+      [args.oracleTolerableLimitMultiplier],
+      "PositionManagerExtension",
+      args.positionManagerExtension,
+    );
+    tx = await pmContract.setProtocolParamsByAdmin(payload2);
     await tx.wait();
-    tx = await pmContract.setMaintenanceBuffer(args.maintenanceBuffer);
+
+    const { payload: payload3 } = await encodeFunctionData(
+      "setMaintenanceBuffer",
+      [args.maintenanceBuffer],
+      "PositionManagerExtension",
+      args.positionManagerExtension,
+    );
+    tx = await pmContract.setProtocolParamsByAdmin(payload3);
     await tx.wait();
-    tx = await pmContract.setSecurityBuffer(args.securityBuffer);
+
+    const { payload: payload4 } = await encodeFunctionData(
+      "setSecurityBuffer",
+      [args.securityBuffer],
+      "PositionManagerExtension",
+      args.positionManagerExtension,
+    );
+    tx = await pmContract.setProtocolParamsByAdmin(payload4);
     await tx.wait();
 
     args.whiteBlackList = await getContractAt("WhiteBlackList", args.whiteBlackList);

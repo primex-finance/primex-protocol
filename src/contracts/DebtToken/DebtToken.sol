@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -6,6 +6,7 @@ import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
 
 import "./DebtTokenStorage.sol";
 import {BIG_TIMELOCK_ADMIN} from "../Constants.sol";
+import {IBucket} from "../Bucket/IBucket.sol";
 import {IDebtToken, IERC20Upgradeable, IERC165Upgradeable, IAccessControl, IActivityRewardDistributor} from "./IDebtToken.sol";
 
 contract DebtToken is IDebtToken, DebtTokenStorage {
@@ -54,10 +55,10 @@ contract DebtToken is IDebtToken, DebtTokenStorage {
         _require(msg.sender == bucketsFactory, Errors.FORBIDDEN.selector);
         _require(address(bucket) == address(0), Errors.BUCKET_IS_IMMUTABLE.selector);
         _require(
-            IERC165Upgradeable(address(_bucket)).supportsInterface(type(IBucket).interfaceId),
+            IERC165Upgradeable(address(_bucket)).supportsInterface(type(IBucketV3).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
-        bucket = _bucket;
+        bucket = IBucketV3(address(_bucket));
     }
 
     /**

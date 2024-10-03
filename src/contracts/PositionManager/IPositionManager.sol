@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
@@ -6,9 +6,310 @@ import {LimitOrderLibrary} from "../libraries/LimitOrderLibrary.sol";
 import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
 import {PositionLibrary} from "../libraries/PositionLibrary.sol";
 
-import {IPositionManagerStorage} from "./IPositionManagerStorage.sol";
-import {IKeeperRewardDistributor} from "../KeeperRewardDistributor/IKeeperRewardDistributor.sol";
+import {IPositionManagerStorage, IPositionManagerStorageV2, IKeeperRewardDistributorV3} from "./IPositionManagerStorage.sol";
+import {IPositionManagerEvents} from "./IPositionManagerEvents.sol";
+import {IPrimexDNSStorageV3} from "../PrimexDNS/IPrimexDNSStorage.sol";
 import {IPausable} from "../interfaces/IPausable.sol";
+
+interface IPositionManagerV2 is IPositionManagerStorageV2, IPositionManagerStorage, IPositionManagerEvents, IPausable {
+    struct ClosePositionVars {
+        PositionLibrary.Position position;
+        bool borrowedAmountIsNotZero;
+        uint256 oracleTolerableLimit;
+        bool needOracleTolerableLimitCheck;
+    }
+
+    event ChangePositionManagerExtension(address indexed newPositionManagerExtension);
+
+    event IncreaseDeposit(
+        uint256 indexed positionId,
+        address indexed trader,
+        uint256 depositDelta,
+        uint256 scaledDebtAmount
+    );
+
+    struct ClosePositionByConditionParams {
+        uint256 id;
+        address keeper;
+        PrimexPricingLibrary.MegaRoute[] megaRoutes;
+        uint256 conditionIndex;
+        bytes ccmAdditionalParams;
+        PositionLibrary.CloseReason closeReason;
+        bytes positionSoldAssetOracleData;
+        bytes nativePmxOracleData;
+        bytes positionNativeAssetOracleData;
+        bytes pmxPositionAssetOracleData;
+        bytes nativePositionAssetOracleData;
+        bytes[] pullOracleData;
+    }
+
+    /**
+     * @notice Initializes the contract with the specified addresses and initializes inherited contracts.
+     * @param _registry The address of the Registry contract.
+     * @param _primexDNS The address of the PrimexDNS contract.
+     * @param _traderBalanceVault The address of the TraderBalanceVault contract.
+     * @param _priceOracle The address of the PriceOracle contract.
+     * @param _keeperRewardDistributor The address of the KeeperRewardDistributor contract.
+     * @param _whiteBlackList The address of the WhiteBlacklist contract.
+     * @param _positionManagerExtension The address of the PositionManagerExtension contract.
+     */
+    function initialize(
+        address _registry,
+        address _primexDNS,
+        address payable _traderBalanceVault,
+        address _priceOracle,
+        address _keeperRewardDistributor,
+        address _whiteBlackList,
+        address _positionManagerExtension
+    ) external;
+
+    /**
+     * @notice Sets the positionManagerExtension.
+     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @param _newPositionManagerExtension The address of PositionManagerExtension contract.
+     */
+    function setPositionManagerExtension(address _newPositionManagerExtension) external;
+
+    /**
+     * @notice Sets protocol parameters through an administrative delegatecall.
+     * @dev This function allows an admin to update protocol parameters using a delegatecall to the PositionManagerExtension contract.
+     * @param _data The data containing the encoded function call to be executed by the delegatecall.
+     */
+    function setProtocolParamsByAdmin(bytes calldata _data) external;
+
+    /**
+     * @notice Opens a position based on the provided order parameters.
+     * @dev Only callable by the LOM_ROLE role.
+     * @param _params The parameters for opening a position.
+     * @return The total borrowed amount, position amount, position ID, and entry price of the new position.
+     */
+    function openPositionByOrder(
+        LimitOrderLibrary.OpenPositionByOrderParams calldata _params
+    ) external returns (uint256, uint256, uint256, uint256, uint256);
+
+    /**
+     * @notice Opens margin position.
+     * @dev Locks trader's collateral in TraderBalanceVault. Takes loan from bucket for deal.
+     * Makes swap bucket borrowedAsset amount on '_dex'. Updates rates and indexes in the '_bucket'.
+     * Mints debtToken for trader (msg.sender)
+     * @param _params The parameters required to open a position.
+     */
+    function openPosition(PositionLibrary.OpenPositionParams calldata _params) external payable;
+
+    /**
+     * @notice Close trader's active position or liquidate risky position.
+     * @dev Protocol will fall down (revert) if two conditions occur both:
+     * 1. (token1Price + position.depositedAmount).wdiv(positionDebt) will become lower than 1,
+     * so position will make loss for Protocol.
+     * 2. Not enough liquidity in bucket to pay that loss.
+     * @param _id Position id for `msg.sender`.
+     * @param _dealReceiver The receiver of the rest of trader's deposit.
+     * @param _megaRoutes swap routes on dexes
+     * @param _amountOutMin minimum allowed amount out for position
+     */
+    function closePosition(
+        uint256 _id,
+        address _dealReceiver,
+        PrimexPricingLibrary.MegaRoute[] calldata _megaRoutes,
+        uint256 _amountOutMin,
+        bytes calldata _positionSoldAssetOracleData,
+        bytes calldata _pmxPositionAssetOracleData,
+        bytes calldata _nativePositionAssetOracleData,
+        bytes[] calldata _pullOracleData
+    ) external payable;
+
+    // /**
+    //  * @notice Closes trader's active position by closing condition
+    //  * @param _id Position id.
+    //  * @param _keeper The address of the keeper or the recipient of the reward.
+    //  * @param _megaRoutes An array of routes for executing trades, swap routes on dexes.
+    //  * @param _conditionIndex The index of the condition to be used for closing the position.
+    //  * @param _ccmAdditionalParams Additional params needed for canBeClosedAfterSwap of the ConditionalClosingManager.
+    //  * @param _closeReason The reason for closing the position.
+    //  */
+    function closePositionByCondition(ClosePositionByConditionParams calldata _params) external payable;
+
+    /**
+     * @notice Updates the position with the given position ID by setting new close conditions.
+     * @param _positionId The ID of the position to update.
+     * @param _closeConditions An array of close conditions for the position.
+     * @dev The caller of this function must be the trader who owns the position.
+     * @dev Emits an `UpdatePositionConditions` event upon successful update.
+     */
+    function updatePositionConditions(
+        uint256 _positionId,
+        LimitOrderLibrary.Condition[] calldata _closeConditions
+    ) external;
+
+    /**
+     * @notice Increases the deposit amount for a given position.
+     * @param _positionId The ID of the position to increase the deposit for.
+     * @param _amount The amount to increase the deposit by.
+     * @param _asset The address of the asset to deposit.
+     * @param _takeDepositFromWallet A flag indicating whether to make the deposit immediately.
+     * @param _megaRoutes An array of routes to use for trading.
+     * @param _amountOutMin The minimum amount of the output asset to receive from trading.
+     */
+    function increaseDeposit(
+        uint256 _positionId,
+        uint256 _amount,
+        address _asset,
+        bool _takeDepositFromWallet,
+        PrimexPricingLibrary.MegaRoute[] calldata _megaRoutes,
+        uint256 _amountOutMin
+    ) external;
+
+    /**
+     * @notice Decreases the deposit amount for a given position.
+     * @param _positionId The ID of the position.
+     * @param _amount The amount to decrease the deposit by.
+     */
+    function decreaseDeposit(
+        uint256 _positionId,
+        uint256 _amount,
+        bytes calldata _positionSoldAssetOracleData,
+        bytes[] calldata _pullOracleData
+    ) external payable;
+
+    /**
+     * @notice Deletes a positions by their IDs from a specific bucket for a given traders.
+     * @param _ids The IDs of the positions to be deleted.
+     * @param _traders The addresses of the traders who owns the position.
+     * @param _length The length of the traders array.
+     * @param _bucket The address of the bucket from which the position is to be deleted.
+     */
+    function deletePositions(
+        uint256[] calldata _ids,
+        address[] calldata _traders,
+        uint256 _length,
+        address _bucket
+    ) external;
+
+    /**
+     * @notice Allows the trader to partially close a position.
+     * @param _positionId The ID of the position to be partially closed.
+     * @param _amount The amount of the position asset to be closed from the position.
+     * @param _depositReceiver The address where the remaining deposit will be sent.
+     * @param _megaRoutes The routing information for swapping assets.
+     * @param _amountOutMin The minimum amount to be received after swapping, measured in the same decimal format as the position's asset.
+     */
+    function partiallyClosePosition(
+        uint256 _positionId,
+        uint256 _amount,
+        address _depositReceiver,
+        PrimexPricingLibrary.MegaRoute[] calldata _megaRoutes,
+        uint256 _amountOutMin,
+        bytes calldata _positionSoldAssetOracleData,
+        bytes calldata _nativePositionAssetOracleData,
+        bytes calldata _pmxPositionAssetOracleData,
+        bytes[] calldata _pullOracleData
+    ) external payable;
+
+    /**
+     * @notice Transfers a specified amount of tokens from the contract to a specified address.
+     * @dev Only callable by the BATCH_MANAGER_ROLE role.
+     * @param _token The address of the token to be transferred.
+     * @param _to The address to which the tokens will be transferred.
+     * @param _amount The amount of tokens to be transferred.
+     */
+    function doTransferOut(address _token, address _to, uint256 _amount) external;
+
+    /**
+     * @notice Returns the oracle tolerable limit for the given asset pair.
+     * @param assetA The address of the first asset in the pair.
+     * @param assetB The address of the second asset in the pair.
+     * @return The oracle tolerable limit in WAD format (1 WAD = 100%) for the asset pair.
+     */
+    function getOracleTolerableLimit(address assetA, address assetB) external view returns (uint256);
+
+    /**
+     * @notice Retrieves the position information for a given ID.
+     * @param _id The ID of the position to retrieve.
+     * @return position The position information associated with the given ID.
+     */
+    function getPosition(uint256 _id) external view returns (PositionLibrary.Position memory);
+
+    /**
+     * @notice Retrieves the position at the specified index.
+     * @param _index The index of the position to retrieve.
+     * @return The Position struct at the specified index.
+     */
+    function getPositionByIndex(uint256 _index) external view returns (PositionLibrary.Position memory);
+
+    /**
+     * @notice Returns the length of the positions array.
+     * @return The length of the positions array.
+     */
+    function getAllPositionsLength() external view returns (uint256);
+
+    /**
+     * @notice Returns the length of the array containing the positions of a specific trader.
+     * @param _trader The address of the trader.
+     * @return The number of positions the trader has.
+     */
+    function getTraderPositionsLength(address _trader) external view returns (uint256);
+
+    /**
+     * @notice Returns the length of the array containing the positions of a specific bucket.
+     * @param _bucket The address of the bucket.
+     * @return The number of positions the bucket has.
+     */
+    function getBucketPositionsLength(address _bucket) external view returns (uint256);
+
+    /**
+     * @notice Returns the debt of a position with the given ID.
+     * @param _id The ID of the position.
+     * @return The debt of the position, measured in the same decimal format as debtTokens.
+     */
+    function getPositionDebt(uint256 _id) external view returns (uint256);
+
+    /**
+     * @notice Retrieves the close conditions for a specific position.
+     * @param _positionId The ID of the position.
+     * @return An array of close conditions associated with the position.
+     */
+    function getCloseConditions(uint256 _positionId) external view returns (LimitOrderLibrary.Condition[] memory);
+
+    /**
+     * @notice Retrieves the close condition for a given position and index.
+     * @param _positionId The identifier of the position.
+     * @param _index The index of the close condition.
+     * @return The close condition at the specified position and index.
+     */
+    function getCloseCondition(
+        uint256 _positionId,
+        uint256 _index
+    ) external view returns (LimitOrderLibrary.Condition memory);
+
+    /**
+     * @notice Сhecks if the position is risky.
+     * @param _id the id of the position
+     * @return (1) True if position is risky
+     */
+    function isPositionRisky(
+        uint256 _id,
+        bytes calldata _positionSoldAssetOracleData,
+        bytes[] calldata _pullOracleData
+    ) external payable returns (bool);
+
+    /**
+     * @notice Checks if a position with the given ID is delisted.
+     * @param _id The ID of the position.
+     * @return A boolean indicating whether the position is delisted or not.
+     */
+    function isDelistedPosition(uint256 _id) external view returns (bool);
+
+    /**
+     * @notice Retrieves the health value of a position.
+     * @param _id The ID of the position.
+     * @return The health value of the position in WAD format.
+     */
+    function healthPosition(
+        uint256 _id,
+        bytes calldata _positionSoldAssetOracleData,
+        bytes[] calldata _pullOracleData
+    ) external payable returns (uint256);
+}
 
 interface IPositionManager is IPositionManagerStorage, IPausable {
     struct ClosePositionVars {
@@ -161,7 +462,7 @@ interface IPositionManager is IPositionManagerStorage, IPausable {
      * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
      * @param _keeperRewardDistributor The address of the KeeperRewardDistributor contract.
      */
-    function setKeeperRewardDistributor(IKeeperRewardDistributor _keeperRewardDistributor) external;
+    function setKeeperRewardDistributor(IKeeperRewardDistributorV3 _keeperRewardDistributor) external;
 
     /**
      * @notice Opens a position based on the provided order parameters.
@@ -190,13 +491,13 @@ interface IPositionManager is IPositionManagerStorage, IPausable {
      * 2. Not enough liquidity in bucket to pay that loss.
      * @param _id Position id for `msg.sender`.
      * @param _dealReceiver The receiver of the rest of trader's deposit.
-     * @param _routes swap routes on dexes
+     * @param _megaRoutes swap routes on dexes
      * @param _amountOutMin minimum allowed amount out for position
      */
     function closePosition(
         uint256 _id,
         address _dealReceiver,
-        PrimexPricingLibrary.Route[] memory _routes,
+        PrimexPricingLibrary.MegaRoute[] memory _megaRoutes,
         uint256 _amountOutMin
     ) external;
 
@@ -204,15 +505,15 @@ interface IPositionManager is IPositionManagerStorage, IPausable {
      * @notice Closes trader's active position by closing condition
      * @param _id Position id.
      * @param _keeper The address of the keeper or the recipient of the reward.
-     * @param _routes An array of routes for executing trades, swap routes on dexes.
+     * @param _megaRoutes An array of routes for executing trades, swap routes on dexes.
      * @param _conditionIndex The index of the condition to be used for closing the position.
-     * @param _ccmAdditionalParams Additional params needed for canBeClosed() of the ConditionalClosingManager.
+     * @param _ccmAdditionalParams Additional params needed for canBeClosedAfterSwap of the ConditionalClosingManager.
      * @param _closeReason The reason for closing the position.
      */
     function closePositionByCondition(
         uint256 _id,
         address _keeper,
-        PrimexPricingLibrary.Route[] calldata _routes,
+        PrimexPricingLibrary.MegaRoute[] calldata _megaRoutes,
         uint256 _conditionIndex,
         bytes calldata _ccmAdditionalParams,
         PositionLibrary.CloseReason _closeReason
@@ -223,14 +524,14 @@ interface IPositionManager is IPositionManagerStorage, IPausable {
      * @param _positionId The ID of the position to be partially closed.
      * @param _amount The amount of the position asset to be closed from the position.
      * @param _depositReceiver The address where the remaining deposit will be sent.
-     * @param _routes The routing information for swapping assets.
+     * @param _megaRoutes The routing information for swapping assets.
      * @param _amountOutMin The minimum amount to be received after swapping, measured in the same decimal format as the position's asset.
      */
     function partiallyClosePosition(
         uint256 _positionId,
         uint256 _amount,
         address _depositReceiver,
-        PrimexPricingLibrary.Route[] calldata _routes,
+        PrimexPricingLibrary.MegaRoute[] calldata _megaRoutes,
         uint256 _amountOutMin
     ) external;
 
@@ -252,7 +553,7 @@ interface IPositionManager is IPositionManagerStorage, IPausable {
      * @param _amount The amount to increase the deposit by.
      * @param _asset The address of the asset to deposit.
      * @param _takeDepositFromWallet A flag indicating whether to make the deposit immediately.
-     * @param _routes An array of routes to use for trading.
+     * @param _megaRoutes An array of routes to use for trading.
      * @param _amountOutMin The minimum amount of the output asset to receive from trading.
      */
     function increaseDeposit(
@@ -260,7 +561,7 @@ interface IPositionManager is IPositionManagerStorage, IPausable {
         uint256 _amount,
         address _asset,
         bool _takeDepositFromWallet,
-        PrimexPricingLibrary.Route[] calldata _routes,
+        PrimexPricingLibrary.MegaRoute[] calldata _megaRoutes,
         uint256 _amountOutMin
     ) external;
 
@@ -278,19 +579,6 @@ interface IPositionManager is IPositionManagerStorage, IPausable {
      * @param _minPositionAsset The address of the asset associated with the minimum position size.
      */
     function setMinPositionSize(uint256 _minPositionSize, address _minPositionAsset) external;
-
-    /**
-     * @notice Checks if a position can be closed based on a specific condition.
-     * @param _positionId The ID of the position.
-     * @param _conditionIndex The index of the condition within the position's close conditions.
-     * @param _additionalParams Additional parameters required for the condition check.
-     * @return A boolean indicating whether the position can be closed.
-     */
-    function canBeClosed(
-        uint256 _positionId,
-        uint256 _conditionIndex,
-        bytes calldata _additionalParams
-    ) external returns (bool);
 
     /**
      * @notice Deletes a positions by their IDs from a specific bucket for a given traders.

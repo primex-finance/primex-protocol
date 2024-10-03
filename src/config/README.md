@@ -54,8 +54,19 @@ if `LiquidityMining` is empty object then liquidity mining is off
     - `oracleTolerableLimitMultiplier`
     - `maintenanceBuffer`
     - `securityBuffer`
-  - `minPositionSize` - measured in `minPositionAsset`.
-- `PrimexDNSconfig` and `SwapManagerConfig` - rates are measured in 18 decimality
+- `PrimexDNSconfig` - rates are measured in 18 decimality,
+
+  - `averageGasPerAction` - are measured in wei
+  - `maxGasAmount` - are measured in wei
+  - `baseLength` - the approx length of the data entering function + the maximum routes length for which an additional fee will be paid in the ARBITRUM payment model
+
+- `BatchManagerConfig`:
+
+  - `gasPerPosition` are measured in wei
+  - `gasPerBatch` are measured in wei
+
+- `SpotTradingRD` and `LiquidityMiningRD` - Increases in deployment scripts in accordance with the 18 decimality
+
 - `KeeperRewardConfig`:
 
   - `additionalGas` and `maxGasAmount` are measured in wei

@@ -1,17 +1,17 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
 import "./LimitOrderManagerStorage.sol";
 import {BIG_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN, EMERGENCY_ADMIN, NATIVE_CURRENCY, BIG_TIMELOCK_ADMIN} from "../Constants.sol";
-import {ILimitOrderManager} from "./ILimitOrderManager.sol";
-import {IPriceOracle} from "../PriceOracle/IPriceOracle.sol";
+import {ILimitOrderManager, ILimitOrderManagerV2} from "./ILimitOrderManager.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
 import {IKeeperRewardDistributorStorage} from "../KeeperRewardDistributor/IKeeperRewardDistributorStorage.sol";
-import {IKeeperRewardDistributor} from "../KeeperRewardDistributor/IKeeperRewardDistributor.sol";
+import {IKeeperRewardDistributorV3} from "../KeeperRewardDistributor/IKeeperRewardDistributor.sol";
+import {IPrimexDNSStorageV3} from "../PrimexDNS/IPrimexDNSStorage.sol";
 import {IPausable} from "../interfaces/IPausable.sol";
 
-contract LimitOrderManager is ILimitOrderManager, LimitOrderManagerStorage {
+contract LimitOrderManager is ILimitOrderManagerV2, LimitOrderManagerStorage {
     using WadRayMath for uint256;
     using LimitOrderLibrary for LimitOrderLibrary.LimitOrder;
 
@@ -59,19 +59,18 @@ contract LimitOrderManager is ILimitOrderManager, LimitOrderManagerStorage {
     ) external override initializer {
         _require(
             IERC165Upgradeable(_registry).supportsInterface(type(IAccessControl).interfaceId) &&
-                IERC165Upgradeable(_primexDNS).supportsInterface(type(IPrimexDNS).interfaceId) &&
-                IERC165Upgradeable(_pm).supportsInterface(type(IPositionManager).interfaceId) &&
+                IERC165Upgradeable(_primexDNS).supportsInterface(type(IPrimexDNSV3).interfaceId) &&
+                IERC165Upgradeable(_pm).supportsInterface(type(IPositionManagerV2).interfaceId) &&
                 IERC165Upgradeable(_traderBalanceVault).supportsInterface(type(ITraderBalanceVault).interfaceId) &&
-                IERC165Upgradeable(_swapManager).supportsInterface(type(ISwapManager).interfaceId) &&
                 IERC165Upgradeable(_whiteBlackList).supportsInterface(type(IWhiteBlackList).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
         registry = IAccessControl(_registry);
         whiteBlackList = IWhiteBlackList(_whiteBlackList);
-        primexDNS = IPrimexDNS(_primexDNS);
-        pm = IPositionManager(_pm);
+        primexDNS = IPrimexDNSV3(_primexDNS);
+        pm = IPositionManagerV2(_pm);
         traderBalanceVault = ITraderBalanceVault(_traderBalanceVault);
-        swapManager = ISwapManager(_swapManager);
+        _setSwapManager(_swapManager);
         __Pausable_init();
         __ReentrancyGuard_init();
         __ERC165_init();
@@ -126,7 +125,7 @@ contract LimitOrderManager is ILimitOrderManager, LimitOrderManagerStorage {
         LimitOrderLibrary.LimitOrder storage order = orders[orderIndexes[_orderId]];
         _require(msg.sender == order.trader, Errors.CALLER_IS_NOT_TRADER.selector);
 
-        bool isSpot = order.bucket == IBucket(address(0));
+        bool isSpot = order.bucket == IBucketV3(address(0));
         emit CloseLimitOrder({
             orderId: _orderId,
             trader: order.trader,
@@ -151,7 +150,7 @@ contract LimitOrderManager is ILimitOrderManager, LimitOrderManagerStorage {
             uint256 index = orderIndexes[_orderIds[i]];
             if (orders.length == 0) break;
             LimitOrderLibrary.LimitOrder storage order = orders[index];
-            bool isSpot = order.bucket == IBucket(address(0));
+            bool isSpot = order.bucket == IBucketV3(address(0));
             if (
                 order.id == _orderIds[i] &&
                 (order.deadline <= block.timestamp || (!isSpot && order.bucket.isWithdrawAfterDelistingAvailable()))
@@ -179,8 +178,9 @@ contract LimitOrderManager is ILimitOrderManager, LimitOrderManagerStorage {
      */
     function openPositionByOrder(
         LimitOrderLibrary.OpenPositionParams calldata _params
-    ) external override orderExists(_params.orderId) nonReentrant notBlackListed whenNotPaused {
+    ) external payable override orderExists(_params.orderId) nonReentrant notBlackListed whenNotPaused {
         uint256 initialGasleft = gasleft();
+        pm.priceOracle().updatePullOracle{value: msg.value}(_params.pullOracleData);
         _require(
             _params.conditionIndex < openConditions[_params.orderId].length,
             Errors.CONDITION_INDEX_IS_OUT_OF_BOUNDS.selector
@@ -203,8 +203,8 @@ contract LimitOrderManager is ILimitOrderManager, LimitOrderManagerStorage {
             closeConditions[order.id],
             pm,
             traderBalanceVault,
-            primexDNS,
-            swapManager
+            swapManager,
+            initialGasleft
         );
 
         LimitOrderLibrary.Condition storage condition = openConditions[_params.orderId][_params.conditionIndex];
@@ -218,7 +218,7 @@ contract LimitOrderManager is ILimitOrderManager, LimitOrderManagerStorage {
             Errors.ORDER_CAN_NOT_BE_FILLED.selector
         );
 
-        bool isSpot = order.bucket == IBucket(address(0));
+        bool isSpot = order.bucket == IBucketV3(address(0));
         emit CloseLimitOrder({
             orderId: _params.orderId,
             trader: order.trader,
@@ -238,15 +238,19 @@ contract LimitOrderManager is ILimitOrderManager, LimitOrderManagerStorage {
             // to avoid abuse of the reward system, we will not pay the reward to
             // the keeper if the position open in the same block as the open conditions change
             pm.keeperRewardDistributor().updateReward(
-                IKeeperRewardDistributor.UpdateRewardParams({
+                IKeeperRewardDistributorV3.UpdateRewardParams({
                     keeper: _params.keeper,
                     positionAsset: vars.assetOut,
-                    positionSize: vars.amountOut,
+                    positionSize: vars.amountOut + vars.feeInPositionAsset,
                     action: IKeeperRewardDistributorStorage.KeeperActionType.OpenByOrder,
                     numberOfActions: 1,
                     gasSpent: initialGasleft - gasleft(),
                     decreasingCounter: new uint256[](0),
-                    routesLength: abi.encode(_params.firstAssetRoutes, _params.depositInThirdAssetRoutes).length
+                    routesLength: abi
+                        .encode(_params.firstAssetMegaRoutes, _params.depositInThirdAssetMegaRoutes)
+                        .length,
+                    nativePmxOracleData: _params.nativePmxOracleData,
+                    positionNativeAssetOracleData: _params.positionNativeAssetOracleData
                 })
             );
         }
@@ -259,41 +263,57 @@ contract LimitOrderManager is ILimitOrderManager, LimitOrderManagerStorage {
         LimitOrderLibrary.UpdateLimitOrderParams calldata _params
     ) external payable override nonReentrant notBlackListed {
         LimitOrderLibrary.LimitOrder storage order = orders[orderIndexes[_params.orderId]];
-        IBucket bucket = order.bucket;
+        IBucketV3 bucket = order.bucket;
 
         _require(msg.sender == order.trader, Errors.CALLER_IS_NOT_TRADER.selector);
 
-        if (bucket != IBucket(address(0))) {
+        if (bucket != IBucketV3(address(0))) {
             _require(bucket.isActive(), Errors.BUCKET_IS_NOT_ACTIVE.selector);
         }
 
         address priceOracle = address(pm.priceOracle());
 
-        order.updateProtocolFee(_params, traderBalanceVault, primexDNS, priceOracle);
-
         if (_params.depositAmount != order.depositAmount) {
             order.updateDeposit(_params.depositAmount, _params.takeDepositFromWallet, traderBalanceVault);
         }
         if (_params.leverage != order.leverage) {
-            order.updateLeverage(_params.leverage);
+            order.updateLeverage(_params.leverage, primexDNS);
+        }
+        if (_params.isProtocolFeeInPmx) {
+            order.feeToken = primexDNS.pmx();
+        } else {
+            order.feeToken = order.positionAsset;
         }
 
         uint256 positionSize = order.depositAmount.wmul(order.leverage);
-
+        IPrimexDNSStorageV3.TradingOrderType tradingOrderType;
+        // isSwap = address(order.bucket) == address(0)
+        if (address(order.bucket) == address(0)) {
+            tradingOrderType = order.shouldOpenPosition
+                ? IPrimexDNSStorageV3.TradingOrderType.SpotLimitOrder
+                : IPrimexDNSStorageV3.TradingOrderType.SwapLimitOrder;
+        } else {
+            // isThirdAsset = order.depositAsset != address(bucket.borrowedAsset()) && order.depositAsset != order.positionAsset;
+            tradingOrderType = order.depositAsset != address(bucket.borrowedAsset()) &&
+                order.depositAsset != order.positionAsset
+                ? IPrimexDNSStorageV3.TradingOrderType.MarginLimitOrderDepositInThirdAsset
+                : IPrimexDNSStorageV3.TradingOrderType.MarginLimitOrder;
+        }
         PrimexPricingLibrary.validateMinPositionSize(
-            pm.minPositionSize(),
-            pm.minPositionAsset(),
             positionSize,
             order.depositAsset,
-            priceOracle
+            priceOracle,
+            pm.keeperRewardDistributor(),
+            primexDNS,
+            tradingOrderType,
+            _params.nativeDepositOracleData
         );
         emit UpdateOrder({
             orderId: order.id,
             trader: order.trader,
             depositAmount: order.depositAmount,
             leverage: order.leverage,
-            feeToken: order.feeToken,
-            protocolFee: order.protocolFee
+            feeToken: order.feeToken
         });
     }
 
@@ -305,7 +325,7 @@ contract LimitOrderManager is ILimitOrderManager, LimitOrderManagerStorage {
     ) external override nonReentrant notBlackListed {
         LimitOrderLibrary.LimitOrder storage order = orders[orderIndexes[_params.orderId]];
         _require(msg.sender == order.trader, Errors.CALLER_IS_NOT_TRADER.selector);
-        if (order.bucket != IBucket(address(0))) {
+        if (order.bucket != IBucketV3(address(0))) {
             _require(order.bucket.isActive(), Errors.BUCKET_IS_NOT_ACTIVE.selector);
         }
         if (keccak256(abi.encode(_params.closeConditions)) != keccak256(abi.encode(closeConditions[order.id]))) {
@@ -328,11 +348,7 @@ contract LimitOrderManager is ILimitOrderManager, LimitOrderManagerStorage {
      * @inheritdoc ILimitOrderManager
      */
     function setSwapManager(address _swapManager) external override onlyRole(BIG_TIMELOCK_ADMIN) {
-        _require(
-            IERC165Upgradeable(_swapManager).supportsInterface(type(ISwapManager).interfaceId),
-            Errors.ADDRESS_NOT_SUPPORTED.selector
-        );
-        swapManager = ISwapManager(_swapManager);
+        _setSwapManager(_swapManager);
     }
 
     /**
@@ -405,33 +421,6 @@ contract LimitOrderManager is ILimitOrderManager, LimitOrderManagerStorage {
     }
 
     /**
-     * @inheritdoc ILimitOrderManager
-     */
-    function canBeFilled(
-        uint256 _orderId,
-        uint256 _conditionIndex,
-        bytes calldata _additionalParams
-    ) public override returns (bool) {
-        _require(_conditionIndex < openConditions[_orderId].length, Errors.CONDITION_INDEX_IS_OUT_OF_BOUNDS.selector);
-        LimitOrderLibrary.Condition storage condition = openConditions[_orderId][_conditionIndex];
-        LimitOrderLibrary.LimitOrder storage order = orders[orderIndexes[_orderId]];
-
-        if (order.deadline < block.timestamp) return false;
-
-        if (address(order.bucket) != address(0)) {
-            (, bool isSupported) = order.bucket.allowedAssets(order.positionAsset);
-            if (!order.bucket.isActive() || !isSupported) return false;
-        }
-
-        return
-            IConditionalOpeningManager(primexDNS.cmTypeToAddress(condition.managerType)).canBeFilledBeforeSwap(
-                orders[orderIndexes[_orderId]],
-                condition.params,
-                _additionalParams
-            );
-    }
-
-    /**
      * @notice Returns orders array length.
      */
     function getOrdersLength() public view override returns (uint256) {
@@ -458,6 +447,19 @@ contract LimitOrderManager is ILimitOrderManager, LimitOrderManagerStorage {
      */
     function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
         return _interfaceId == type(ILimitOrderManager).interfaceId || super.supportsInterface(_interfaceId);
+    }
+
+    /**
+     * @notice Internal function to set new swapManager.
+     * @param _swapManager Address of the new swapManager.
+     */
+    function _setSwapManager(address _swapManager) internal {
+        _require(
+            IERC165Upgradeable(_swapManager).supportsInterface(type(ISwapManager).interfaceId),
+            Errors.ADDRESS_NOT_SUPPORTED.selector
+        );
+        swapManager = ISwapManager(_swapManager);
+        emit ChangeSwapManager(_swapManager);
     }
 
     /**

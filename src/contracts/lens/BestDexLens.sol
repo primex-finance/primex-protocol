@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -13,8 +13,8 @@ import {PositionLibrary} from "../libraries/PositionLibrary.sol";
 import "./../libraries/Errors.sol";
 
 import {IBestDexLens} from "../interfaces/IBestDexLens.sol";
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
+import {IPositionManagerV2} from "../PositionManager/IPositionManager.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
 import {ILimitOrderManager} from "../LimitOrderManager/ILimitOrderManager.sol";
 import {IDexAdapter} from "../interfaces/IDexAdapter.sol";
 
@@ -35,7 +35,7 @@ contract BestDexLens is IBestDexLens, IERC165 {
         BestDexByOrderParams memory _params
     ) external override returns (GetBestDexByOrderReturnParams memory _returnParams) {
         _require(
-            IERC165(address(_params.positionManager)).supportsInterface(type(IPositionManager).interfaceId) &&
+            IERC165(address(_params.positionManager)).supportsInterface(type(IPositionManagerV2).interfaceId) &&
                 IERC165(address(_params.limitOrderManager)).supportsInterface(type(ILimitOrderManager).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
@@ -44,7 +44,7 @@ contract BestDexLens is IBestDexLens, IERC165 {
         address borrowedAsset = order.leverage == WadRayMath.WAD
             ? order.depositAsset
             : address(order.bucket.borrowedAsset());
-        IPrimexDNS primexDns = _params.positionManager.primexDNS();
+        IPrimexDNSV3 primexDns = _params.positionManager.primexDNS();
 
         bool isBorrowedAsset = borrowedAsset == order.depositAsset;
         bool isThirdAsset = !isBorrowedAsset && order.depositAsset != order.positionAsset;
@@ -65,16 +65,16 @@ contract BestDexLens is IBestDexLens, IERC165 {
         }
 
         uint256 depositAmountInBorrowed = PrimexPricingLibrary.getDepositAmountInBorrowed(
-            PrimexPricingLibrary.AmountParams({
+            IDexAdapter.AmountParams({
                 tokenA: order.depositAsset,
                 tokenB: borrowedAsset,
                 amount: order.depositAmount,
-                routes: _returnParams.depositToBorrowedReturnParams.routes,
-                dexAdapter: primexDns.dexAdapter(),
-                primexDNS: address(primexDns)
+                megaRoutes: _returnParams.depositToBorrowedReturnParams.megaRoutes
             }),
             isThirdAsset,
-            address(_params.positionManager.priceOracle())
+            payable(primexDns.dexAdapter()),
+            address(_params.positionManager.priceOracle()),
+            _params.depositBorrowedAssetOracleData
         );
 
         uint256 amountToTransfer = depositAmountInBorrowed.wmul(order.leverage - WadRayMath.WAD);
@@ -113,74 +113,14 @@ contract BestDexLens is IBestDexLens, IERC165 {
     /**
      * @inheritdoc IBestDexLens
      */
-    function getArrayCurrentPriceAndProfitByPosition(
-        IPositionManager _positionManager,
-        uint256[] memory _ids,
-        uint256[] memory _shares,
-        DexWithAncillaryData[][] memory _dexes
-    ) external override returns (uint256[] memory, int256[] memory) {
-        _require(
-            (_dexes.length == _ids.length) && (_shares.length == _dexes.length),
-            Errors.DIFFERENT_DATA_LENGTH.selector
-        );
-        uint256 count = _ids.length;
-        uint256[] memory currentPrices = new uint256[](count);
-        int256[] memory currentProfits = new int256[](count);
-        for (uint256 i; i < count; i++) {
-            (currentPrices[i], currentProfits[i]) = getCurrentPriceAndProfitByPosition(
-                _positionManager,
-                _ids[i],
-                _shares[i],
-                _dexes[i]
-            );
-        }
-        return (currentPrices, currentProfits);
-    }
-
-    /**
-     * @inheritdoc IBestDexLens
-     */
-    function getPositionProfit(
-        address _positionManager,
-        uint256 _id,
-        PrimexPricingLibrary.Route[] memory _routes
-    ) public override returns (int256) {
-        _require(
-            IERC165(_positionManager).supportsInterface(type(IPositionManager).interfaceId),
-            Errors.ADDRESS_NOT_SUPPORTED.selector
-        );
-
-        PositionLibrary.Position memory position = IPositionManager(_positionManager).getPosition(_id);
-
-        uint256 expectedBorowedAssetAmount = PrimexPricingLibrary.getAmountOut(
-            PrimexPricingLibrary.AmountParams({
-                tokenA: position.positionAsset,
-                tokenB: position.soldAsset,
-                amount: position.positionAmount,
-                routes: _routes,
-                dexAdapter: IPositionManager(_positionManager).primexDNS().dexAdapter(),
-                primexDNS: address(IPositionManager(_positionManager).primexDNS())
-            })
-        );
-        uint256 positionDebt = IPositionManager(_positionManager).getPositionDebt(_id);
-        uint256 returnedToTrader = expectedBorowedAssetAmount > positionDebt
-            ? expectedBorowedAssetAmount - positionDebt
-            : 0;
-
-        return returnedToTrader.toInt256() - position.depositAmountInSoldAsset.toInt256();
-    }
-
-    /**
-     * @inheritdoc IBestDexLens
-     */
     function getBestDexByPosition(
-        IPositionManager _positionManager,
+        IPositionManagerV2 _positionManager,
         uint256 _positionId,
         uint256 _shares,
         DexWithAncillaryData[] memory _dexesWithAncillaryData
     ) public override returns (GetBestMultipleDexesReturnParams memory) {
         _require(
-            IERC165(address(_positionManager)).supportsInterface(type(IPositionManager).interfaceId),
+            IERC165(address(_positionManager)).supportsInterface(type(IPositionManagerV2).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
         PositionLibrary.Position memory position = _positionManager.getPosition(_positionId);
@@ -215,7 +155,7 @@ contract BestDexLens is IBestDexLens, IERC165 {
         )
     {
         _require(
-            IERC165(address(_params.positionManager)).supportsInterface(type(IPositionManager).interfaceId) &&
+            IERC165(address(_params.positionManager)).supportsInterface(type(IPositionManagerV2).interfaceId) &&
                 _params.borrowedAsset != address(0) &&
                 _params.depositAsset != address(0) &&
                 _params.positionAsset != address(0),
@@ -312,7 +252,7 @@ contract BestDexLens is IBestDexLens, IERC165 {
                     // slither-disable-next-line unused-return,variable-scope
                     address currentRouter
                 ) {
-                    uint256 returnGas = IDexAdapter(_params.positionManager.primexDNS().dexAdapter()).getGas(
+                    uint256 returnGas = IDexAdapter(payable(_params.positionManager.primexDNS().dexAdapter())).getGas(
                         currentRouter
                     );
                     amountParams.amount = _params.amount / vars.shareCount;
@@ -322,13 +262,13 @@ contract BestDexLens is IBestDexLens, IERC165 {
                         vars.path,
                         currentRouter,
                         _params.dexes[i].ancillaryData,
-                        _params.positionManager.primexDNS().dexAdapter(),
+                        payable(_params.positionManager.primexDNS().dexAdapter()),
                         _params.isAmountToBuy
                     );
 
                     uint256 amount = _getAmountsFromAdapter(
                         amountParams,
-                        IDexAdapter(_params.positionManager.primexDNS().dexAdapter()),
+                        IDexAdapter(payable(_params.positionManager.primexDNS().dexAdapter())),
                         _params.isAmountToBuy
                     );
                     if (amount == type(uint256).max) continue;
@@ -348,7 +288,7 @@ contract BestDexLens is IBestDexLens, IERC165 {
                     amountParams.amount = (_params.amount * (j + 1)) / vars.shareCount;
                     uint256 amount = _getAmountsFromAdapter(
                         amountParams,
-                        IDexAdapter(_params.positionManager.primexDNS().dexAdapter()),
+                        IDexAdapter(payable(_params.positionManager.primexDNS().dexAdapter())),
                         _params.isAmountToBuy
                     );
 
@@ -441,23 +381,30 @@ contract BestDexLens is IBestDexLens, IERC165 {
                 }
             }
         }
+        if (involvedDexesLength == 0) return _returnParams;
+        _returnParams.megaRoutes = new PrimexPricingLibrary.MegaRoute[](1);
 
-        _returnParams.routes = new PrimexPricingLibrary.Route[](involvedDexesLength);
+        _returnParams.megaRoutes[0] = PrimexPricingLibrary.MegaRoute({
+            shares: 1, // 100%
+            routes: new PrimexPricingLibrary.Route[](1)
+        });
+
+        _returnParams.megaRoutes[0].routes[0] = PrimexPricingLibrary.Route({
+            to: _params.assetToBuy,
+            paths: new PrimexPricingLibrary.Path[](involvedDexesLength)
+        });
 
         for (uint256 i; i < vars.activeDexesLength; i++) {
             if (distribution[i] == 0) continue;
 
-            _returnParams.routes[vars.filledRoutes] = PrimexPricingLibrary.Route({
-                paths: new PrimexPricingLibrary.SwapPath[](1),
-                shares: distribution[i]
-            });
-            _returnParams.routes[vars.filledRoutes].paths[0] = PrimexPricingLibrary.SwapPath({
+            _returnParams.megaRoutes[0].routes[0].paths[vars.filledRoutes] = PrimexPricingLibrary.Path({
+                shares: distribution[i],
                 dexName: activeDexes[i].dex,
-                encodedPath: PrimexPricingLibrary.encodePath(
+                payload: PrimexPricingLibrary.encodePath(
                     vars.path,
                     _params.positionManager.primexDNS().getDexAddress(activeDexes[i].dex),
                     activeDexes[i].ancillaryData,
-                    _params.positionManager.primexDNS().dexAdapter(),
+                    payable(_params.positionManager.primexDNS().dexAdapter()),
                     _params.isAmountToBuy
                 )
             });
@@ -475,69 +422,6 @@ contract BestDexLens is IBestDexLens, IERC165 {
                     )
                 );
         }
-    }
-
-    /**
-     * @inheritdoc IBestDexLens
-     */
-    function getCurrentPriceAndProfitByPosition(
-        IPositionManager _positionManager,
-        uint256 _id,
-        uint256 _shares,
-        DexWithAncillaryData[] memory _dexes
-    ) public override returns (uint256, int256) {
-        _require(
-            IERC165(address(_positionManager)).supportsInterface(type(IPositionManager).interfaceId),
-            Errors.ADDRESS_NOT_SUPPORTED.selector
-        );
-        PositionLibrary.Position memory position = _positionManager.getPosition(_id);
-
-        PrimexPricingLibrary.Route[] memory routes = getBestMultipleDexes(
-            GetBestMultipleDexesParams({
-                positionManager: _positionManager,
-                assetToBuy: position.soldAsset,
-                assetToSell: position.positionAsset,
-                amount: position.positionAmount,
-                isAmountToBuy: false,
-                shares: _shares,
-                gasPriceInCheckedAsset: 0,
-                dexes: _dexes
-            })
-        ).routes;
-
-        uint256 multiplier1 = 10 ** (18 - IERC20Metadata(position.soldAsset).decimals());
-
-        uint256 currentPriceNumerator = PrimexPricingLibrary.getAmountOut(
-            PrimexPricingLibrary.AmountParams({
-                tokenA: position.positionAsset,
-                tokenB: position.soldAsset,
-                amount: position.positionAmount,
-                routes: routes,
-                dexAdapter: _positionManager.primexDNS().dexAdapter(),
-                primexDNS: address(_positionManager.primexDNS())
-            })
-        ) * multiplier1;
-        uint256 currentPriceDenominator = position.positionAmount *
-            (10 ** (18 - IERC20Metadata(position.positionAsset).decimals()));
-
-        return (
-            currentPriceNumerator.wdiv(currentPriceDenominator) / multiplier1,
-            getPositionProfit(address(_positionManager), _id, routes)
-        );
-    }
-
-    /**
-     * @inheritdoc IBestDexLens
-     */
-    function getAmountOut(PrimexPricingLibrary.AmountParams memory _params) public override returns (uint256) {
-        return PrimexPricingLibrary.getAmountOut(_params);
-    }
-
-    /**
-     * @inheritdoc IBestDexLens
-     */
-    function getAmountIn(PrimexPricingLibrary.AmountParams memory _params) public override returns (uint256) {
-        return PrimexPricingLibrary.getAmountIn(_params);
     }
 
     /**

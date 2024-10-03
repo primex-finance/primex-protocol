@@ -10,7 +10,7 @@ const {
     getContractFactory,
     getContract,
     utils: { parseUnits, parseEther },
-    constants: { MaxUint256, NegativeOne, Zero },
+    constants: { Zero },
   },
 
   deployments: { fixture },
@@ -71,7 +71,7 @@ describe("KeeperRewardDistributor_unit", function () {
 
     await mockPmx.mock.transfer.returns(true);
     await mockPmx.mock.transferFrom.returns(true);
-    await mockPriceOracle.mock.getExchangeRate.returns(positionUsdExchangeRate, true);
+    await mockPriceOracle.mock.getExchangeRate.returns(positionUsdExchangeRate);
     await mockPriceOracle.mock.getGasPrice.returns("10000");
 
     const MaxGasPerPositionParams = [
@@ -170,8 +170,7 @@ describe("KeeperRewardDistributor_unit", function () {
       pmx: mockPmx.address,
       pmxPartInReward: parseUnits("0.2", "18"),
       nativePartInReward: parseUnits("0.8", "18"),
-      positionSizeCoefficientA: parseUnits("0.9", "18"),
-      positionSizeCoefficientB: "1",
+      positionSizeCoefficient: parseUnits("0.05", "18"),
       additionalGas: "10000",
       oracleGasPriceTolerance: parseUnits("1", 17),
       paymentModel: 0,
@@ -522,27 +521,24 @@ describe("KeeperRewardDistributor_unit", function () {
         .withArgs(nativePartInReward);
     });
 
-    it("Should revert if not MEDIUM_TIMELOCK_ADMIN call setPositionSizeCoefficients", async function () {
-      const positionSizeCoefficientA = parseUnits("2", "18");
-      const positionSizeCoefficientB = 10;
-      await expect(
-        keeperRewardDistributor.connect(user).setPositionSizeCoefficients(positionSizeCoefficientA, positionSizeCoefficientB),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
+    it("Should revert if not MEDIUM_TIMELOCK_ADMIN call setPositionSizeCoefficient", async function () {
+      const positionSizeCoefficient = parseUnits("2", "18");
+      await expect(keeperRewardDistributor.connect(user).setPositionSizeCoefficient(positionSizeCoefficient)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
     });
-    it("Should set Position Size Coefficients", async function () {
-      const positionSizeCoefficientA = parseUnits("2", "18");
-      const positionSizeCoefficientB = 10;
-      await keeperRewardDistributor.setPositionSizeCoefficients(positionSizeCoefficientA, positionSizeCoefficientB);
-      expect(await keeperRewardDistributor.positionSizeCoefficientA()).to.be.equal(positionSizeCoefficientA);
-      expect(await keeperRewardDistributor.positionSizeCoefficientB()).to.be.equal(positionSizeCoefficientB);
+    it("Should set Position Size Coefficient", async function () {
+      const positionSizeCoefficient = parseUnits("2", "18");
+      await keeperRewardDistributor.setPositionSizeCoefficient(positionSizeCoefficient);
+      expect(await keeperRewardDistributor.positionSizeCoefficient()).to.be.equal(positionSizeCoefficient);
     });
 
-    it("Should emit when setPositionSizeCoefficients is successful", async function () {
-      const positionSizeCoefficientA = parseUnits("2", "18");
-      const positionSizeCoefficientB = 10;
-      await expect(keeperRewardDistributor.setPositionSizeCoefficients(positionSizeCoefficientA, positionSizeCoefficientB))
-        .to.emit(keeperRewardDistributor, "PositionSizeCoefficientsChanged")
-        .withArgs(positionSizeCoefficientA, positionSizeCoefficientB);
+    it("Should emit when setPositionSizeCoefficient is successful", async function () {
+      const positionSizeCoefficient = parseUnits("2", "18");
+      await expect(keeperRewardDistributor.setPositionSizeCoefficient(positionSizeCoefficient))
+        .to.emit(keeperRewardDistributor, "PositionSizeCoefficientChanged")
+        .withArgs(positionSizeCoefficient);
     });
   });
 
@@ -571,7 +567,7 @@ describe("KeeperRewardDistributor_unit", function () {
 
     async function calculateRewards(positionSize, pureGas, maxGasAmount, txGasPrice, minPositionSizeMultiplier = Zero) {
       const oracleAmountsOut = wadMul(positionSize, positionUsdExchangeRate);
-      let positionSizeMultiplier = wadMul(oracleAmountsOut, initParams.positionSizeCoefficientA).add(initParams.positionSizeCoefficientB);
+      let positionSizeMultiplier = wadMul(oracleAmountsOut, initParams.positionSizeCoefficient);
       if (positionSizeMultiplier.lt(minPositionSizeMultiplier)) {
         positionSizeMultiplier = minPositionSizeMultiplier;
       }
@@ -588,7 +584,7 @@ describe("KeeperRewardDistributor_unit", function () {
       if (gasPrice.gt(maxGasPriceForReward)) {
         gasPrice = maxGasPriceForReward;
       }
-      const reward = wadMul(gasAmount.mul(gasPrice), positionSizeMultiplier);
+      const reward = gasAmount.mul(gasPrice).add(positionSizeMultiplier);
       const rewardInNativeCurrency = wadMul(reward, initParams.nativePartInReward);
       const rewardInPmx = wadMul(wadMul(reward, positionUsdExchangeRate), initParams.pmxPartInReward);
       return { rewardInNativeCurrency, rewardInPmx };
@@ -604,6 +600,8 @@ describe("KeeperRewardDistributor_unit", function () {
         gasSpent: BigNumber.from("100000000"),
         decreasingCounter: Array(Object.keys(DecreasingReason).length).fill(0),
         routesLength: 0,
+        nativePmxOracleData: 0,
+        positionNativeAssetOracleData: 0,
       };
       snapshotId = await network.provider.request({
         method: "evm_snapshot",
@@ -646,7 +644,7 @@ describe("KeeperRewardDistributor_unit", function () {
       const maxGasAmount = await getMaxGasAmount(updateRewardParams.action, updateRewardParams.numberOfActions);
 
       const oracleAmountsOut = wadMul(updateRewardParams.positionSize, positionUsdExchangeRate);
-      const positionSizeMultiplier = wadMul(oracleAmountsOut, initParams.positionSizeCoefficientA).add(initParams.positionSizeCoefficientB);
+      const positionSizeMultiplier = wadMul(oracleAmountsOut, initParams.positionSizeCoefficient);
 
       expect(positionSizeMultiplier).to.be.lt(minPositionSizeMultiplier);
       const { rewardInNativeCurrency, rewardInPmx } = await calculateRewards(
@@ -817,24 +815,6 @@ describe("KeeperRewardDistributor_unit", function () {
         ErrorsLibrary,
         "FORBIDDEN",
       );
-    });
-    it("Should not add reward if positionSizeMultiplier is negative", async function () {
-      const veryNegativeNumber = MaxUint256.div(2).mul(NegativeOne);
-      const mockInitParams = { ...initParams, positionSizeCoefficientB: veryNegativeNumber };
-      const keeperRewardDistributor2 = await upgrades.deployProxy(keeperRewardDistributorFactory, [mockInitParams], {
-        unsafeAllow: ["external-library-linking", "constructor", "delegatecall"],
-      });
-      const { pmxBalance: pmxRewardBefore, nativeBalance: nativeRewardBefore } = await keeperRewardDistributor2.keeperBalance(
-        liquidator.address,
-      );
-
-      await keeperRewardDistributor2.updateReward(updateRewardParams);
-
-      const { pmxBalance: pmxRewardAfter, nativeBalance: nativeRewardAfter } = await keeperRewardDistributor2.keeperBalance(
-        liquidator.address,
-      );
-      expect(pmxRewardAfter).to.be.equal(pmxRewardBefore);
-      expect(nativeRewardAfter).to.be.equal(nativeRewardBefore);
     });
   });
 

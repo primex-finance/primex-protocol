@@ -1,13 +1,13 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
 import {ITraderBalanceVault} from "../TraderBalanceVault/ITraderBalanceVault.sol";
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
-import {ISwapManager} from "../interfaces/ISwapManager.sol";
+import {IPositionManagerV2} from "../PositionManager/IPositionManager.sol";
+import {ISwapManager} from "../SwapManager/ISwapManager.sol";
 
 interface ILimitOrderManagerStorage {
     function ordersId() external view returns (uint256);
@@ -26,9 +26,9 @@ interface ILimitOrderManagerStorage {
 
     function traderBalanceVault() external view returns (ITraderBalanceVault);
 
-    function primexDNS() external view returns (IPrimexDNS);
+    function primexDNS() external view returns (IPrimexDNSV3);
 
-    function pm() external view returns (IPositionManager);
+    function pm() external view returns (IPositionManagerV2);
 
     function swapManager() external view returns (ISwapManager);
 }

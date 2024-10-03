@@ -176,17 +176,17 @@ describe("SpotTradingRewardDistributor_unit", function () {
       await mockRegistry.mock.hasRole.returns(false);
 
       await expect(
-        spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount),
+        spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0),
       ).to.be.revertedWithCustomError(errorsLibrary, "FORBIDDEN");
     });
 
     it("Should allow to update trader activity if caller is granted with PM_ROLE", async function () {
-      expect(await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount));
+      expect(await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0));
     });
 
     it("Should not set trader activity and total activity if rewardPerPeriod is zero", async function () {
       await spotTradingRewardDistributor.connect(caller).setRewardPerPeriod(0);
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount);
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0);
 
       const spotTraderActivity = await spotTradingRewardDistributor.getSpotTraderActivity(0, trader.address);
       const period = await spotTradingRewardDistributor.periods(0);
@@ -198,7 +198,7 @@ describe("SpotTradingRewardDistributor_unit", function () {
       await spotTradingRewardDistributor.connect(caller).setRewardPerPeriod(moreThanAvailable);
       expect(await spotTradingRewardDistributor.rewardPerPeriod()).to.equal(moreThanAvailable);
 
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount);
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0);
 
       const spotTraderActivity = await spotTradingRewardDistributor.getSpotTraderActivity(0, trader.address);
       const period = await spotTradingRewardDistributor.periods(0);
@@ -210,7 +210,7 @@ describe("SpotTradingRewardDistributor_unit", function () {
       await spotTradingRewardDistributor.connect(caller).setRewardPerPeriod(moreThanAvailable);
       expect(await spotTradingRewardDistributor.rewardPerPeriod()).to.equal(moreThanAvailable);
 
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount);
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0);
 
       const spotTraderActivity = await spotTradingRewardDistributor.getSpotTraderActivity(0, trader.address);
       const period = await spotTradingRewardDistributor.periods(0);
@@ -219,7 +219,7 @@ describe("SpotTradingRewardDistributor_unit", function () {
     });
 
     it("Should set trader activity and total activity if rewardPerPeriod <= undistributedPMX", async function () {
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount);
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0);
 
       const spotTraderActivity = await spotTradingRewardDistributor.getSpotTraderActivity(0, trader.address);
       const period = await spotTradingRewardDistributor.periods(0);
@@ -228,10 +228,10 @@ describe("SpotTradingRewardDistributor_unit", function () {
     });
 
     it("Should add a period number to periodsWithTraderActivity array and should not duplicate period numbers", async function () {
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 0 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 0 period
       await network.provider.send("hardhat_mine", ["0x64", "0xE10"]); // 100 blocks with 1 hour interval
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 4 period
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 4 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 4 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 4 period
 
       const periodsWithTraderActivity = await spotTradingRewardDistributor.getPeriodsWithTraderActivity(trader.address);
 
@@ -242,19 +242,19 @@ describe("SpotTradingRewardDistributor_unit", function () {
 
     it("Should not set totalReward for the period if there is not enough undistributedPMX on a contract balance", async function () {
       await spotTradingRewardDistributor.withdrawPmx(undistributedPMX.sub(totalReward));
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 0 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 0 period
       await network.provider.send("hardhat_mine", ["0x64", "0xE10"]); // 100 blocks with 1 hour interval
       expect(await spotTradingRewardDistributor.undistributedPMX()).to.equal(0);
 
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 4 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 4 period
       const period = await spotTradingRewardDistributor.periods(4);
       expect(period.totalReward).to.equal(0);
     });
 
     it("Should update trader activity if it was in the same period", async function () {
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 0 period
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 0 period
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 0 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 0 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 0 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 0 period
 
       const periodsWithTraderActivity = await spotTradingRewardDistributor.getPeriodsWithTraderActivity(trader.address);
 
@@ -271,7 +271,7 @@ describe("SpotTradingRewardDistributor_unit", function () {
 
   describe("claimReward", function () {
     it("Should emit SpotTradingClaimReward event if claim is successful", async function () {
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 0 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 0 period
 
       await network.provider.send("hardhat_mine", ["0x64", "0xE10"]); // 100 blocks with 1 hour interval
 
@@ -283,7 +283,7 @@ describe("SpotTradingRewardDistributor_unit", function () {
     });
 
     it("Should revert if a trader does not have any activity", async function () {
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 0 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 0 period
 
       await network.provider.send("hardhat_mine", ["0x64", "0xE10"]); // 100 blocks with 1 hour interval
 
@@ -297,11 +297,11 @@ describe("SpotTradingRewardDistributor_unit", function () {
     });
 
     it("Should emit SpotTradingClaimReward event if claim is successful from several periods", async function () {
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 0 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 0 period
       const reward0period = totalReward.mul(positionAmount).div(positionAmount);
       await network.provider.send("hardhat_mine", ["0x64", "0xE10"]); // 100 blocks with 1 hour interval
 
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 4 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 4 period
       const reward4period = totalReward.mul(positionAmount).div(positionAmount);
       await network.provider.send("hardhat_mine", ["0x96", "0xE10"]); // 150 blocks with 1 hour interval
 
@@ -316,10 +316,10 @@ describe("SpotTradingRewardDistributor_unit", function () {
       await expect(spotTradingRewardDistributor.connect(trader).claimReward()).to.be.revertedWith("Pausable: paused");
     });
     it("Should not remove period number from trader's periodsWithTraderActivity if it is equal to the current period number", async function () {
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 0 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 0 period
       await network.provider.send("hardhat_mine", ["0x64", "0xE10"]); // 100 blocks with 1 hour interval
 
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 4 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 4 period
 
       await spotTradingRewardDistributor.connect(trader).claimReward();
       const periodsWithTraderActivity = await spotTradingRewardDistributor.getPeriodsWithTraderActivity(trader.address);
@@ -329,10 +329,10 @@ describe("SpotTradingRewardDistributor_unit", function () {
     });
 
     it("Should remove all period numbers from trader's periodsWithTraderActivity if no activity during the current period", async function () {
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 0 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 0 period
       await network.provider.send("hardhat_mine", ["0x64", "0xE10"]); // 100 blocks with 1 hour interval
 
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 4 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 4 period
       await network.provider.send("hardhat_mine", ["0x96", "0xE10"]); // 150 blocks with 1 hour interval
 
       await spotTradingRewardDistributor.connect(trader).claimReward();
@@ -341,7 +341,7 @@ describe("SpotTradingRewardDistributor_unit", function () {
       expect(periodsWithTraderActivity.length).to.equal(0);
     });
     it("Should revert if amount of reward is zero", async function () {
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 0 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 0 period
 
       await expect(spotTradingRewardDistributor.connect(trader).claimReward()).to.be.revertedWithCustomError(
         errorsLibrary,
@@ -407,7 +407,7 @@ describe("SpotTradingRewardDistributor_unit", function () {
     it("Should get spot trader activity", async function () {
       const reward = parseEther("5");
       await spotTradingRewardDistributor.setRewardPerPeriod(reward);
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount); // 0 period
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0); // 0 period
 
       const spotTraderActivity = await spotTradingRewardDistributor.getSpotTraderActivity(0, trader.address);
       expect(spotTraderActivity).to.equal(traderActivity);
@@ -431,7 +431,7 @@ describe("SpotTradingRewardDistributor_unit", function () {
       const reward = parseEther("5");
       await spotTradingRewardDistributor.setRewardPerPeriod(reward);
 
-      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount);
+      await spotTradingRewardDistributor.connect(caller).updateTraderActivity(trader.address, mockERC20.address, positionAmount, 0);
 
       const [totalReward, totalActivity] = await spotTradingRewardDistributor.getPeriodInfo(timestamp);
       expect(totalReward).to.equal(reward);

@@ -56,7 +56,6 @@ async function taskSetup({ depositAsset = "usdc", positionAsset = "wbtc", deposi
   const positionManager = await getContract("PositionManager");
   const bucket = await getContract("Primex Bucket USDC");
   const dexWithAncillaryData = await getDexWithAncillaryData();
-  const priceOracle = await getContract("PriceOracle");
 
   const dex = "uniswap";
   if (!assets[depositAsset] || !assets[positionAsset]) {
@@ -76,8 +75,6 @@ async function taskSetup({ depositAsset = "usdc", positionAsset = "wbtc", deposi
 
   depositAmount = parseUnits(depositAmount, depositDecimals);
   borrowedAmount = parseUnits(borrowedAmount, borrowedDecimals);
-
-  const primexPricingLibrary = await getContract("PrimexPricingLibrary");
 
   const swapSize = depositToken === borrowedToken ? depositAmount.add(borrowedAmount) : borrowedAmount;
   let leverage;
@@ -126,29 +123,29 @@ async function taskSetup({ depositAsset = "usdc", positionAsset = "wbtc", deposi
     aTokenDecimals: borrowedDecimals,
     bTokenDecimals: positionDecimals,
   });
-  let swapInBorrowedAsset;
-  if (depositToken.address === borrowedToken.address) {
-    swapInBorrowedAsset = depositAmount.add(borrowedAmount);
-  } else {
-    const depositAmountInBorrowed = await primexPricingLibrary.getOracleAmountsOut(
-      depositToken.address,
-      borrowedToken.address,
-      depositAmount,
-      priceOracle.address,
-    );
-    swapInBorrowedAsset = borrowedAmount.add(depositAmountInBorrowed);
-  }
+  // let swapInBorrowedAsset;
+  // if (depositToken.address === borrowedToken.address) {
+  //   swapInBorrowedAsset = depositAmount.add(borrowedAmount);
+  // } else {
+  //   const depositAmountInBorrowed = await primexPricingLibrary.getOracleAmountsOut(
+  //     depositToken.address,
+  //     borrowedToken.address,
+  //     depositAmount,
+  //     priceOracle.address,
+  //   );
+  // swapInBorrowedAsset = borrowedAmount.add(depositAmountInBorrowed);
+  // }
   // _asset, _minPositionAsset, _amount, _priceOracle
-  const positionSizeByOracle = await primexPricingLibrary.getOracleAmountsOut(
-    borrowedToken.address,
-    await positionManager.minPositionAsset(),
-    swapInBorrowedAsset,
-    priceOracle.address,
-  );
-  const minPosition = await positionManager.minPositionSize();
-  if (positionSizeByOracle.lt(minPosition)) {
-    throw new Error(`Insufficient position size. The min position is ${minPosition.toString()}, now ${positionSizeByOracle.toString()}`);
-  }
+  // const positionSizeByOracle = await primexPricingLibrary.getOracleAmountsOut(
+  //   borrowedToken.address,
+  //   await positionManager.minPositionAsset(),
+  //   swapInBorrowedAsset,
+  //   priceOracle.address,
+  // );
+  // const minPosition = await positionManager.minPositionSize();
+  // if (positionSizeByOracle.lt(minPosition)) {
+  //   throw new Error(`Insufficient position size. The min position is ${minPosition.toString()}, now ${positionSizeByOracle.toString()}`);
+  // }
   /// /////////////////////////////////////////////////
   const traderBalanceVault = await getContract("TraderBalanceVault");
   await depositToken.approve(traderBalanceVault.address, depositAmount);

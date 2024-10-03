@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
@@ -49,8 +49,7 @@ interface ILimitOrderManager is ILimitOrderManagerStorage, IPausable {
         address indexed trader,
         uint256 depositAmount,
         uint256 leverage,
-        address feeToken,
-        uint256 protocolFee
+        address feeToken
     );
 
     event UpdateOrderConditions(
@@ -102,7 +101,7 @@ interface ILimitOrderManager is ILimitOrderManagerStorage, IPausable {
      * @dev This function is called to open a position based on the given order parameters.
      * @param _params The OpenPositionParams struct containing the necessary parameters for opening the position.
      */
-    function openPositionByOrder(LimitOrderLibrary.OpenPositionParams calldata _params) external;
+    function openPositionByOrder(LimitOrderLibrary.OpenPositionParams calldata _params) external payable;
 
     /**
      * @notice Updates an existing limit order.
@@ -117,18 +116,6 @@ interface ILimitOrderManager is ILimitOrderManagerStorage, IPausable {
      * @param _params The parameters for updating the order conditions.
      */
     function updateOrderConditions(UpdateOrderConditionsParams memory _params) external;
-
-    /**
-     * @notice Returns true if current price >= limit price and block.timestamp <= deadline
-     * @param _orderId order id
-     * @param _conditionIndex index of condition in openConditions
-     * @param _additionalParams parameters needed for dex
-     */
-    function canBeFilled(
-        uint256 _orderId,
-        uint256 _conditionIndex,
-        bytes calldata _additionalParams
-    ) external returns (bool);
 
     /**
      * @notice Function to set new swapManager.
@@ -198,4 +185,8 @@ interface ILimitOrderManager is ILimitOrderManagerStorage, IPausable {
      * @return An array of LimitOrder structs representing the bucket's orders.
      */
     function getBucketOrders(address _bucket) external view returns (LimitOrderLibrary.LimitOrder[] memory);
+}
+
+interface ILimitOrderManagerV2 is ILimitOrderManager {
+    event ChangeSwapManager(address swapManager);
 }

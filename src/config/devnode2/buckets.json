@@ -19,12 +19,12 @@
       },
       "maxTotalDeposit": 20000,
       "LiquidityMining": {
-        "accumulatingAmount":1600,
-        "maxDurationInDays":7,
-        "stabilizationDurationInDays":5,
-        "maxAmountPerUser":1000,
-        "pmxRewardAmount":50000,
-        "isReinvestToAaveEnabled":true
+        "accumulatingAmount": 1600,
+        "maxDurationInDays": 7,
+        "stabilizationDurationInDays": 5,
+        "maxAmountPerUser": 1000,
+        "pmxRewardAmount": 50000,
+        "isReinvestToAaveEnabled": true
       }
     },
     {
@@ -45,12 +45,12 @@
       },
       "maxTotalDeposit": 1000,
       "LiquidityMining": {
-        "accumulatingAmount":100,
-        "maxDurationInDays":6,
-        "stabilizationDurationInDays":3,
-        "maxAmountPerUser":125,
-        "pmxRewardAmount":45000,
-        "isReinvestToAaveEnabled":true
+        "accumulatingAmount": 100,
+        "maxDurationInDays": 6,
+        "stabilizationDurationInDays": 3,
+        "maxAmountPerUser": 125,
+        "pmxRewardAmount": 45000,
+        "isReinvestToAaveEnabled": true
       }
     },
     {
@@ -90,12 +90,12 @@
       },
       "maxTotalDeposit": 100e6,
       "LiquidityMining": {
-        "accumulatingAmount":540000,
-        "maxDurationInDays":3,
-        "stabilizationDurationInDays":3,
-        "maxAmountPerUser":1e6,
-        "pmxRewardAmount":80000,
-        "isReinvestToAaveEnabled":false
+        "accumulatingAmount": 540000,
+        "maxDurationInDays": 3,
+        "stabilizationDurationInDays": 3,
+        "maxAmountPerUser": 1e6,
+        "pmxRewardAmount": 80000,
+        "isReinvestToAaveEnabled": false
       }
     }
   ]

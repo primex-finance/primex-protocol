@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
@@ -10,23 +10,6 @@ interface ITakeProfitStopLossCCM {
         uint256 takeProfitPrice;
         uint256 stopLossPrice;
     }
-
-    struct AdditionalParams {
-        PrimexPricingLibrary.Route[] routes;
-    }
-
-    /**
-     * @notice Checks if the take profit has been reached for a given position.
-     * @param _position The position details.
-     * @param takeProfitPrice The take profit price in WAD format.
-     * @param routes The array of routes for asset swapping.
-     * @return A boolean indicating whether the take profit has been reached.
-     */
-    function isTakeProfitReached(
-        PositionLibrary.Position calldata _position,
-        uint256 takeProfitPrice,
-        PrimexPricingLibrary.Route[] memory routes
-    ) external returns (bool);
 
     /**
      * @notice Checks if the take profit has been reached based on the given parameters.
@@ -40,13 +23,14 @@ interface ITakeProfitStopLossCCM {
     /**
      * @notice Checks if the stop loss price has been reached for a given position.
      * @param _position The position details.
-     * @param stopLossPrice The stop loss price in WAD format to compare against.
+     * @param _stopLossPrice The stop loss price in WAD format to compare against.
      * @return True if the stop loss price is reached, false otherwise.
      */
     function isStopLossReached(
         PositionLibrary.Position calldata _position,
-        uint256 stopLossPrice
-    ) external view returns (bool);
+        uint256 _stopLossPrice,
+        bytes calldata _positionSoldAssetOracleData
+    ) external returns (bool);
 
     /**
      * @notice Checks if the stop loss price has been reached on the given parameters.
@@ -64,4 +48,12 @@ interface ITakeProfitStopLossCCM {
      * @return stopLossPrice The stop loss price.
      */
     function getTakeProfitStopLossPrices(bytes calldata _params) external view returns (uint256, uint256);
+
+    /**
+     * @notice Initializes the TakeProfitStopLossCCM contract.
+     * @dev This function should only be called once during the initial setup of the contract.
+     * @param _primexDNS The address of the PrimexDNS contract.
+     * @param _priceOracle The address of the PriceOracle contract.
+     */
+    function initialize(address _primexDNS, address _priceOracle) external;
 }

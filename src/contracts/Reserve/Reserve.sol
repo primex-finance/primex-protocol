@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -12,9 +12,9 @@ import "../libraries/Errors.sol";
 import {ReserveStorage} from "./ReserveStorage.sol";
 import {BIG_TIMELOCK_ADMIN, MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN, EMERGENCY_ADMIN} from "../Constants.sol";
 import {IReserve, IPausable} from "./IReserve.sol";
-import {IBucket} from "../Bucket/IBucket.sol";
+import {IBucketV3} from "../Bucket/IBucket.sol";
 import {IPToken} from "../PToken/IPToken.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
 
 contract Reserve is IReserve, ReserveStorage {
     using WadRayMath for uint256;
@@ -35,9 +35,9 @@ contract Reserve is IReserve, ReserveStorage {
     /**
      * @inheritdoc IReserve
      */
-    function initialize(IPrimexDNS _dns, address _registry) external override initializer {
+    function initialize(IPrimexDNSV3 _dns, address _registry) external override initializer {
         _require(
-            IERC165Upgradeable(address(_dns)).supportsInterface(type(IPrimexDNS).interfaceId) &&
+            IERC165Upgradeable(address(_dns)).supportsInterface(type(IPrimexDNSV3).interfaceId) &&
                 IERC165Upgradeable(_registry).supportsInterface(type(IAccessControl).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
@@ -53,9 +53,9 @@ contract Reserve is IReserve, ReserveStorage {
      */
     function payBonus(string memory _bucketName, address _to, uint256 _amount) external override {
         (address bucket, , , ) = dns.buckets(_bucketName);
-        IPToken pToken = IBucket(bucket).pToken();
+        IPToken pToken = IBucketV3(bucket).pToken();
         _require(
-            address(IBucket(bucket).debtToken().feeDecreaser()) == msg.sender ||
+            address(IBucketV3(bucket).debtToken().feeDecreaser()) == msg.sender ||
                 address(pToken.interestIncreaser()) == msg.sender,
             Errors.CALLER_IS_NOT_EXECUTOR.selector
         );
@@ -98,8 +98,8 @@ contract Reserve is IReserve, ReserveStorage {
         address bucket,
         uint256 amount
     ) public override whenNotPaused onlyRole(MEDIUM_TIMELOCK_ADMIN) {
-        _require(IBucket(bucket).getLiquidityMiningParams().isBucketLaunched, Errors.BUCKET_IS_NOT_LAUNCHED.selector);
-        IPToken pToken = IBucket(bucket).pToken();
+        _require(IBucketV3(bucket).getLiquidityMiningParams().isBucketLaunched, Errors.BUCKET_IS_NOT_LAUNCHED.selector);
+        IPToken pToken = IBucketV3(bucket).pToken();
         uint256 reserveBalance = pToken.balanceOf(address(this));
 
         TransferRestrictions storage restrictions = transferRestrictions[address(pToken)];
@@ -110,7 +110,7 @@ contract Reserve is IReserve, ReserveStorage {
             Errors.NOT_SUFFICIENT_RESERVE_BALANCE.selector
         );
 
-        IBucket(bucket).withdraw(dns.treasury(), amount);
+        IBucketV3(bucket).withdraw(dns.treasury(), amount);
 
         emit TransferFromReserve(address(pToken), dns.treasury(), amount);
     }
@@ -118,7 +118,7 @@ contract Reserve is IReserve, ReserveStorage {
     /**
      * @inheritdoc IReserve
      */
-    function paybackPermanentLoss(IBucket _bucket) public override whenNotPaused nonReentrant {
+    function paybackPermanentLoss(IBucketV3 _bucket) public override whenNotPaused nonReentrant {
         (address bucket, , , ) = dns.buckets(_bucket.name());
         _require(bucket == address(_bucket), Errors.ADDRESS_NOT_PRIMEX_BUCKET.selector);
         uint256 permanentLoss = _bucket.permanentLoss();

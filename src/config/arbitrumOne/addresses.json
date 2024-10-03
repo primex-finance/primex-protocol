@@ -29,7 +29,9 @@
     "joe": "0x371c7ec6D8039ff7933a2AA28EB827Ffe1F52f07",
     "stg": "0x6694340fc020c5E6B96567843da2df01b2CE1eb6"
   },
+  "wrappedNativeToken": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
   "aave": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+  "pyth": "0xff1a0f4744e8582DF1aE09D5611b887B6a12925C",
   "dexes": {
     "sushiswap": {
       "router": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",
@@ -43,7 +45,8 @@
     "uniswapv3": {
       "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
       "type": "2",
-      "quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+      "quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+      "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984"
     },
     "camelotv3": {
       "router": "0x1F721E2E82F6676FCE4eA07A5958cF098D339e18",
@@ -71,6 +74,10 @@
     "balancer": {
       "router": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
       "type": "4"
+    },
+    "paraswap": {
+      "router": "0xDEF171Fe48CF0115B1d80b88dc8eAB59176FEe57",
+      "type": "7"
     }
   },
 

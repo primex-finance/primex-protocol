@@ -20,6 +20,7 @@ const {
   deployMockTreasury,
   deployMockPrimexDNS,
   deployMockWhiteBlackList,
+  deployMockPositionManagerExtension,
   deployMockPositionManager,
   deployMockSwapManager,
   deployMockKeeperRewardDistributor,
@@ -42,6 +43,7 @@ describe("ProxyContracts", function () {
     mockPrimexDNS,
     mockWhiteBlackList,
     mockPositionManager,
+    mockPositionManagerExtension,
     mockSwapManager,
     mockKeeperRD,
     mockNft,
@@ -59,6 +61,7 @@ describe("ProxyContracts", function () {
     mockTreasury = await deployMockTreasury(deployer);
     mockPrimexDNS = await deployMockPrimexDNS(deployer);
     mockWhiteBlackList = await deployMockWhiteBlackList(deployer);
+    mockPositionManagerExtension = await deployMockPositionManagerExtension(deployer);
     mockPositionManager = await deployMockPositionManager(deployer);
     mockSwapManager = await deployMockSwapManager(deployer);
     mockKeeperRD = await deployMockKeeperRewardDistributor(deployer);
@@ -157,8 +160,7 @@ describe("ProxyContracts", function () {
         pmx: mockPriceOracle.address,
         pmxPartInReward: 1,
         nativePartInReward: 1,
-        positionSizeCoefficientA: 1,
-        positionSizeCoefficientB: 1,
+        positionSizeCoefficient: 1,
         additionalGas: 1,
         oracleGasPriceTolerance: 1,
         defaultMaxGasPrice: 1,
@@ -179,8 +181,7 @@ describe("ProxyContracts", function () {
         pmx: mockPriceOracle.address,
         pmxPartInReward: 1,
         nativePartInReward: 1,
-        positionSizeCoefficientA: 1,
-        positionSizeCoefficientB: 1,
+        positionSizeCoefficient: 1,
         additionalGas: 1,
         oracleGasPriceTolerance: 1,
         defaultMaxGasPrice: 1,
@@ -277,6 +278,7 @@ describe("ProxyContracts", function () {
           mockPriceOracle.address,
           mockKeeperRD.address,
           mockWhiteBlackList.address,
+          mockPositionManagerExtension.address,
         ),
       ).to.be.revertedWith("Initializable: contract is already initialized");
     });
@@ -292,6 +294,7 @@ describe("ProxyContracts", function () {
           mockPriceOracle.address,
           mockKeeperRD.address,
           mockWhiteBlackList.address,
+          mockPositionManagerExtension.address,
         ),
       ).to.be.revertedWith("Initializable: contract is already initialized");
     });
@@ -316,35 +319,52 @@ describe("ProxyContracts", function () {
   });
 
   describe("PrimexDNS", function () {
-    let rates;
+    let initParams;
     before(async function () {
-      rates = [
-        {
-          orderType: 0,
-          feeToken: mockPMX.address,
-          rate: parseEther("0.0024"),
-        },
-        {
-          orderType: 0,
-          feeToken: NATIVE_CURRENCY,
-          rate: parseEther("0.003"),
-        },
-      ];
+      initParams = {
+        registry: mockRegistry.address,
+        pmx: mockPMX.address,
+        treasury: mockTreasury.address,
+        delistingDelay: 1,
+        adminWithdrawalDelay: 1,
+        feeRateParams: [
+          {
+            feeRateType: 1,
+            feeRate: parseEther("0.024"),
+          },
+          {
+            feeRateType: 0,
+            feeRate: parseEther("0.024"),
+          },
+        ],
+        averageGasPerActionParams: [
+          {
+            tradingOrderType: 1,
+            averageGasPerAction: "10000",
+          },
+          {
+            tradingOrderType: 0,
+            averageGasPerAction: "10000",
+          },
+        ],
+        maxProtocolFee: 1,
+        liquidationGasAmount: 100,
+        protocolFeeCoefficient: 100,
+        additionalGasSpent: 100,
+        pmxDiscountMultiplier: 100,
+        gasPriceBuffer: 100,
+      };
     });
     it("Should not initialize again from proxy", async function () {
       const dnsProxy = await getContract("PrimexDNS");
 
-      await expect(dnsProxy.initialize(mockRegistry.address, mockPMX.address, mockTreasury.address, 1, 1, rates)).to.be.revertedWith(
-        "Initializable: contract is already initialized",
-      );
+      await expect(dnsProxy.initialize(initParams)).to.be.revertedWith("Initializable: contract is already initialized");
     });
 
     it("Should not initialize again from implementation", async function () {
       const dnsImpl = await getContract("PrimexDNS_Implementation");
 
-      await expect(dnsImpl.initialize(mockRegistry.address, mockPMX.address, mockTreasury.address, 1, 1, rates)).to.be.revertedWith(
-        "Initializable: contract is already initialized",
-      );
+      await expect(dnsImpl.initialize(initParams)).to.be.revertedWith("Initializable: contract is already initialized");
     });
   });
 

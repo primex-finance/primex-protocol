@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -37,6 +37,7 @@ library Errors {
     error TOKEN_NOT_SUPPORTED();
     error INSUFFICIENT_DEPOSIT();
     error SHOULD_NOT_HAVE_DUPLICATES();
+    error SWAP_DEADLINE_PASSED();
     // error LIMIT_PRICE_IS_ZERO();
     error BUCKET_IS_NOT_ACTIVE();
     error DIFFERENT_DATA_LENGTH();
@@ -45,7 +46,6 @@ library Errors {
     error OPERATION_NOT_SUPPORTED();
     error SENDER_IS_BLACKLISTED();
     error NATIVE_CURRENCY_CANNOT_BE_ASSET();
-    error DISABLED_TRANSFER_NATIVE_CURRENCY();
     error INVALID_AMOUNT();
 
     // bonus executor
@@ -169,7 +169,16 @@ library Errors {
     error ZERO_EXCHANGE_RATE();
     error NO_PRICEFEED_FOUND();
     error NO_PRICE_DROP_FEED_FOUND();
-
+    error WRONG_ORACLE_ROUTES_LENGTH();
+    error WRONG_ASSET_B();
+    error INCORRECT_ROUTE_SEQUENCE();
+    error INCORRECT_PYTH_PRICE();
+    error TOKEN_PAIR_IS_NOT_TRUSTED();
+    error INCORRECT_TOKEN_TO();
+    error INCORRECT_PYTH_ROUTE();
+    error INCORRECT_CHAINLINK_ROUTE();
+    error NOT_ENOUGH_MSG_VALUE();
+    error PUBLISH_TIME_EXCEEDS_THRESHOLD_TIME();
     //DNS
     error INCORRECT_FEE_RATE();
     error INCORRECT_RESTRICTIONS();
@@ -225,6 +234,7 @@ library Errors {
     error DEPOSITED_TO_BORROWED_ROUTES_LENGTH_SHOULD_BE_0();
     error INCORRECT_CM_TYPE();
     error FEE_RATE_IN_NATIVE_IS_ZERO();
+    error MIN_PROTOCOL_FEE_IS_GREATER_THAN_POSITION_SIZE();
 
     // Token transfers
     error TOKEN_TRANSFER_IN_FAILED();
@@ -268,7 +278,6 @@ library Errors {
     error QUOTER_IS_NOT_PROVIDED();
     error DEX_ROUTER_NOT_SUPPORTED();
     error QUOTER_NOT_SUPPORTED();
-    error SWAP_DEADLINE_PASSED();
 
     //SpotTradingRewardDistributor
     error PERIOD_DURATION_IS_ZERO();

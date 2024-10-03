@@ -1,11 +1,11 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
 import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
 import {PositionLibrary} from "../libraries/PositionLibrary.sol";
 
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
+import {IPositionManagerV2} from "../PositionManager/IPositionManager.sol";
 import {ILimitOrderManager} from "../LimitOrderManager/ILimitOrderManager.sol";
 import {IPrimexLens} from "./IPrimexLens.sol";
 import {IBestDexLens} from "./IBestDexLens.sol";
@@ -21,21 +21,37 @@ interface IPrimexUpkeep {
         uint256 id;
         uint256 conditionIndex;
         bytes comAdditionalParams;
-        PrimexPricingLibrary.Route[] firstAssetRoutes;
-        PrimexPricingLibrary.Route[] depositInThirdAssetRoutes;
+        PrimexPricingLibrary.MegaRoute[] firstAssetMegaRoutes;
+        PrimexPricingLibrary.MegaRoute[] depositInThirdAssetMegaRoutes;
+        bytes firstAssetOracleData;
+        bytes thirdAssetOracleData;
+        bytes depositSoldAssetOracleData;
+        bytes nativePmxOracleData;
+        bytes positionNativeAssetOracleData;
+        bytes nativePositionAssetOracleData;
+        bytes pmxPositionAssetOracleData;
+        bytes positionUsdOracleData;
+        bytes nativeSoldAssetOracleData;
+        bytes[] pullOracleData;
     }
 
-    struct LiquidatePositionInfo {
+    struct ClosePositionInfo {
         uint256 id;
         uint256 conditionIndex;
         bytes ccmAdditionalParams;
-        PrimexPricingLibrary.Route[] positionAssetRoutes;
+        PrimexPricingLibrary.MegaRoute[] positionAssetMegaRoutes;
         PositionLibrary.CloseReason closeReason;
+        bytes positionSoldAssetOracleData;
+        bytes nativePmxOracleData;
+        bytes positionNativeAssetOracleData;
+        bytes pmxPositionAssetOracleData;
+        bytes nativePositionAssetOracleData;
+        bytes[] pullOracleData;
     }
 
-    struct Routes {
-        PrimexPricingLibrary.Route[] firstAssetRoutes;
-        PrimexPricingLibrary.Route[] depositInThirdAssetRoutes;
+    struct MegaRoutes {
+        PrimexPricingLibrary.MegaRoute[] firstAssetMegaRoutes;
+        PrimexPricingLibrary.MegaRoute[] depositInThirdAssetMegaRoutes;
     }
 
     struct Closable {
@@ -57,7 +73,7 @@ interface IPrimexUpkeep {
 
     event LowLevelErrorHandled(bytes revertReason);
 
-    function pm() external returns (IPositionManager);
+    function pm() external returns (IPositionManagerV2);
 
     function lom() external returns (ILimitOrderManager);
 
@@ -68,39 +84,18 @@ interface IPrimexUpkeep {
     function bestDexLens() external returns (IBestDexLens);
 
     /**
-     * @dev This function is intended to be called off-chain. Do not call this from other contracts to avoid an out-of-gas error
-     * @notice Checks the upkeep status and performs the necessary actions.
-     * Should be called using callStatic to avoid gas fees
-     * @param checkData The data needed to perform the upkeep check.
-     * @param _dexesWithAncillaryData An array of DexWithAncillaryData structs.
-     * @param _cursor The cursor for pagination.
-     * @param _count The number of elements to retrieve.
-     * @param _outputSize The desired output size.
-     * @return newCursor The new cursor value. Cursor = 0 if no more elements are available.
-     * @return upkeepNeeded A boolean indicating whether upkeep is needed.
-     * @return performData Additional data needed to perform the upkeep.
-     */
-    function checkUpkeep(
-        bytes calldata checkData,
-        IBestDexLens.DexWithAncillaryData[] memory _dexesWithAncillaryData,
-        uint256 _cursor,
-        uint256 _count,
-        uint256 _outputSize
-    ) external returns (uint256 newCursor, bool upkeepNeeded, bytes memory performData);
-
-    /**
      * @notice Liquidates positions or closes them by condition.
-     * @param toLiquidate Array of LiquidatePositionInfo containing information about positions to be liquidated.
+     * @param toLiquidate Array of ClosePositionInfo containing information about positions to be liquidated.
      * @param keeper The address of the keeper performing the upkeep.
      */
-    function performUpkeepPositions(LiquidatePositionInfo[] calldata toLiquidate, address keeper) external;
+    function performUpkeepPositions(ClosePositionInfo[] calldata toLiquidate, address keeper) external;
 
     /**
      * @notice Equivalent to performUpkeepPositions() but lacking the try/catch block internally.
-     * @param toLiquidate Array of LiquidatePositionInfo containing information about positions to be liquidated.
+     * @param toLiquidate Array of ClosePositionInfo containing information about positions to be liquidated.
      * @param keeper The address of the keeper performing the upkeep.
      */
-    function performUpkeepPositionsUnsafe(LiquidatePositionInfo[] calldata toLiquidate, address keeper) external;
+    function performUpkeepPositionsUnsafe(ClosePositionInfo[] calldata toLiquidate, address keeper) external;
 
     /**
      * @notice Executes limit orders based on the provided OpenByOrderInfo array.
@@ -117,20 +112,18 @@ interface IPrimexUpkeep {
     function performUpkeepOrdersUnsafe(OpenByOrderInfo[] calldata toOpenByOrder, address keeper) external;
 
     /**
-     * @notice Performs upkeep based on the given performData and keeper address.
-     * @param performData The encoded performData containing information about the upkeep.
-     * @param keeper The address of the keeper performing the upkeep.
+     * @notice  Initializes the PrimexUpkeep contract.
+     * @dev This function should only be called once during the initial setup of the contract.
+     * @param _positionManager The address of the PositionManager contract.
+     * @param _limitOrderManager The address of the LimitOrderManager contract.
+     * @param _bestDexLens The address of the BestDexLens contract.
+     * @param _primexLens The address of the PrimexLens contract.
      */
-    function performUpkeep(bytes calldata performData, address keeper) external;
 
-    /**
-     * @notice Retrieves the closing parameters based on a condition.
-     * @param ccm The address of the CloseConditionalManager contract.
-     * @param secondAssetRoutes The array of second asset routes.
-     * @return params The encoded closing parameters.
-     */
-    function getClosingParamsByCondition(
-        address ccm,
-        PrimexPricingLibrary.Route[] memory secondAssetRoutes
-    ) external returns (bytes memory params);
+    function initialize(
+        address _positionManager,
+        address _limitOrderManager,
+        address _bestDexLens,
+        address _primexLens
+    ) external;
 }

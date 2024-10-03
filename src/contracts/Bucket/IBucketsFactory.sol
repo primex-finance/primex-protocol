@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
@@ -6,7 +6,6 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 
 import {ILiquidityMiningRewardDistributor} from "../LiquidityMiningRewardDistributor/ILiquidityMiningRewardDistributor.sol";
 import {IInterestRateStrategy} from "../interfaces/IInterestRateStrategy.sol";
-import {IBucket} from "../Bucket/IBucket.sol";
 import {IPTokensFactory} from "../PToken/IPTokensFactory.sol";
 import {IDebtTokensFactory} from "../DebtToken/IDebtTokensFactory.sol";
 
@@ -54,7 +53,9 @@ interface IBucketsFactory {
 
     /**
      * @notice Creates a new Bucket. Deploys bucket, pToken, debtToken contracts.
-     * @dev Only the MEDIUM_TIMELOCK_ADMIN role can call this function.
+     * @dev This function can be called by the MEDIUM_TIMELOCK_ADMIN or SMALL_TIMELOCK_ADMIN role
+     * depending on the specific implementation. Ensure to check the designated admin roles
+     * in the method of each implementation.
      * @param _params The parameters for creating the bucket.
      */
     function createBucket(CreateBucketParams memory _params) external;

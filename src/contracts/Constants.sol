@@ -1,6 +1,7 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
+import {IArbGasInfo} from "./interfaces/IArbGasInfo.sol";
 
 // admin roles
 bytes32 constant BIG_TIMELOCK_ADMIN = 0x00; // It's primary admin.
@@ -21,6 +22,7 @@ bytes32 constant BATCH_MANAGER_ROLE = keccak256("BATCH_MANAGER_ROLE");
 // token constants
 address constant NATIVE_CURRENCY = address(uint160(bytes20(keccak256("NATIVE_CURRENCY"))));
 address constant USD = 0x0000000000000000000000000000000000000348;
+address constant NATIVE_CURRENCY_CURVE = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 uint256 constant USD_MULTIPLIER = 10 ** (18 - 8); // usd decimals in chainlink is 8
 uint8 constant MAX_ASSET_DECIMALS = 18;
 
@@ -29,3 +31,8 @@ uint256 constant SECONDS_PER_YEAR = 365 days;
 uint256 constant SECONDS_PER_DAY = 1 days;
 uint256 constant HOUR = 1 hours;
 uint256 constant TEN_WAD = 10 ether;
+
+// constants for Arbitrum payment model
+IArbGasInfo constant ARB_NITRO_ORACLE = IArbGasInfo(0x000000000000000000000000000000000000006C);
+uint256 constant GAS_FOR_BYTE = 16;
+uint256 constant TRANSACTION_METADATA_BYTES = 140;

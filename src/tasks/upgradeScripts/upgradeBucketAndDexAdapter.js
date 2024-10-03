@@ -41,7 +41,7 @@ module.exports = async function (
   // immutable
   const bigTimeLock = await getContract("BigTimelockAdmin");
   const PrimexProxyAdmin = await getContract("PrimexProxyAdmin");
-  const BucketsFactory = await getContract("BucketsFactory");
+  const BucketsFactory = await getContract("BucketsFactoryV2");
   const Registry = await getContract("Registry");
   const TokenTransfersLibrary = await getContract("TokenTransfersLibrary");
   const WhiteBlackList = await getContract("WhiteBlackList");
@@ -118,7 +118,7 @@ module.exports = async function (
     log: true,
     libraries: {
       TokenApproveLibrary: TokenApproveLibrary.address,
-    }
+    },
   });
   const dexAdapter = await getContract("DexAdapter");
 
@@ -161,33 +161,18 @@ module.exports = async function (
     // remove old dexAdapter from whitelist
     tx = await WhiteBlackList.removeAddressFromWhitelist(oldDexAdapter.address);
     await tx.wait();
-
   } else {
     // add new dexAdapter to whitelist
     argsForBigTimeLock.targets.push(WhiteBlackList.address);
     argsForBigTimeLock.payloads.push(
-      (
-        await encodeFunctionData(
-          "addAddressToWhitelist",
-          [dexAdapter.address],
-          "WhiteBlackList",
-          WhiteBlackList.address,
-        )
-      ).payload,
+      (await encodeFunctionData("addAddressToWhitelist", [dexAdapter.address], "WhiteBlackList", WhiteBlackList.address)).payload,
     );
 
     // set dex types
     for (let i = 0; i < name.length; i++) {
       argsForBigTimeLock.targets.push(dexAdapter.address);
       argsForBigTimeLock.payloads.push(
-        (
-          await encodeFunctionData(
-            "setDexType",
-            [routers[i], dexTypes[i]],
-            "DexAdapter",
-            dexAdapter.address,
-          )
-        ).payload,
+        (await encodeFunctionData("setDexType", [routers[i], dexTypes[i]], "DexAdapter", dexAdapter.address)).payload,
       );
     }
 
@@ -196,14 +181,7 @@ module.exports = async function (
       for (const key in quoters) {
         argsForBigTimeLock.targets.push(dexAdapter.address);
         argsForBigTimeLock.payloads.push(
-          (
-            await encodeFunctionData(
-              "setQuoter",
-              [routers[key], quoters[key]],
-              "DexAdapter",
-              dexAdapter.address,
-            )
-          ).payload,
+          (await encodeFunctionData("setQuoter", [routers[key], quoters[key]], "DexAdapter", dexAdapter.address)).payload,
         );
       }
     }
@@ -211,27 +189,13 @@ module.exports = async function (
     // set DexAdapter
     argsForBigTimeLock.targets.push(PrimexDNS.address);
     argsForBigTimeLock.payloads.push(
-      (
-        await encodeFunctionData(
-          "setDexAdapter",
-          [dexAdapter.address],
-          "PrimexDNS",
-          PrimexDNS.address,
-        )
-      ).payload,
+      (await encodeFunctionData("setDexAdapter", [dexAdapter.address], "PrimexDNS", PrimexDNS.address)).payload,
     );
 
     // remove old dexAdapter from whitelist
     argsForBigTimeLock.targets.push(WhiteBlackList.address);
     argsForBigTimeLock.payloads.push(
-      (
-        await encodeFunctionData(
-          "removeAddressFromWhitelist",
-          [oldDexAdapter.address],
-          "WhiteBlackList",
-          WhiteBlackList.address,
-        )
-      ).payload,
+      (await encodeFunctionData("removeAddressFromWhitelist", [oldDexAdapter.address], "WhiteBlackList", WhiteBlackList.address)).payload,
     );
   }
 

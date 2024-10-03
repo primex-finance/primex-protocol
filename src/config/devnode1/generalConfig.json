@@ -4,72 +4,73 @@
   "SmallTimelockDelayInDays": 0.0069,
   "deployRefferalProgram": true,
   "EPMXOraclePrice": "0.2",
+  "twapInterval": "60",
+  "poolUpdateInterval": "86400",
   "PositionManagerConfig": {
     "defaultOracleTolerableLimit": "0.02",
     "oracleTolerableLimitMultiplier": "5",
     "maintenanceBuffer": "0.1",
-    "securityBuffer": "0.05",
-    "minPositionAsset": {"contract":"usd"},
-    "minPositionSize": "5"
+    "securityBuffer": "0.05"
   },
   "PrimexDNSconfig": {
-    "rates": {
-      "MARKET_ORDER": {
-        "protocolRate": "0.003",
-        "protocolRateInPmx": "0.0024"
-      },
-      "LIMIT_ORDER": {
-        "protocolRate": "0.004",
-        "protocolRateInPmx": "0.0034"
-      },
-      "SWAP_MARKET_ORDER": {
-        "protocolRate": "0.001",
-        "protocolRateInPmx": "0.0008"
-      },
-      "SWAP_LIMIT_ORDER": {
-        "protocolRate": "0.002",
-        "protocolRateInPmx": "0.0018"
-      }
-    },
     "delistingDelayInDays": 90,
     "adminWithdrawalDelayInDays": 180,
-    "feeRestrictions":{
-      "MARKET_ORDER": {
-        "minProtocolFee": "0.001",
-        "maxProtocolFee": "MaxUint256"
+    "maxProtocolFee": "MaxUint256",
+    "protocolFeeCoefficient": "0",
+    "liquidationGasAmount": "250000",
+    "pmxDiscountMultiplier": "0.95",
+    "gasPriceBuffer": "1.05",
+    "additionalGasSpent": "100000",
+    "feeRates": {
+      "MarginPositionClosedByTrader": "0.005",
+      "SpotPositionClosedByTrader": "0.002",
+      "MarginPositionClosedByKeeper": "0.003",
+      "SpotPositionClosedByKeeper": "0.003",
+      "MarginLimitOrderExecuted": "0.003",
+      "SpotLimitOrderExecuted": "0.003",
+      "SwapLimitOrderExecuted": "0.003",
+      "SwapMarketOrder": "0.003"
+    },
+    "averageGasPerAction": {
+      "MarginMarketOrder": "100000",
+      "SpotMarketOrder": "100000",
+      "MarginLimitOrder": "100000",
+      "MarginLimitOrderDepositInThirdAsset": "100000",
+      "SpotLimitOrder": "100000",
+      "SwapLimitOrder": "100000"
+    },
+    "minFeeRestrictions": {
+      "OpenPositionByOrder": {
+        "maxGasAmount": "1000000",
+        "baseLength": "1100"
       },
-      "LIMIT_ORDER": {
-        "minProtocolFee": "0.0012",
-        "maxProtocolFee": "MaxUint256"
-      },
-      "SWAP_MARKET_ORDER": {
-        "minProtocolFee": "0",
-        "maxProtocolFee": "MaxUint256"
-      },
-      "SWAP_LIMIT_ORDER": {
-        "minProtocolFee": "0.0011",
-        "maxProtocolFee": "MaxUint256"
+      "ClosePositionByCondition": {
+        "maxGasAmount": "1000000",
+        "baseLength": "650"
       }
     }
   },
-  "SpotTradingRD":{
-    "increaseAmount":"500",
-    "rewardPerPeriod":"50"
+  "BatchManagerConfig": {
+    "gasPerPosition": "100000",
+    "gasPerBatch": "50000"
   },
-  "LiquidityMiningRD":{
-    "reinvestmentRate":"0.1",
-    "reinvestmentDurationInDays":30
+  "SpotTradingRD": {
+    "increaseAmount": "500",
+    "rewardPerPeriod": "50"
+  },
+  "LiquidityMiningRD": {
+    "reinvestmentRate": "0.1",
+    "reinvestmentDurationInDays": 30
   },
   "KeeperRewardConfig": {
     "pmxPartInReward": "0.05",
     "nativePartInReward": "0.95",
-    "positionSizeCoefficientA": "0.0007482877728",
-    "positionSizeCoefficientB": "0.8561136",
+    "positionSizeCoefficient": "0.001",
     "additionalGas": "20000",
     "defaultMaxGasPriceGwei": "500",
     "oracleGasPriceTolerance": "0.25",
     "minPositionSizeMultiplier": "1.1",
-    "paymentModel":"DEFAULT",
+    "paymentModel": "DEFAULT",
     "maxGasPerPositionParams": {
       "OpenByOrder": {
         "baseMaxGas1": 1000000,
@@ -160,9 +161,9 @@
   "ReserveConfig": {
     "setTransferRestrictions": [
       {
-        "PToken": { "contract": "P-USDC" },
+        "PToken": { "contract": "P-WETH" },
         "transferRestrictions": {
-          "minAmountToBeLeft": 5000,
+          "minAmountToBeLeft": 3,
           "minPercentOfTotalSupplyToBeLeft": "0.05"
         }
       }

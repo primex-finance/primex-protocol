@@ -9,6 +9,8 @@
     "usdt": "0xE2459687Bd63965d064f087Bf1B9364c072a8d37"
   },
   "aave": "0x83a82Cf65637c16F99D029B24788A5d965629220",
+  "pyth": "0xDd24F84d36BF92C65F92307595335bdFab5Bbd21",
+  "wrappedNativeToken": "0x7b79995e5f793a07bc00c21412e50ecae098e7f9",
   "dexes": {
     "uniswapv3": {
       "router": "0x768D6a826db075262b97A9a56bBC11983F41AAF3",

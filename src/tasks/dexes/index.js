@@ -6,3 +6,4 @@ require("./UniswapV3");
 require("./QuickswapV3");
 require("./Meshswap");
 require("./Aave");
+require("./Paraswap");

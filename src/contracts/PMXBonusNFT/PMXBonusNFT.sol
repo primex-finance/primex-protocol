@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -14,9 +14,8 @@ import "./PMXBonusNFTStorage.sol";
 import {BIG_TIMELOCK_ADMIN, MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN, EMERGENCY_ADMIN, NFT_MINTER} from "../Constants.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
 import {IPMXBonusNFT, IPausable} from "./IPMXBonusNFT.sol";
-import {IBucket} from "../Bucket/IBucket.sol";
 import {IBonusExecutor} from "../BonusExecutor/IBonusExecutor.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
 
 contract PMXBonusNFT is IPMXBonusNFT, PMXBonusNFTStorage {
     constructor() {
@@ -53,12 +52,12 @@ contract PMXBonusNFT is IPMXBonusNFT, PMXBonusNFTStorage {
      * @inheritdoc IPMXBonusNFT
      */
     function initialize(
-        IPrimexDNS _primexDNS,
+        IPrimexDNSV3 _primexDNS,
         address _registry,
         IWhiteBlackList _whiteBlackList
     ) external override initializer {
         _require(
-            IERC165Upgradeable(address(_primexDNS)).supportsInterface(type(IPrimexDNS).interfaceId) &&
+            IERC165Upgradeable(address(_primexDNS)).supportsInterface(type(IPrimexDNSV3).interfaceId) &&
                 IERC165Upgradeable(address(_whiteBlackList)).supportsInterface(type(IWhiteBlackList).interfaceId) &&
                 IERC165Upgradeable(_registry).supportsInterface(type(IAccessControl).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector

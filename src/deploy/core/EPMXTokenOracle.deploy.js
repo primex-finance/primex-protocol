@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 const { getConfigByName } = require("../../config/configUtils");
-const { USD_DECIMALS, USD } = require("../../test/utils/constants");
+const { USD_DECIMALS } = require("../../test/utils/constants");
 module.exports = async ({
   run,
   ethers: {
@@ -21,8 +21,11 @@ module.exports = async ({
   if (EPMXPriceFeed.newlyDeployed) {
     const priceOracle = await getContract("PriceOracle");
     const EPMXToken = await getContract("EPMXToken");
-    const priceFeeds = [{ token0: EPMXToken.address, token1: USD, feed: EPMXPriceFeed.address }];
-    await run("priceOracle:updatePriceFeed", { priceOracle: priceOracle.address, updatePriceFeeds: JSON.stringify(priceFeeds) });
+    const priceFeeds = { tokens: [EPMXToken.address], feeds: [EPMXPriceFeed.address] };
+    await run("priceOracle:updateChainlinkPriceFeedsUsd", {
+      priceOracle: priceOracle.address,
+      updatePriceFeeds: JSON.stringify(priceFeeds),
+    });
   }
 };
 

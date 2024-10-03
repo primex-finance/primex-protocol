@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
@@ -6,10 +6,11 @@ import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
 import {PositionLibrary} from "../libraries/PositionLibrary.sol";
 import {LimitOrderLibrary} from "../libraries/LimitOrderLibrary.sol";
 
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
-import {IBucket} from "../Bucket/IBucket.sol";
+import {IPositionManagerV2} from "../PositionManager/IPositionManager.sol";
+import {IBucketV3} from "../Bucket/IBucket.sol";
 import {IInterestRateStrategy} from "./IInterestRateStrategy.sol";
 import {ILiquidityMiningRewardDistributor} from "../LiquidityMiningRewardDistributor/ILiquidityMiningRewardDistributor.sol";
+import {IPrimexDNSStorageV3} from "../PrimexDNS/PrimexDNS.sol";
 
 interface IPrimexLens {
     /**
@@ -114,7 +115,7 @@ interface IPrimexLens {
         TokenMetadata debtToken;
         uint256 feeBuffer;
         uint256 withdrawalFeeRate;
-        IBucket.LiquidityMiningParams miningParams;
+        IBucketV3.LiquidityMiningParams miningParams;
         LenderInfo lenderInfo;
         LiquidityMiningBucketInfo lmBucketInfo;
         uint128 estimatedBar;
@@ -166,19 +167,6 @@ interface IPrimexLens {
         uint256 depositAmount;
         uint256 createdAt;
     }
-
-    /**
-     * @dev Structure for the getPositionStatus function with parameters that show the current status of the position
-     * @param liquidationThreshold True if the position is risky
-     * @param takeProfitReached True if the position has reached takeProfitAmount
-     * @param stopLossReached True if the position has reached stopLossAmount
-     */
-    struct PositionStatus {
-        bool liquidationThreshold;
-        bool takeProfitReached;
-        bool stopLossReached;
-    }
-
     /**
      * @dev Structure for the getOpenPositionsWithConditions function
      * @param positionData Open position data
@@ -234,32 +222,6 @@ interface IPrimexLens {
         uint256 _cursor,
         uint256 _count
     ) external returns (OpenPositionData[] memory, uint256);
-
-    /**
-     * @notice Retrieves the status of a position.
-     * @param _positionManager The address of the PositionManager where the position is stored
-     * @param _id Position id to show the parameters position
-     * @param _routes An array of route objects representing the pricing routes.
-     * @return positionStatus The status of the position.
-     */
-    function getPositionStatus(
-        address _positionManager,
-        uint256 _id,
-        PrimexPricingLibrary.Route[] calldata _routes
-    ) external returns (PositionStatus memory);
-
-    /**
-     * @notice Checks if the take profit condition is reached for a given position.
-     * @param _positionManager The address of the PositionManager contract.
-     * @param _id The ID of the position to check.
-     * @param _routes The routes for pricing the position.
-     * @return A boolean indicating whether the take profit condition is reached.
-     */
-    function isTakeProfitReached(
-        address _positionManager,
-        uint256 _id,
-        PrimexPricingLibrary.Route[] calldata _routes
-    ) external returns (bool);
 
     /**
      * @notice The function returns the limit orders with corresponding conditions
@@ -367,14 +329,14 @@ interface IPrimexLens {
 
     /**
      * @notice Retrieves all bucket metadata from a bucket factory contract.
-     * @param _bucketFactory The address of the BucketFactory contract.
+     * @param _bucketFactories An array of the BucketFactory contracts addresses.
      * @param _trader The address of the trader for whom the buckets are retrieved.
      * @param _positionManager The address of the PositionManager contract.
      * @param _showDeprecated A boolean flag indicating whether to include deprecated buckets in the result.
      * @return An array of BucketMetaData structs representing the bucket metadata.
      */
     function getAllBucketsFactory(
-        address _bucketFactory,
+        address[] calldata _bucketFactories,
         address _trader,
         address _positionManager,
         bool _showDeprecated
@@ -419,17 +381,25 @@ interface IPrimexLens {
      * @param _id The ID of the position to check.
      * @return A boolean indicating whether the stop loss condition is reached.
      */
-    function isStopLossReached(address _positionManager, uint256 _id) external view returns (bool);
+    function isStopLossReached(
+        address _positionManager,
+        uint256 _id,
+        bytes calldata _positionSoldAssetOracleData
+    ) external returns (bool);
 
     /**
      * @notice Retrieves the maximum decrease in position value for a given position ID.
-     * @dev maxDecrease = (1 - securityBuffer) * (1 - oracleTolerableLimit) * (1 - pricedrop) * borrowedAssetAmountOut /
+     * @dev maxDecrease = (1 - securityBuffer) * (1 - oracleTolerableLimit) * (1 - pricedrop) * positionAmountInBorrowedAsset /
      * (feeBuffer * (1 + maintenanceBuffer)) - position.bucket.getNormalizedVariableDebt() * position.scaledDebtAmount
      * @param _pm The instance of the PositionManager contract.
      * @param _id The ID of the position.
      * @return The maximum decrease in position value.
      */
-    function getPositionMaxDecrease(IPositionManager _pm, uint256 _id) external view returns (uint256);
+    function getPositionMaxDecrease(
+        IPositionManagerV2 _pm,
+        uint256 _id,
+        bytes calldata _positionSoldAssetOracleData
+    ) external returns (uint256);
 
     /**
      * @notice Retrieves information about a lender from the LiquidityMiningRewardDistributor contract.
@@ -454,4 +424,15 @@ interface IPrimexLens {
         ILiquidityMiningRewardDistributor liquidityMiningRewardDistributor,
         string memory _bucketName
     ) external view returns (LiquidityMiningBucketInfo memory);
+
+    /**
+     * @notice Calculate an approximate min protocol fee based on averageGasPerAction,
+     * which represents the typical amount of gas expended by the Keeper for the relevant action.
+     * @param _tradingOrderType Represents the type of trading order in enum TradingOrderType (IPrimexDNSStorageV3)
+     * @param _pm The instance of the PositionManager contract.
+     */
+    function getEstimatedMinProtocolFee(
+        IPrimexDNSStorageV3.TradingOrderType _tradingOrderType,
+        IPositionManagerV2 _pm
+    ) external view returns (uint256);
 }

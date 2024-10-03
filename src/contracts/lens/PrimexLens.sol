@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -16,14 +16,16 @@ import {LimitOrderLibrary} from "../libraries/LimitOrderLibrary.sol";
 import "./../libraries/Errors.sol";
 
 import {IPrimexLens} from "../interfaces/IPrimexLens.sol";
-import {IBucket} from "../Bucket/IBucket.sol";
+import {IBucketV3} from "../Bucket/IBucket.sol";
 import {IBucketsFactory} from "../Bucket/IBucketsFactory.sol";
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
+import {IPositionManagerV2} from "../PositionManager/IPositionManager.sol";
 import {ILimitOrderManager} from "../LimitOrderManager/ILimitOrderManager.sol";
 import {ITakeProfitStopLossCCM} from "../interfaces/ITakeProfitStopLossCCM.sol";
 import {ILiquidityMiningRewardDistributor} from "../LiquidityMiningRewardDistributor/ILiquidityMiningRewardDistributor.sol";
 import {IInterestRateStrategy} from "../interfaces/IInterestRateStrategy.sol";
-import {IPrimexDNSStorage} from "../PrimexDNS/IPrimexDNSStorage.sol";
+import {IPrimexDNSV3, IPrimexDNSStorage, IPrimexDNSStorageV3} from "../PrimexDNS/PrimexDNS.sol";
+import {IKeeperRewardDistributorStorage} from "../KeeperRewardDistributor/IKeeperRewardDistributorStorage.sol";
+import {ARB_NITRO_ORACLE, GAS_FOR_BYTE, TRANSACTION_METADATA_BYTES} from "../Constants.sol";
 
 /**
  * @dev  All functions in this contract are intended to be called off-chain. Do not call functions from other contracts to avoid an out-of-gas error.
@@ -46,53 +48,6 @@ contract PrimexLens is IPrimexLens, ERC165 {
     /**
      * @inheritdoc IPrimexLens
      */
-    function getPositionStatus(
-        address _positionManager,
-        uint256 _id,
-        PrimexPricingLibrary.Route[] calldata _routes
-    ) external override returns (PositionStatus memory) {
-        _require(
-            IERC165(_positionManager).supportsInterface(type(IPositionManager).interfaceId),
-            Errors.ADDRESS_NOT_SUPPORTED.selector
-        );
-        PositionLibrary.Position memory position = IPositionManager(_positionManager).getPosition(_id);
-        LimitOrderLibrary.Condition[] memory closeConditions = IPositionManager(_positionManager).getCloseConditions(
-            _id
-        );
-        bool _isTakeProfitReached;
-        bool _isStopLossReached;
-        for (uint256 i; i < closeConditions.length; i++) {
-            if (
-                IERC165(IPositionManager(_positionManager).primexDNS().cmTypeToAddress(closeConditions[i].managerType))
-                    .supportsInterface(type(ITakeProfitStopLossCCM).interfaceId)
-            ) {
-                ITakeProfitStopLossCCM.CanBeClosedParams memory params = abi.decode(
-                    closeConditions[i].params,
-                    (ITakeProfitStopLossCCM.CanBeClosedParams)
-                );
-                _isTakeProfitReached = ITakeProfitStopLossCCM(takeProfitStopLossCCM).isTakeProfitReached(
-                    position,
-                    params.takeProfitPrice,
-                    _routes
-                );
-                _isStopLossReached = ITakeProfitStopLossCCM(takeProfitStopLossCCM).isStopLossReached(
-                    position,
-                    params.stopLossPrice
-                );
-                break;
-            }
-        }
-        return
-            PositionStatus({
-                liquidationThreshold: IPositionManager(_positionManager).isPositionRisky(_id),
-                takeProfitReached: _isTakeProfitReached,
-                stopLossReached: _isStopLossReached
-            });
-    }
-
-    /**
-     * @inheritdoc IPrimexLens
-     */
     function getOpenPositionsWithConditions(
         address _positionManager,
         uint256 _cursor,
@@ -104,10 +59,10 @@ contract PrimexLens is IPrimexLens, ERC165 {
         returns (OpenPositionWithConditions[] memory openPositionsWithConditions, uint256 newCursor)
     {
         _require(
-            IERC165(_positionManager).supportsInterface(type(IPositionManager).interfaceId),
+            IERC165(_positionManager).supportsInterface(type(IPositionManagerV2).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
-        uint256 positionsLength = IPositionManager(_positionManager).getAllPositionsLength();
+        uint256 positionsLength = IPositionManagerV2(_positionManager).getAllPositionsLength();
         if (_cursor >= positionsLength) {
             return (openPositionsWithConditions, 0);
         }
@@ -119,10 +74,10 @@ contract PrimexLens is IPrimexLens, ERC165 {
 
         openPositionsWithConditions = new OpenPositionWithConditions[](_count);
         for (uint256 i; i < _count; i++) {
-            openPositionsWithConditions[i].positionData = IPositionManager(_positionManager).getPositionByIndex(
+            openPositionsWithConditions[i].positionData = IPositionManagerV2(_positionManager).getPositionByIndex(
                 _cursor + i
             );
-            openPositionsWithConditions[i].conditionsData = IPositionManager(_positionManager).getCloseConditions(
+            openPositionsWithConditions[i].conditionsData = IPositionManagerV2(_positionManager).getCloseConditions(
                 openPositionsWithConditions[i].positionData.id
             );
         }
@@ -139,11 +94,11 @@ contract PrimexLens is IPrimexLens, ERC165 {
         uint256 _count
     ) external view override returns (OpenPositionData[] memory positionsData, uint256 newCursor) {
         _require(
-            IERC165(_positionManager).supportsInterface(type(IPositionManager).interfaceId) && _trader != address(0),
+            IERC165(_positionManager).supportsInterface(type(IPositionManagerV2).interfaceId) && _trader != address(0),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
 
-        uint256 positionsLength = IPositionManager(_positionManager).getTraderPositionsLength(_trader);
+        uint256 positionsLength = IPositionManagerV2(_positionManager).getTraderPositionsLength(_trader);
         if (_cursor >= positionsLength) {
             return (positionsData, 0);
         }
@@ -155,7 +110,7 @@ contract PrimexLens is IPrimexLens, ERC165 {
 
         positionsData = new OpenPositionData[](_count);
         for (uint256 i; i < _count; i++) {
-            uint256 positionId = IPositionManager(_positionManager).traderPositionIds(_trader, _cursor + i);
+            uint256 positionId = IPositionManagerV2(_positionManager).traderPositionIds(_trader, _cursor + i);
             positionsData[i] = getOpenPositionData(_positionManager, positionId);
         }
         return (positionsData, newCursor);
@@ -171,11 +126,11 @@ contract PrimexLens is IPrimexLens, ERC165 {
         uint256 _count
     ) external view override returns (OpenPositionData[] memory positionsData, uint256 newCursor) {
         _require(
-            IERC165(_positionManager).supportsInterface(type(IPositionManager).interfaceId) && _bucket != address(0),
+            IERC165(_positionManager).supportsInterface(type(IPositionManagerV2).interfaceId) && _bucket != address(0),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
 
-        uint256 positionsLength = IPositionManager(_positionManager).getBucketPositionsLength(_bucket);
+        uint256 positionsLength = IPositionManagerV2(_positionManager).getBucketPositionsLength(_bucket);
         if (_cursor >= positionsLength) {
             return (positionsData, 0);
         }
@@ -187,7 +142,7 @@ contract PrimexLens is IPrimexLens, ERC165 {
 
         positionsData = new OpenPositionData[](_count);
         for (uint256 i; i < _count; i++) {
-            uint256 positionId = IPositionManager(_positionManager).bucketPositionIds(_bucket, _cursor + i);
+            uint256 positionId = IPositionManagerV2(_positionManager).bucketPositionIds(_bucket, _cursor + i);
             positionsData[i] = getOpenPositionData(_positionManager, positionId);
         }
         return (positionsData, newCursor);
@@ -197,17 +152,28 @@ contract PrimexLens is IPrimexLens, ERC165 {
      * @inheritdoc IPrimexLens
      */
     function getAllBucketsFactory(
-        address _bucketFactory,
+        address[] calldata _bucketFactories,
         address _user,
         address _positionManager,
         bool _showDeprecated
     ) external view override returns (BucketMetaData[] memory) {
-        _require(
-            IERC165(_bucketFactory).supportsInterface(type(IBucketsFactory).interfaceId),
-            Errors.ADDRESS_NOT_SUPPORTED.selector
-        );
+        address[][] memory allBucketsArray = new address[][](_bucketFactories.length);
+        for (uint256 i; i < _bucketFactories.length; i++) {
+            allBucketsArray[i] = IBucketsFactory(_bucketFactories[i]).allBuckets();
+        }
+        uint256 totalBucketsCount;
+        for (uint256 i; i < allBucketsArray.length; i++) {
+            totalBucketsCount += allBucketsArray[i].length;
+        }
+        address[] memory buckets = new address[](totalBucketsCount);
+        uint256 index;
+        for (uint256 i; i < allBucketsArray.length; i++) {
+            for (uint256 j; j < allBucketsArray[i].length; j++) {
+                buckets[index] = allBucketsArray[i][j];
+                index++;
+            }
+        }
 
-        address[] memory buckets = IBucketsFactory(_bucketFactory).allBuckets();
         return getBucketsArray(buckets, _user, _positionManager, _showDeprecated);
     }
 
@@ -253,12 +219,12 @@ contract PrimexLens is IPrimexLens, ERC165 {
         uint256 _positionAmount
     ) external view override returns (uint256) {
         _require(
-            IERC165(address(_positionManager)).supportsInterface(type(IPositionManager).interfaceId) &&
+            IERC165(address(_positionManager)).supportsInterface(type(IPositionManagerV2).interfaceId) &&
                 _positionAsset != address(0),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
 
-        address bucket = IPositionManager(_positionManager).primexDNS().getBucketAddress(_bucket);
+        address bucket = IPositionManagerV2(_positionManager).primexDNS().getBucketAddress(_bucket);
 
         return PrimexPricingLibrary.getLiquidationPrice(bucket, _positionAsset, _positionAmount, _borrowedAmount);
     }
@@ -284,7 +250,6 @@ contract PrimexLens is IPrimexLens, ERC165 {
         } else {
             newCursor = _cursor + _count;
         }
-
         limitOrdersWithConditions = new LimitOrderWithConditions[](_count);
         for (uint256 i; i < _count; i++) {
             limitOrdersWithConditions[i].limitOrderData = ILimitOrderManager(_limitOrderManager).getOrderByIndex(
@@ -317,66 +282,31 @@ contract PrimexLens is IPrimexLens, ERC165 {
     /**
      * @inheritdoc IPrimexLens
      */
-    function isTakeProfitReached(
-        address _positionManager,
-        uint256 _id,
-        PrimexPricingLibrary.Route[] calldata _routes
-    ) public override returns (bool) {
-        _require(
-            IERC165(_positionManager).supportsInterface(type(IPositionManager).interfaceId),
-            Errors.ADDRESS_NOT_SUPPORTED.selector
-        );
-        PositionLibrary.Position memory position = IPositionManager(_positionManager).getPosition(_id);
-        LimitOrderLibrary.Condition[] memory closeConditions = IPositionManager(_positionManager).getCloseConditions(
-            _id
-        );
-        if (closeConditions.length == 0) return false;
-        ITakeProfitStopLossCCM.CanBeClosedParams memory params;
-        for (uint256 i; i < closeConditions.length; i++) {
-            if (
-                IERC165(IPositionManager(_positionManager).primexDNS().cmTypeToAddress(closeConditions[i].managerType))
-                    .supportsInterface(type(ITakeProfitStopLossCCM).interfaceId)
-            ) {
-                params = abi.decode(closeConditions[i].params, (ITakeProfitStopLossCCM.CanBeClosedParams));
-                break;
-            }
-        }
-        return
-            ITakeProfitStopLossCCM(takeProfitStopLossCCM).isTakeProfitReached(
-                position,
-                params.takeProfitPrice,
-                _routes
-            );
-    }
-
-    /**
-     * @inheritdoc IPrimexLens
-     */
     function getOpenPositionData(
         address _positionManager,
         uint256 _id
     ) public view override returns (OpenPositionData memory) {
         _require(
-            IERC165(_positionManager).supportsInterface(type(IPositionManager).interfaceId),
+            IERC165(_positionManager).supportsInterface(type(IPositionManagerV2).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
 
-        PositionLibrary.Position memory position = IPositionManager(_positionManager).getPosition(_id);
+        PositionLibrary.Position memory position = IPositionManagerV2(_positionManager).getPosition(_id);
 
         bool isSpot = address(position.bucket) == address(0);
-        uint256 debt = IPositionManager(_positionManager).getPositionDebt(_id);
+        uint256 debt = IPositionManagerV2(_positionManager).getPositionDebt(_id);
         BucketMetaData memory bucket;
         if (!isSpot) bucket = getBucket(address(position.bucket), position.trader);
 
-        LimitOrderLibrary.Condition[] memory closeConditions = IPositionManager(_positionManager).getCloseConditions(
+        LimitOrderLibrary.Condition[] memory closeConditions = IPositionManagerV2(_positionManager).getCloseConditions(
             _id
         );
         ITakeProfitStopLossCCM.CanBeClosedParams memory params;
         for (uint256 i; i < closeConditions.length; i++) {
             if (
-                IERC165(IPositionManager(_positionManager).primexDNS().cmTypeToAddress(closeConditions[i].managerType))
-                    .supportsInterface(type(ITakeProfitStopLossCCM).interfaceId) &&
-                closeConditions[i].params.length != 0
+                IERC165(
+                    IPositionManagerV2(_positionManager).primexDNS().cmTypeToAddress(closeConditions[i].managerType)
+                ).supportsInterface(type(ITakeProfitStopLossCCM).interfaceId) && closeConditions[i].params.length != 0
             ) {
                 params = abi.decode(closeConditions[i].params, (ITakeProfitStopLossCCM.CanBeClosedParams));
                 break;
@@ -403,27 +333,40 @@ contract PrimexLens is IPrimexLens, ERC165 {
     /**
      * @inheritdoc IPrimexLens
      */
-    function isStopLossReached(address _positionManager, uint256 _id) public view override returns (bool) {
+    function isStopLossReached(
+        address _positionManager,
+        uint256 _id,
+        bytes calldata _positionSoldAssetOracleData
+    ) public override returns (bool) {
         _require(
-            IERC165(_positionManager).supportsInterface(type(IPositionManager).interfaceId),
+            IERC165(_positionManager).supportsInterface(type(IPositionManagerV2).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
-        PositionLibrary.Position memory position = IPositionManager(_positionManager).getPosition(_id);
-        LimitOrderLibrary.Condition[] memory closeConditions = IPositionManager(_positionManager).getCloseConditions(
+        PositionLibrary.Position memory position = IPositionManagerV2(_positionManager).getPosition(_id);
+        LimitOrderLibrary.Condition[] memory closeConditions = IPositionManagerV2(_positionManager).getCloseConditions(
             _id
         );
+
         if (closeConditions.length == 0) return false;
+
         ITakeProfitStopLossCCM.CanBeClosedParams memory params;
+
         for (uint256 i; i < closeConditions.length; i++) {
             if (
-                IERC165(IPositionManager(_positionManager).primexDNS().cmTypeToAddress(closeConditions[i].managerType))
-                    .supportsInterface(type(ITakeProfitStopLossCCM).interfaceId)
+                IERC165(
+                    IPositionManagerV2(_positionManager).primexDNS().cmTypeToAddress(closeConditions[i].managerType)
+                ).supportsInterface(type(ITakeProfitStopLossCCM).interfaceId)
             ) {
                 params = abi.decode(closeConditions[i].params, (ITakeProfitStopLossCCM.CanBeClosedParams));
                 break;
             }
         }
-        return ITakeProfitStopLossCCM(takeProfitStopLossCCM).isStopLossReached(position, params.stopLossPrice);
+        return
+            ITakeProfitStopLossCCM(takeProfitStopLossCCM).isStopLossReached(
+                position,
+                params.stopLossPrice,
+                _positionSoldAssetOracleData
+            );
     }
 
     /**
@@ -449,21 +392,23 @@ contract PrimexLens is IPrimexLens, ERC165 {
         address _asset
     ) public view override returns (BucketTokenMetadata memory) {
         _require(
-            IERC165(_bucket).supportsInterface(type(IBucket).interfaceId) && _asset != address(0),
+            IERC165(_bucket).supportsInterface(type(IBucketV3).interfaceId) && _asset != address(0),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
-        uint256 pairPriceDrop = IBucket(_bucket).positionManager().priceOracle().pairPriceDrops(
-            _asset,
-            address(IBucket(_bucket).borrowedAsset())
-        );
+        IPositionManagerV2 pm = IBucketV3(_bucket).positionManager();
+        uint256 pairPriceDrop = pm.priceOracle().pairPriceDrops(_asset, address(IBucketV3(_bucket).borrowedAsset()));
 
-        (uint256 id, bool isSupported) = IBucket(_bucket).allowedAssets(_asset);
+        (uint256 id, bool isSupported) = IBucketV3(_bucket).allowedAssets(_asset);
         return
             BucketTokenMetadata({
                 id: id,
                 isSupported: isSupported,
                 pairPriceDrop: pairPriceDrop,
-                maxLeverage: IBucket(_bucket).maxAssetLeverage(_asset)
+                // TODO: what FeeRateType should be used here?
+                maxLeverage: IBucketV3(_bucket).maxAssetLeverage(
+                    _asset,
+                    pm.primexDNS().protocolFeeRates(IPrimexDNSStorageV3.FeeRateType.MarginPositionClosedByKeeper)
+                )
             });
     }
 
@@ -501,44 +446,47 @@ contract PrimexLens is IPrimexLens, ERC165 {
      * @inheritdoc IPrimexLens
      */
     function getBucket(address _bucket, address _user) public view override returns (BucketMetaData memory) {
-        _require(IERC165(_bucket).supportsInterface(type(IBucket).interfaceId), Errors.ADDRESS_NOT_SUPPORTED.selector);
-        uint256 availableLiquidity = IBucket(_bucket).availableLiquidity();
-        uint256 demand = IBucket(_bucket).debtToken().totalSupply();
+        _require(
+            IERC165(_bucket).supportsInterface(type(IBucketV3).interfaceId),
+            Errors.ADDRESS_NOT_SUPPORTED.selector
+        );
+        uint256 availableLiquidity = IBucketV3(_bucket).availableLiquidity();
+        uint256 demand = IBucketV3(_bucket).debtToken().totalSupply();
         uint256 supply = demand + availableLiquidity;
         uint256 ur = supply > 0 ? demand.rdiv(supply) : 0;
 
-        address[] memory allowedAssets = IBucket(_bucket).getAllowedAssets();
+        address[] memory allowedAssets = IBucketV3(_bucket).getAllowedAssets();
         SupportedAsset[] memory supportedAssets = getSupportedAssetArray(_bucket, allowedAssets, _user);
         // solhint-disable-next-line var-name-mixedcase
-        IBucket.LiquidityMiningParams memory LMparams = IBucket(_bucket).getLiquidityMiningParams();
-        IInterestRateStrategy.BarCalculationParams memory barCalcParams = IBucket(_bucket)
+        IBucketV3.LiquidityMiningParams memory LMparams = IBucketV3(_bucket).getLiquidityMiningParams();
+        IInterestRateStrategy.BarCalculationParams memory barCalcParams = IBucketV3(_bucket)
             .interestRateStrategy()
             .getBarCalculationParams(_bucket);
         return
             BucketMetaData({
                 bucketAddress: _bucket,
-                name: IBucket(_bucket).name(),
-                asset: getTokenMetadata(address(IBucket(_bucket).borrowedAsset()), _user),
-                bar: IBucket(_bucket).bar(),
-                lar: IBucket(_bucket).lar(),
+                name: IBucketV3(_bucket).name(),
+                asset: getTokenMetadata(address(IBucketV3(_bucket).borrowedAsset()), _user),
+                bar: IBucketV3(_bucket).bar(),
+                lar: IBucketV3(_bucket).lar(),
                 supply: supply,
                 demand: demand,
                 availableLiquidity: availableLiquidity,
                 utilizationRatio: ur,
                 supportedAssets: supportedAssets,
-                pToken: getTokenMetadata(address(IBucket(_bucket).pToken()), _user),
-                debtToken: getTokenMetadata(address(IBucket(_bucket).debtToken()), _user),
-                feeBuffer: IBucket(_bucket).feeBuffer(),
-                withdrawalFeeRate: IBucket(_bucket).withdrawalFeeRate(),
+                pToken: getTokenMetadata(address(IBucketV3(_bucket).pToken()), _user),
+                debtToken: getTokenMetadata(address(IBucketV3(_bucket).debtToken()), _user),
+                feeBuffer: IBucketV3(_bucket).feeBuffer(),
+                withdrawalFeeRate: IBucketV3(_bucket).withdrawalFeeRate(),
                 miningParams: LMparams,
-                lenderInfo: getLenderInfo(LMparams.liquidityMiningRewardDistributor, IBucket(_bucket).name(), _user),
-                lmBucketInfo: getLMBucketInfo(LMparams.liquidityMiningRewardDistributor, IBucket(_bucket).name()),
-                estimatedBar: IBucket(_bucket).estimatedBar(),
-                estimatedLar: IBucket(_bucket).estimatedLar(),
-                isDeprecated: IBucket(_bucket).isDeprecated(),
-                isDelisted: IBucket(_bucket).isDelisted(),
+                lenderInfo: getLenderInfo(LMparams.liquidityMiningRewardDistributor, IBucketV3(_bucket).name(), _user),
+                lmBucketInfo: getLMBucketInfo(LMparams.liquidityMiningRewardDistributor, IBucketV3(_bucket).name()),
+                estimatedBar: IBucketV3(_bucket).estimatedBar(),
+                estimatedLar: IBucketV3(_bucket).estimatedLar(),
+                isDeprecated: IBucketV3(_bucket).isDeprecated(),
+                isDelisted: IBucketV3(_bucket).isDelisted(),
                 barCalcParams: barCalcParams,
-                maxTotalDeposit: IBucket(_bucket).maxTotalDeposit()
+                maxTotalDeposit: IBucketV3(_bucket).maxTotalDeposit()
             });
     }
 
@@ -585,13 +533,13 @@ contract PrimexLens is IPrimexLens, ERC165 {
         bool _showDeprecated
     ) public view override returns (BucketMetaData[] memory) {
         _require(
-            IERC165(_positionManager).supportsInterface(type(IPositionManager).interfaceId),
+            IERC165(_positionManager).supportsInterface(type(IPositionManagerV2).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
         uint256 bucketCount;
         for (uint256 i; i < _buckets.length; i++) {
-            IBucket bucket = IBucket(_buckets[i]);
-            (address bucketAddress, IPrimexDNSStorage.Status currentStatus, , ) = IPositionManager(_positionManager)
+            IBucketV3 bucket = IBucketV3(_buckets[i]);
+            (address bucketAddress, IPrimexDNSStorage.Status currentStatus, , ) = IPositionManagerV2(_positionManager)
                 .primexDNS()
                 .buckets(bucket.name());
             if (
@@ -623,14 +571,14 @@ contract PrimexLens is IPrimexLens, ERC165 {
      */
     function getLiquidationPrice(address _positionManager, uint256 _id) public view override returns (uint256) {
         _require(
-            IERC165(_positionManager).supportsInterface(type(IPositionManager).interfaceId),
+            IERC165(_positionManager).supportsInterface(type(IPositionManagerV2).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
 
-        PositionLibrary.Position memory position = IPositionManager(_positionManager).getPosition(_id);
+        PositionLibrary.Position memory position = IPositionManagerV2(_positionManager).getPosition(_id);
         if (position.scaledDebtAmount == 0) return 0;
 
-        uint256 positionDebt = IPositionManager(_positionManager).getPositionDebt(_id);
+        uint256 positionDebt = IPositionManagerV2(_positionManager).getPositionDebt(_id);
         return
             PrimexPricingLibrary.getLiquidationPrice(
                 address(position.bucket),
@@ -643,7 +591,11 @@ contract PrimexLens is IPrimexLens, ERC165 {
     /**
      * @inheritdoc IPrimexLens
      */
-    function getPositionMaxDecrease(IPositionManager _pm, uint256 _id) public view override returns (uint256) {
+    function getPositionMaxDecrease(
+        IPositionManagerV2 _pm,
+        uint256 _id,
+        bytes calldata _positionSoldAssetOracleData
+    ) public override returns (uint256) {
         PositionLibrary.Position memory position = _pm.getPosition(_id);
         uint256 pairPriceDrop = _pm.priceOracle().getPairPriceDrop(position.positionAsset, address(position.soldAsset));
         uint256 securityBuffer = _pm.securityBuffer();
@@ -652,19 +604,46 @@ contract PrimexLens is IPrimexLens, ERC165 {
         uint256 oracleTolerableLimit = _pm.getOracleTolerableLimit(position.positionAsset, address(position.soldAsset));
 
         uint256 feeBuffer = position.bucket.feeBuffer();
-        uint256 borrowedAssetAmountOut = PrimexPricingLibrary.getOracleAmountsOut(
+        uint256 positionAmountInBorrowedAsset = PrimexPricingLibrary.getOracleAmountsOut(
             position.positionAsset,
             position.soldAsset,
             position.positionAmount,
-            address(_pm.priceOracle())
+            address(_pm.priceOracle()),
+            _positionSoldAssetOracleData
         );
         uint256 maxDecrease = (WadRayMath.WAD - securityBuffer)
             .wmul(WadRayMath.WAD - oracleTolerableLimit)
             .wmul(WadRayMath.WAD - pairPriceDrop)
-            .wmul(borrowedAssetAmountOut)
+            .wmul(positionAmountInBorrowedAsset)
             .wdiv(feeBuffer.wmul(WadRayMath.WAD + maintenanceBuffer)) -
             position.bucket.getNormalizedVariableDebt().rmul(position.scaledDebtAmount);
 
         return maxDecrease <= position.depositAmountInSoldAsset ? maxDecrease : position.depositAmountInSoldAsset;
+    }
+
+    /**
+     * @inheritdoc IPrimexLens
+     */
+    function getEstimatedMinProtocolFee(
+        IPrimexDNSStorageV3.TradingOrderType _tradingOrderType,
+        IPositionManagerV2 _pm
+    ) public view override returns (uint256) {
+        uint256 restrictedGasPrice = PrimexPricingLibrary.calculateRestrictedGasPrice(
+            address(_pm.priceOracle()),
+            _pm.keeperRewardDistributor()
+        );
+        IKeeperRewardDistributorStorage.PaymentModel paymentModel = _pm.keeperRewardDistributor().paymentModel();
+
+        uint256 l1CostWei = paymentModel == IKeeperRewardDistributorStorage.PaymentModel.ARBITRUM
+            ? ARB_NITRO_ORACLE.getL1BaseFeeEstimate() *
+                GAS_FOR_BYTE *
+                (_pm.primexDNS().getArbitrumBaseLengthForTradingOrderType(_tradingOrderType) +
+                    TRANSACTION_METADATA_BYTES)
+            : 0;
+
+        uint256 estimatedMinProtocolFeeInNativeAsset = _pm.primexDNS().averageGasPerAction(_tradingOrderType) *
+            restrictedGasPrice +
+            l1CostWei;
+        return estimatedMinProtocolFeeInNativeAsset;
     }
 }

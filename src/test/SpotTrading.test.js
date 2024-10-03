@@ -7,9 +7,8 @@ const {
     provider,
     getContract,
     getContractAt,
-    getContractFactory,
     getNamedSigners,
-    utils: { parseEther, parseUnits },
+    utils: { parseEther, parseUnits, defaultAbiCoder },
     constants: { NegativeOne, AddressZero, MaxUint256 },
     BigNumber,
   },
@@ -19,13 +18,16 @@ const {
 const {
   WAD,
   CloseReason,
-  NATIVE_CURRENCY,
-  OrderType,
+  FeeRateType,
+  TradingOrderType,
   LIMIT_PRICE_CM_TYPE,
   TAKE_PROFIT_STOP_LOSS_CM_TYPE,
   MAX_TOKEN_DECIMALITY,
+  USD_DECIMALS,
+  USD_MULTIPLIER,
 } = require("./utils/constants");
 const { wadDiv, wadMul } = require("./utils/math");
+const { calculateFeeInPositionAsset, calculateMinPositionSize, calculateFeeAmountInPmx } = require("./utils/protocolUtils");
 const {
   getAmountsOut,
   addLiquidity,
@@ -33,7 +35,7 @@ const {
   swapExactTokensForTokens,
   checkIsDexSupported,
   getAncillaryDexData,
-  getSingleRoute,
+  getSingleMegaRoute,
   getGas,
 } = require("./utils/dexOperations");
 const { eventValidation, parseArguments } = require("./utils/eventValidation");
@@ -41,10 +43,17 @@ const {
   getTakeProfitStopLossParams,
   getLimitPriceParams,
   getLimitPriceAdditionalParams,
-  getTakeProfitStopLossAdditionalParams,
   getCondition,
 } = require("./utils/conditionParams");
-const { setBadOraclePrice, fivePercent } = require("./utils/setBadOraclePrice");
+const { encodeFunctionData } = require("../tasks/utils/encodeFunctionData");
+const {
+  setupUsdOraclesForToken,
+  setupUsdOraclesForTokens,
+  getEncodedChainlinkRouteViaUsd,
+  getEncodedChainlinkRouteToUsd,
+  setOraclePrice,
+  setBadOraclePrice,
+} = require("./utils/oracleUtils");
 
 process.env.TEST = true;
 
@@ -64,24 +73,25 @@ describe("SpotTrading", function () {
     bestDexLens,
     primexLens,
     pmAddress,
-    PrimexDNS,
     PMXToken,
+    PrimexDNS,
+    SwapManager,
     Treasury,
     ancillaryDexData,
     ancillaryDexData2,
-    firstAssetRoutes,
+    firstAssetMegaRoutes,
     dex2Route,
-    routesForClose;
+    megaRoutesForClose;
   let pair;
-  let priceFeed, priceOracle;
-  let deployer, trader, liquidator;
+  let priceOracle;
+  let trader, liquidator;
   let snapshotIdBase;
-  let feeAmountInPmx, feeAmountInEth, feeAmountInPmxForLimitOrders, feeAmountInEthForLimitOrders, depositAmount, PriceInETH, PriceInPMX;
+  let depositAmount, ttaPriceInETH;
   let ErrorsLibrary;
 
   before(async function () {
     await fixture(["Test"]);
-    ({ deployer, trader, liquidator } = await getNamedSigners());
+    ({ trader, liquidator } = await getNamedSigners());
     traderBalanceVault = await getContract("TraderBalanceVault");
     Treasury = await getContract("Treasury");
 
@@ -120,6 +130,7 @@ describe("SpotTrading", function () {
     pmAddress = positionManager.address;
     limitOrderManager = await getContract("LimitOrderManager");
     PrimexDNS = await getContract("PrimexDNS");
+    SwapManager = await getContract("SwapManager");
     ErrorsLibrary = await getContract("Errors");
 
     if (process.env.DEX && process.env.DEX !== "uniswap") {
@@ -133,66 +144,30 @@ describe("SpotTrading", function () {
     ancillaryDexData2 = await getAncillaryDexData({ dex: dex2 });
     checkIsDexSupported(dex);
 
-    firstAssetRoutes = await getSingleRoute([testTokenC.address, testTokenD.address], dex);
-    dex2Route = await getSingleRoute([testTokenD.address, testTokenC.address], dex2);
-    routesForClose = await getSingleRoute([testTokenD.address, testTokenC.address], dex);
+    firstAssetMegaRoutes = await getSingleMegaRoute([testTokenC.address, testTokenD.address], dex);
+
+    dex2Route = await getSingleMegaRoute([testTokenD.address, testTokenC.address], dex2);
+    megaRoutesForClose = await getSingleMegaRoute([testTokenD.address, testTokenC.address], dex);
 
     const data = await addLiquidity({ dex: dex, from: "lender", tokenA: testTokenC, tokenB: testTokenD });
     await addLiquidity({ dex: dex2, from: "lender", tokenA: testTokenC, tokenB: testTokenD });
-
     const pairAddress = await getPair(dex, testTokenC.address, testTokenD.address, data);
     pair = await getContractAt("@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20", pairAddress);
 
-    priceFeed = await getContract("PrimexAggregatorV3TestService TEST price feed");
-    await priceFeed.setDecimals("18");
     priceOracle = await getContract("PriceOracle");
-    await priceOracle.updatePriceFeed(testTokenC.address, testTokenD.address, priceFeed.address);
+    ttaPriceInETH = parseUnits("0.3", USD_DECIMALS); // 1 tta=0.3 ETH
+
+    await setupUsdOraclesForTokens(testTokenC, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForToken(testTokenD, parseUnits("1", USD_DECIMALS));
+
     depositAmount = parseEther("15");
-    //
-    const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
-    const priceFeedTTAPMX = await PrimexAggregatorV3TestServiceFactory.deploy("TTA_PMX", deployer.address);
-    const priceFeedTTCETH = await PrimexAggregatorV3TestServiceFactory.deploy("TTC_ETH", deployer.address);
 
-    const decimalsPMX = await PMXToken.decimals();
-    await priceFeedTTAPMX.setDecimals(decimalsPMX);
-    PriceInPMX = parseUnits("0.2", decimalsPMX); // 1 tta=0.2 pmx
-    await priceFeedTTAPMX.setAnswer(PriceInPMX);
-    PriceInETH = parseUnits("0.3", "18"); // 1 tta=0.3 eth
-    await priceFeedTTCETH.setDecimals("18");
-    await priceFeedTTCETH.setAnswer(PriceInETH);
-
-    feeAmountInPmx = calculateFee(depositAmount, await PrimexDNS.feeRates(OrderType.MARKET_ORDER, PMXToken.address), PriceInPMX);
-    feeAmountInPmxForLimitOrders = calculateFee(
-      depositAmount,
-      await PrimexDNS.feeRates(OrderType.LIMIT_ORDER, PMXToken.address),
-      PriceInPMX,
+    const { payload } = await encodeFunctionData(
+      "setMaxPositionSize",
+      [testTokenC.address, testTokenD.address, 0, MaxUint256],
+      "PositionManagerExtension",
     );
-
-    feeAmountInEth = calculateFee(depositAmount, await PrimexDNS.feeRates(OrderType.MARKET_ORDER, NATIVE_CURRENCY), PriceInETH);
-    feeAmountInEthForLimitOrders = calculateFee(
-      depositAmount,
-      await PrimexDNS.feeRates(OrderType.LIMIT_ORDER, NATIVE_CURRENCY),
-      PriceInETH,
-    );
-
-    await priceOracle.updatePriceFeed(testTokenC.address, PMXToken.address, priceFeedTTAPMX.address);
-    await priceOracle.updatePriceFeed(testTokenC.address, await priceOracle.eth(), priceFeedTTCETH.address);
-    await priceOracle.updatePriceFeed(testTokenD.address, await priceOracle.eth(), priceFeedTTCETH.address);
-
-    // need to calculate minFee and maxFee from native to PMX
-    const priceFeedETHPMX = await PrimexAggregatorV3TestServiceFactory.deploy("ETH_PMX", deployer.address);
-    // 1 tta=0.2 pmx; 1 tta=0.3 eth -> 1 eth = 0.2/0.3 pmx
-    await priceFeedETHPMX.setAnswer(parseUnits("0.666666666666666666", 18));
-    await priceFeedETHPMX.setDecimals(decimalsPMX);
-    await priceOracle.updatePriceFeed(await priceOracle.eth(), PMXToken.address, priceFeedETHPMX.address);
-
-    const tokenUSD = await getContract("USD Coin");
-    const priceFeedTTDUSD = await PrimexAggregatorV3TestServiceFactory.deploy("TTD_USD", deployer.address);
-    await priceFeedTTDUSD.setAnswer(parseUnits("1", "8"));
-    await priceFeedTTDUSD.setDecimals("8");
-    await priceOracle.updatePriceFeed(testTokenD.address, tokenUSD.address, priceFeedTTDUSD.address);
-
-    await positionManager.setMaxPositionSize(testTokenC.address, testTokenD.address, 0, MaxUint256);
+    await positionManager.setProtocolParamsByAdmin(payload);
     //
     snapshotIdBase = await network.provider.request({
       method: "evm_snapshot",
@@ -200,30 +175,24 @@ describe("SpotTrading", function () {
     });
   });
 
-  function calculateFee(amount, rate, price) {
-    const feeAmount = wadMul(amount.toString(), rate.toString()).toString();
-    return BigNumber.from(wadMul(feeAmount.toString(), price.toString()).toString());
-  }
-
   describe("openPosition", function () {
-    let snapshotId, borrowedAmount, amountOutMin, takeDepositFromWallet, payFeeFromWallet, amountDOut, marginParams;
+    let snapshotId, openPositionParams, borrowedAmount, amountOutMin, takeDepositFromWallet, amountDOut, marginParams;
     before(async function () {
       borrowedAmount = BigNumber.from(0);
       amountOutMin = BigNumber.from(0);
       takeDepositFromWallet = true;
-      payFeeFromWallet = true;
 
       await testTokenC.connect(trader).approve(positionManager.address, depositAmount);
 
       amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
 
       const limitPrice = wadDiv(amountDOut.toString(), depositAmount.toString()).toString();
-      await priceFeed.setAnswer(limitPrice);
+      await setOraclePrice(testTokenC, testTokenD, limitPrice);
 
       marginParams = {
         bucket: "",
         borrowedAmount: borrowedAmount,
-        depositInThirdAssetRoutes: [],
+        depositInThirdAssetMegaRoutes: [],
       };
     });
 
@@ -238,6 +207,26 @@ describe("SpotTrading", function () {
       });
     });
     beforeEach(async function () {
+      const deadline = new Date().getTime() + 600;
+      openPositionParams = {
+        marginParams: marginParams,
+        firstAssetMegaRoutes: firstAssetMegaRoutes,
+        depositAsset: testTokenC.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenD.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: [],
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        pullOracleData: [],
+      };
       snapshotId = await network.provider.request({
         method: "evm_snapshot",
         params: [],
@@ -251,166 +240,49 @@ describe("SpotTrading", function () {
       });
     });
 
-    it("Should revert openPosition when firstAssetRoutes is empty list and it's spot", async function () {
-      const deadline = new Date().getTime() + 600;
-
+    it("Should revert openPosition when firstAssetMegaRoutes is empty list and it's spot", async function () {
       await expect(
-        positionManager.connect(trader).openPosition(
-          {
-            marginParams: marginParams,
-            firstAssetRoutes: [],
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            amountOutMin: amountOutMin,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            closeConditions: [],
-          },
-          { value: feeAmountInEth },
-        ),
+        positionManager.connect(trader).openPosition({ ...openPositionParams, firstAssetMegaRoutes: [] }),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO");
     });
 
-    it("Should revert openPosition when depositInThirdAssetRoutes is not empty list and it's spot", async function () {
-      const deadline = new Date().getTime() + 600;
-
+    it("Should revert openPosition when depositInThirdAssetMegaRoutes is not empty list and it's spot", async function () {
       await expect(
-        positionManager.connect(trader).openPosition(
-          {
-            marginParams: {
-              bucket: "",
-              borrowedAmount: borrowedAmount,
-              depositInThirdAssetRoutes: firstAssetRoutes,
-            },
-            firstAssetRoutes: firstAssetRoutes,
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            amountOutMin: amountOutMin,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            closeConditions: [],
-          },
-          { value: feeAmountInEth },
-        ),
+        positionManager.connect(trader).openPosition({
+          ...openPositionParams,
+          marginParams: { ...openPositionParams.marginParams, depositInThirdAssetMegaRoutes: firstAssetMegaRoutes },
+        }),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "DEPOSIT_IN_THIRD_ASSET_ROUTES_LENGTH_SHOULD_BE_0");
     });
 
     it("Should revert openPosition when depositAsset is equal positionAsset", async function () {
-      const deadline = new Date().getTime() + 600;
-
       await expect(
-        positionManager.connect(trader).openPosition(
-          {
-            marginParams: {
-              bucket: "",
-              borrowedAmount: borrowedAmount,
-              depositInThirdAssetRoutes: [],
-            },
-            firstAssetRoutes: firstAssetRoutes,
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenC.address,
-            amountOutMin: amountOutMin,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            closeConditions: [],
-          },
-          { value: feeAmountInEth },
-        ),
+        positionManager.connect(trader).openPosition({ ...openPositionParams, positionAsset: testTokenC.address }),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "SHOULD_BE_DIFFERENT_ASSETS_IN_SPOT");
     });
 
-    it("Should revert openPosition when position asset doesn't have oracle price feed with the deposit asset.", async function () {
-      const deadline = new Date().getTime() + 600;
-      await expect(
-        positionManager.connect(trader).openPosition(
-          {
-            marginParams: marginParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenB.address,
-            amountOutMin: amountOutMin,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            closeConditions: [],
-          },
-          { value: feeAmountInEth },
-        ),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "NO_PRICEFEED_FOUND");
-    });
-
     it("Should create 'Position' and swap trader deposit", async function () {
-      const deadline = new Date().getTime() + 600;
-
-      await expect(() =>
-        positionManager.connect(trader).openPosition(
-          {
-            marginParams: marginParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            amountOutMin: amountOutMin,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            closeConditions: [],
-          },
-          { value: feeAmountInEth },
-        ),
-      ).to.changeTokenBalances(testTokenD, [pair, positionManager], [amountDOut.mul(NegativeOne), amountDOut]);
+      await expect(() => positionManager.connect(trader).openPosition({ ...openPositionParams })).to.changeTokenBalances(
+        testTokenD,
+        [pair, positionManager],
+        [amountDOut.mul(NegativeOne), amountDOut],
+      );
     });
     it("Should create 'Position' and transfer depositAmount from trader", async function () {
-      const deadline = new Date().getTime() + 600;
-
-      await expect(() =>
-        positionManager.connect(trader).openPosition(
-          {
-            marginParams: marginParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            amountOutMin: amountOutMin,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            closeConditions: [],
-          },
-          { value: feeAmountInEth },
-        ),
-      ).to.changeTokenBalances(testTokenC, [trader, pair], [depositAmount.mul(NegativeOne), depositAmount]);
+      await expect(() => positionManager.connect(trader).openPosition({ ...openPositionParams })).to.changeTokenBalances(
+        testTokenC,
+        [trader, pair],
+        [depositAmount.mul(NegativeOne), depositAmount],
+      );
     });
     it("Should create position and increase traders count, and add traderPositions", async function () {
-      const deadline = new Date().getTime() + 600;
-
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: marginParams,
-          firstAssetRoutes: firstAssetRoutes,
-          depositAsset: testTokenC.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenD.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
-        },
-        { value: feeAmountInEth },
-      );
+      await positionManager.connect(trader).openPosition({ ...openPositionParams });
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
 
       const timestamp = (await provider.getBlock("latest")).timestamp;
 
       const position = await positionManager.getPosition(0);
+      const extraParams = defaultAbiCoder.encode(["address"], [testTokenD.address]);
       const expectedPosition = {
         id: 0,
         scaledDebtAmount: 0,
@@ -423,33 +295,18 @@ describe("SpotTrading", function () {
         openBorrowIndex: 0,
         createdAt: timestamp,
         updatedConditionsAt: timestamp,
-        extraParams: "0x",
+        extraParams: extraParams,
       };
       parseArguments(position, expectedPosition);
     });
 
     it("Should open position and throw event", async function () {
-      const deadline = new Date().getTime() + 600;
       const positionId = 0;
       const amount0Out = await getAmountsOut(dex, borrowedAmount.add(depositAmount), [testTokenC.address, testTokenD.address]);
       const entryPrice = wadDiv(borrowedAmount.add(depositAmount).toString(), amount0Out.toString()).toString();
       const leverage = wadDiv(borrowedAmount.add(depositAmount).toString(), depositAmount.toString()).toString();
 
-      const txOpenPosition = await positionManager.connect(trader).openPosition(
-        {
-          marginParams: marginParams,
-          firstAssetRoutes: firstAssetRoutes,
-          depositAsset: testTokenC.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenD.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
-        },
-        { value: feeAmountInEth },
-      );
+      const txOpenPosition = await positionManager.connect(trader).openPosition({ ...openPositionParams });
 
       const position = await positionManager.getPosition(0);
 
@@ -458,8 +315,6 @@ describe("SpotTrading", function () {
         trader: trader.address,
         openedBy: trader.address,
         position: position,
-        feeToken: NATIVE_CURRENCY,
-        protocolFee: feeAmountInEth,
         entryPrice: entryPrice,
         leverage: leverage,
         closeConditions: [],
@@ -469,154 +324,43 @@ describe("SpotTrading", function () {
     });
 
     it("Should open position with stopLoss price < currentPrice", async function () {
-      const deadline = new Date().getTime() + 600;
       const stopLossPrice = wadDiv(depositAmount.toString(), amountDOut.toString()).toString();
 
       await expect(
-        positionManager.connect(trader).openPosition(
-          {
-            marginParams: marginParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            amountOutMin: 0,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            closeConditions: [
-              getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(0, BigNumber.from(stopLossPrice).sub(3))),
-            ],
-          },
-          { value: feeAmountInEth },
-        ),
+        positionManager.connect(trader).openPosition({
+          ...openPositionParams,
+          closeConditions: [
+            getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(0, BigNumber.from(stopLossPrice).sub(3))),
+          ],
+        }),
       ).to.emit(positionManager, "OpenPosition");
     });
 
     it("Should transfer tokens from traderBalanceVault when openPosition with takeDepositFromWallet is false", async function () {
-      const deadline = new Date().getTime() + 600;
-
       await testTokenC.connect(trader).approve(traderBalanceVault.address, depositAmount);
       await traderBalanceVault.connect(trader).deposit(testTokenC.address, depositAmount);
-      await traderBalanceVault.connect(trader).deposit(NATIVE_CURRENCY, 0, { value: feeAmountInEth });
 
       const { availableBalance: traderAvailableBalanceBefore } = await traderBalanceVault.balances(trader.address, testTokenC.address);
 
-      const tx = positionManager.connect(trader).openPosition({
-        marginParams: marginParams,
-        firstAssetRoutes: firstAssetRoutes,
-        depositAsset: testTokenC.address,
-        depositAmount: depositAmount,
-        positionAsset: testTokenD.address,
-        amountOutMin: amountOutMin,
-        deadline: deadline,
-        takeDepositFromWallet: false,
-        payFeeFromWallet: false,
-        closeConditions: [],
-      });
+      const tx = positionManager.connect(trader).openPosition({ ...openPositionParams, takeDepositFromWallet: false });
 
-      await expect(() => tx)
-        .to.changeTokenBalance(testTokenC, traderBalanceVault, depositAmount.mul(NegativeOne))
-        .to.changeEtherBalances([traderBalanceVault, Treasury], [BigNumber.from(feeAmountInEth).mul(NegativeOne), feeAmountInEth]);
-
+      await expect(() => tx).to.changeTokenBalance(testTokenC, traderBalanceVault, depositAmount.mul(NegativeOne));
       const { availableBalance: traderAvailableBalanceAfter } = await traderBalanceVault.balances(trader.address, testTokenC.address);
       expect(traderAvailableBalanceBefore.sub(traderAvailableBalanceAfter)).to.equal(depositAmount);
-    });
-
-    it("Should revert openPosition with fee in PMX when user balance in traderBalanceVault doesn't have enough pmx with takeDepositFromWallet is false", async function () {
-      const deadline = new Date().getTime() + 600;
-
-      await expect(
-        positionManager.connect(trader).openPosition({
-          marginParams: marginParams,
-          firstAssetRoutes: firstAssetRoutes,
-          depositAsset: testTokenC.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenD.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: false,
-          payFeeFromWallet: false,
-          closeConditions: [],
-          isProtocolFeeInPmx: true,
-        }),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "INSUFFICIENT_FREE_ASSETS");
-    });
-
-    it("Should revert openPosition with fee in PMX when user balance in traderBalanceVault doesn't have enough protocolFee assets (pmx)", async function () {
-      const deadline = new Date().getTime() + 600;
-      await PMXToken.transfer(trader.address, feeAmountInPmx);
-      await PMXToken.connect(trader).approve(positionManager.address, feeAmountInPmx);
-      await expect(() =>
-        positionManager.connect(trader).openPosition({
-          marginParams: marginParams,
-          firstAssetRoutes: firstAssetRoutes,
-          depositAsset: testTokenC.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenD.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: takeDepositFromWallet,
-          closeConditions: [],
-          isProtocolFeeInPmx: true,
-        }),
-      ).to.changeTokenBalances(PMXToken, [trader, Treasury], [BigNumber.from(feeAmountInPmx).mul(NegativeOne), feeAmountInPmx]);
-    });
-    it("Should openPosition with fee in PMX from vault", async function () {
-      const deadline = new Date().getTime() + 600;
-      await PMXToken.transfer(trader.address, feeAmountInPmx);
-      await PMXToken.connect(trader).approve(traderBalanceVault.address, feeAmountInPmx);
-      await testTokenC.connect(trader).approve(traderBalanceVault.address, depositAmount);
-      await traderBalanceVault.connect(trader).deposit(testTokenC.address, depositAmount);
-      await traderBalanceVault.connect(trader).deposit(PMXToken.address, feeAmountInPmx);
-      const { availableBalance: traderAvailableBalanceBefore } = await traderBalanceVault.balances(trader.address, PMXToken.address);
-
-      await expect(() =>
-        positionManager.connect(trader).openPosition({
-          marginParams: marginParams,
-          firstAssetRoutes: firstAssetRoutes,
-          depositAsset: testTokenC.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenD.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: false,
-          payFeeFromWallet: false,
-          closeConditions: [],
-          isProtocolFeeInPmx: true,
-        }),
-      ).to.changeTokenBalances(PMXToken, [traderBalanceVault, Treasury], [BigNumber.from(feeAmountInPmx).mul(NegativeOne), feeAmountInPmx]);
-
-      const { availableBalance: traderAvailableBalanceAfter } = await traderBalanceVault.balances(trader.address, PMXToken.address);
-      expect(traderAvailableBalanceBefore.sub(traderAvailableBalanceAfter)).to.equal(feeAmountInPmx);
     });
   });
 
   describe("openPosition with minPositionSize", function () {
-    let snapshotId, borrowedAmount, takeDepositFromWallet, deadline, tokenWETH, marginParams;
+    let snapshotId, borrowedAmount, takeDepositFromWallet, deadline, marginParams;
     before(async function () {
       deadline = new Date().getTime() + 600;
       takeDepositFromWallet = true;
       borrowedAmount = 0;
 
-      await priceFeed.setDecimals("18");
-
-      tokenWETH = await getContract("Wrapped Ether");
-
-      const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
-      const priceFeedTTAWETH = await PrimexAggregatorV3TestServiceFactory.deploy(
-        "PrimexAggregatorV3TestService TTA_WETH",
-        deployer.address,
-      );
-      await priceOracle.updatePriceFeed(testTokenC.address, tokenWETH.address, priceFeedTTAWETH.address);
-      await priceFeedTTAWETH.setAnswer(parseEther("1"));
-      await priceFeedTTAWETH.setDecimals("18");
-
       marginParams = {
         bucket: "",
         borrowedAmount: borrowedAmount,
-        depositInThirdAssetRoutes: [],
+        depositInThirdAssetMegaRoutes: [],
       };
     });
 
@@ -644,93 +388,80 @@ describe("SpotTrading", function () {
     });
 
     it("Should revert when depositAmount < minPositionSize", async function () {
-      const depositAmount = parseEther("3");
+      const depositAmount = parseUnits("1", 14);
 
       const amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
       const limitPrice = wadDiv(amountDOut.toString(), depositAmount.toString()).toString();
-      await priceFeed.setAnswer(limitPrice);
+      await setOraclePrice(testTokenC, testTokenD, limitPrice);
 
       await testTokenC.connect(trader).approve(positionManager.address, depositAmount);
-      await positionManager.setMinPositionSize(parseEther("4"), tokenWETH.address);
 
       await expect(
-        positionManager.connect(trader).openPosition(
-          {
-            marginParams: marginParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            amountOutMin: 0,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: false,
-            closeConditions: [],
-          },
-          { value: feeAmountInEth },
-        ),
+        positionManager.connect(trader).openPosition({
+          marginParams: marginParams,
+          firstAssetMegaRoutes: firstAssetMegaRoutes,
+          depositAsset: testTokenC.address,
+          depositAmount: depositAmount,
+          positionAsset: testTokenD.address,
+          amountOutMin: 0,
+          deadline: deadline,
+          takeDepositFromWallet: takeDepositFromWallet,
+          closeConditions: [],
+          firstAssetOracleData: [],
+          thirdAssetOracleData: [],
+          depositSoldAssetOracleData: [],
+          positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+          nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+        }),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "INSUFFICIENT_POSITION_SIZE");
     });
 
     it("Should open position when position size >= minPositionSize", async function () {
       const depositAmount = parseEther("4");
-      const feeAmount = wadMul(
-        depositAmount.toString(),
-        (await PrimexDNS.feeRates(OrderType.MARKET_ORDER, NATIVE_CURRENCY)).toString(),
-      ).toString();
 
       const amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
       const limitPrice = wadDiv(amountDOut.toString(), depositAmount.toString()).toString();
-      await priceFeed.setAnswer(limitPrice);
-
-      await testTokenC.connect(trader).approve(positionManager.address, depositAmount.add(feeAmount));
-      await positionManager.setMinPositionSize(parseEther("4"), tokenWETH.address);
+      await setOraclePrice(testTokenC, testTokenD, limitPrice);
+      await testTokenC.connect(trader).approve(positionManager.address, depositAmount);
 
       await expect(
-        positionManager.connect(trader).openPosition(
-          {
-            marginParams: marginParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            amountOutMin: 0,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: takeDepositFromWallet,
-            closeConditions: [],
-          },
-          { value: feeAmountInEth },
-        ),
+        positionManager.connect(trader).openPosition({
+          marginParams: marginParams,
+          firstAssetMegaRoutes: firstAssetMegaRoutes,
+          depositAsset: testTokenC.address,
+          depositAmount: depositAmount,
+          positionAsset: testTokenD.address,
+          amountOutMin: 0,
+          deadline: deadline,
+          takeDepositFromWallet: takeDepositFromWallet,
+          closeConditions: [],
+          firstAssetOracleData: [],
+          thirdAssetOracleData: [],
+          depositSoldAssetOracleData: [],
+          positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+          nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+        }),
       ).to.emit(positionManager, "OpenPosition");
     });
   });
 
   describe("openPosition with maxPositionSize", function () {
-    let snapshotId, borrowedAmount, takeDepositFromWallet, payFeeFromWallet, deadline, tokenWETH, marginParams;
+    let snapshotId, borrowedAmount, takeDepositFromWallet, deadline, marginParams;
     before(async function () {
       deadline = new Date().getTime() + 600;
       takeDepositFromWallet = true;
-      payFeeFromWallet = true;
       borrowedAmount = 0;
-
-      await priceFeed.setDecimals("18");
-
-      tokenWETH = await getContract("Wrapped Ether");
-
-      const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
-      const priceFeedTTAWETH = await PrimexAggregatorV3TestServiceFactory.deploy(
-        "PrimexAggregatorV3TestService TTA_WETH",
-        deployer.address,
-      );
-      await priceOracle.updatePriceFeed(testTokenC.address, tokenWETH.address, priceFeedTTAWETH.address);
-      await priceFeedTTAWETH.setAnswer(parseEther("1"));
-      await priceFeedTTAWETH.setDecimals("18");
 
       marginParams = {
         bucket: "",
         borrowedAmount: borrowedAmount,
-        depositInThirdAssetRoutes: [],
+        depositInThirdAssetMegaRoutes: [],
       };
     });
 
@@ -757,64 +488,78 @@ describe("SpotTrading", function () {
       });
     });
 
-    it("Should revert when position size > maxPositionSize", async function () {
+    it("Should open position when position size > maxPositionSize", async function () {
       const depositAmount = parseEther("3");
 
       const amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
       const limitPrice = wadDiv(amountDOut.toString(), depositAmount.toString()).toString();
-      await priceFeed.setAnswer(limitPrice);
+      await setOraclePrice(testTokenC, testTokenD, limitPrice);
 
       await testTokenC.connect(trader).approve(positionManager.address, depositAmount);
-      await positionManager.setMaxPositionSize(testTokenC.address, testTokenD.address, 0, amountDOut.sub(1));
+      const { payload } = await encodeFunctionData(
+        "setMaxPositionSize",
+        [testTokenC.address, testTokenD.address, 0, amountDOut.sub(1)],
+        "PositionManagerExtension",
+      );
+      await positionManager.setProtocolParamsByAdmin(payload);
       await expect(
-        positionManager.connect(trader).openPosition(
-          {
-            marginParams: marginParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            amountOutMin: 0,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            closeConditions: [],
-          },
-          { value: feeAmountInEth },
-        ),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "POSITION_SIZE_EXCEEDED");
+        positionManager.connect(trader).openPosition({
+          marginParams: marginParams,
+          firstAssetMegaRoutes: firstAssetMegaRoutes,
+          depositAsset: testTokenC.address,
+          depositAmount: depositAmount,
+          positionAsset: testTokenD.address,
+          amountOutMin: 0,
+          deadline: deadline,
+          takeDepositFromWallet: takeDepositFromWallet,
+          closeConditions: [],
+          firstAssetOracleData: [],
+          thirdAssetOracleData: [],
+          depositSoldAssetOracleData: [],
+          positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+          nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+        }),
+      ).to.emit(positionManager, "OpenPosition");
     });
 
     it("Should open position when position size <= maxPositionSize", async function () {
       const depositAmount = parseEther("4");
-      const feeAmount = wadMul(
-        depositAmount.toString(),
-        (await PrimexDNS.feeRates(OrderType.MARKET_ORDER, NATIVE_CURRENCY)).toString(),
-      ).toString();
 
       const amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
       const limitPrice = wadDiv(amountDOut.toString(), depositAmount.toString()).toString();
-      await priceFeed.setAnswer(limitPrice);
+      await setOraclePrice(testTokenC, testTokenD, limitPrice);
 
-      await testTokenC.connect(trader).approve(positionManager.address, depositAmount.add(feeAmount));
-      await positionManager.setMaxPositionSize(testTokenC.address, testTokenD.address, 0, amountDOut);
+      await testTokenC.connect(trader).approve(positionManager.address, depositAmount);
+      const { payload } = await encodeFunctionData(
+        "setMaxPositionSize",
+        [testTokenC.address, testTokenD.address, 0, amountDOut],
+        "PositionManagerExtension",
+      );
+      await positionManager.setProtocolParamsByAdmin(payload);
 
       await expect(
-        positionManager.connect(trader).openPosition(
-          {
-            marginParams: marginParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            amountOutMin: 0,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: takeDepositFromWallet,
-            closeConditions: [],
-          },
-          { value: feeAmountInEth },
-        ),
+        positionManager.connect(trader).openPosition({
+          marginParams: marginParams,
+          firstAssetMegaRoutes: firstAssetMegaRoutes,
+          depositAsset: testTokenC.address,
+          depositAmount: depositAmount,
+          positionAsset: testTokenD.address,
+          amountOutMin: 0,
+          deadline: deadline,
+          takeDepositFromWallet: takeDepositFromWallet,
+          closeConditions: [],
+          firstAssetOracleData: [],
+          thirdAssetOracleData: [],
+          depositSoldAssetOracleData: [],
+          positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+          nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+        }),
       ).to.emit(positionManager, "OpenPosition");
     });
   });
@@ -825,40 +570,38 @@ describe("SpotTrading", function () {
       const borrowedAmount = 0;
       const amountOutMin = 0;
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
 
-      const feeAmount = wadMul(
-        depositAmount.toString(),
-        (await PrimexDNS.feeRates(OrderType.MARKET_ORDER, NATIVE_CURRENCY)).toString(),
-      ).toString();
-
-      await testTokenC.connect(trader).approve(positionManager.address, depositAmount.add(feeAmount));
+      await testTokenC.connect(trader).approve(positionManager.address, depositAmount);
 
       const amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
 
       const limitPrice = wadDiv(amountDOut.toString(), depositAmount.toString()).toString();
-      await priceFeed.setAnswer(limitPrice);
+      await setOraclePrice(testTokenC, testTokenD, limitPrice);
       const deadline = new Date().getTime() + 600;
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "",
-            borrowedAmount: borrowedAmount,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: firstAssetRoutes,
-          depositAsset: testTokenC.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenD.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "",
+          borrowedAmount: borrowedAmount,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: feeAmountInEth },
-      );
+        firstAssetMegaRoutes: firstAssetMegaRoutes,
+        depositAsset: testTokenC.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenD.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: [],
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        pullOracleData: [],
+      });
 
       const { positionAmount } = await positionManager.getPosition(0);
       const amountCOut = await getAmountsOut(dex, positionAmount, [testTokenD.address, testTokenC.address]);
@@ -866,8 +609,8 @@ describe("SpotTrading", function () {
       const positionAmountInWadDecimals = positionAmount.mul(multiplierD);
 
       let price = wadDiv(positionAmountInWadDecimals.toString(), amountCOutInWadDecimals.toString()).toString();
-      price = BigNumber.from(price).div(multiplierD);
-      await priceFeed.setAnswer(price);
+      price = BigNumber.from(price).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenC, testTokenD, price);
     });
 
     after(async function () {
@@ -894,56 +637,145 @@ describe("SpotTrading", function () {
     });
 
     it("Should revert if SHARESONDEX_LENGTH_IS_0", async function () {
-      await expect(positionManager.connect(trader).closePosition(0, trader.address, [], 0)).to.be.revertedWithCustomError(
-        ErrorsLibrary,
-        "SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO",
-      );
+      await expect(
+        positionManager
+          .connect(trader)
+          .closePosition(
+            0,
+            trader.address,
+            [],
+            0,
+            getEncodedChainlinkRouteViaUsd(testTokenC),
+            getEncodedChainlinkRouteViaUsd(testTokenD),
+            getEncodedChainlinkRouteViaUsd(testTokenD),
+            [],
+          ),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO");
     });
 
     it("Should close position and transfer testTokenD from 'PositionManager' to 'Pair'", async function () {
       const { positionAmount } = await positionManager.getPosition(0);
 
-      await expect(() => positionManager.connect(trader).closePosition(0, trader.address, routesForClose, 0)).to.changeTokenBalances(
-        testTokenD,
-        [positionManager, pair],
-        [positionAmount.mul(NegativeOne), positionAmount],
+      const feeInPositionAsset = await calculateFeeInPositionAsset(
+        testTokenD.address,
+        positionAmount,
+        FeeRateType.SpotPositionClosedByTrader,
+        0,
+        false,
+        getEncodedChainlinkRouteViaUsd(testTokenD),
       );
+
+      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
+      await expect(() =>
+        positionManager
+          .connect(trader)
+          .closePosition(
+            0,
+            trader.address,
+            megaRoutesForClose,
+            0,
+            getEncodedChainlinkRouteViaUsd(testTokenC),
+            getEncodedChainlinkRouteViaUsd(testTokenD),
+            getEncodedChainlinkRouteViaUsd(testTokenD),
+            [],
+          ),
+      ).to.changeTokenBalances(testTokenD, [positionManager, pair], [positionAmount.mul(NegativeOne), positionAmountAfterFee]);
     });
 
     it("Should close position and transfer testTokenC from 'Pair' to 'traderBalanceVault'", async function () {
       const { positionAmount } = await positionManager.getPosition(0);
-      const amountCOut = await getAmountsOut(dex, positionAmount, [testTokenD.address, testTokenC.address]);
+      const feeInPositionAsset = await calculateFeeInPositionAsset(
+        testTokenD.address,
+        positionAmount,
+        FeeRateType.SpotPositionClosedByTrader,
+        0,
+        false,
+        getEncodedChainlinkRouteViaUsd(testTokenD),
+      );
+      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
+      const amountCOut = await getAmountsOut(dex, positionAmountAfterFee, [testTokenD.address, testTokenC.address]);
       if (dex === "quickswapv3") {
         const balancePairBefore = await testTokenC.balanceOf(pair.address);
         const balanceTraderBalanceVaultBefore = await testTokenC.balanceOf(traderBalanceVault.address);
-        await positionManager.connect(trader).closePosition(0, trader.address, routesForClose, 0);
+        await positionManager
+          .connect(trader)
+          .closePosition(
+            0,
+            trader.address,
+            megaRoutesForClose,
+            0,
+            getEncodedChainlinkRouteViaUsd(testTokenC),
+            getEncodedChainlinkRouteViaUsd(testTokenD),
+            getEncodedChainlinkRouteViaUsd(testTokenD),
+            [],
+          );
         const balancePairAfter = await testTokenC.balanceOf(pair.address);
         const balanceTraderBalanceVaultAftet = await testTokenC.balanceOf(traderBalanceVault.address);
         const delta = wadMul(amountCOut.toString(), parseEther("0.01").toString()).toString();
         expect(balancePairAfter).to.be.closeTo(balancePairBefore.sub(amountCOut), delta);
         expect(balanceTraderBalanceVaultAftet).to.be.closeTo(balanceTraderBalanceVaultBefore.add(amountCOut), delta);
       } else {
-        await expect(() => positionManager.connect(trader).closePosition(0, trader.address, routesForClose, 0)).to.changeTokenBalances(
-          testTokenC,
-          [pair, traderBalanceVault],
-          [amountCOut.mul(NegativeOne), amountCOut],
-        );
+        await expect(() =>
+          positionManager
+            .connect(trader)
+            .closePosition(
+              0,
+              trader.address,
+              megaRoutesForClose,
+              0,
+              getEncodedChainlinkRouteViaUsd(testTokenC),
+              getEncodedChainlinkRouteViaUsd(testTokenD),
+              getEncodedChainlinkRouteViaUsd(testTokenD),
+              [],
+            ),
+        ).to.changeTokenBalances(testTokenC, [pair, traderBalanceVault], [amountCOut.mul(NegativeOne), amountCOut]);
       }
     });
 
     it("Should close position and delete trader position from traderPositions list", async function () {
-      await positionManager.connect(trader).closePosition(0, trader.address, routesForClose, 0);
+      await positionManager
+        .connect(trader)
+        .closePosition(
+          0,
+          trader.address,
+          megaRoutesForClose,
+          0,
+          getEncodedChainlinkRouteViaUsd(testTokenC),
+          getEncodedChainlinkRouteViaUsd(testTokenD),
+          getEncodedChainlinkRouteViaUsd(testTokenD),
+          [],
+        );
 
       expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(0);
     });
 
     it("Should close position and update available balance of trader's tokens in trader balance Vault", async function () {
       const { positionAmount } = await positionManager.getPosition(0);
-      const amountCOut = await getAmountsOut(dex, positionAmount, [testTokenD.address, testTokenC.address]);
+      const feeInPositionAsset = await calculateFeeInPositionAsset(
+        testTokenD.address,
+        positionAmount,
+        FeeRateType.SpotPositionClosedByTrader,
+        0,
+        false,
+        getEncodedChainlinkRouteViaUsd(testTokenD),
+      );
+      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
+      const amountCOut = await getAmountsOut(dex, positionAmountAfterFee, [testTokenD.address, testTokenC.address]);
 
       const { availableBalance: availableABefore } = await traderBalanceVault.balances(trader.address, testTokenC.address);
 
-      await positionManager.connect(trader).closePosition(0, trader.address, routesForClose, 0);
+      await positionManager
+        .connect(trader)
+        .closePosition(
+          0,
+          trader.address,
+          megaRoutesForClose,
+          0,
+          getEncodedChainlinkRouteViaUsd(testTokenC),
+          getEncodedChainlinkRouteViaUsd(testTokenD),
+          getEncodedChainlinkRouteViaUsd(testTokenD),
+          [],
+        );
 
       const { availableBalance: availableAAfter } = await traderBalanceVault.balances(trader.address, testTokenC.address);
 
@@ -961,10 +793,30 @@ describe("SpotTrading", function () {
       await network.provider.send("evm_mine");
 
       const { positionAmount, depositAmountInSoldAsset } = await positionManager.getPosition(0);
-      const amountCOut = await getAmountsOut(dex, positionAmount, [testTokenD.address, testTokenC.address]);
+      const feeInPositionAsset = await calculateFeeInPositionAsset(
+        testTokenD.address,
+        positionAmount,
+        FeeRateType.SpotPositionClosedByTrader,
+        0,
+        false,
+        getEncodedChainlinkRouteViaUsd(testTokenD),
+      );
+      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
+      const amountCOut = await getAmountsOut(dex, positionAmountAfterFee, [testTokenD.address, testTokenC.address]);
       const profit = amountCOut.sub(depositAmountInSoldAsset);
 
-      const tx = await positionManager.connect(trader).closePosition(0, trader.address, routesForClose, 0);
+      const tx = await positionManager
+        .connect(trader)
+        .closePosition(
+          0,
+          trader.address,
+          megaRoutesForClose,
+          0,
+          getEncodedChainlinkRouteViaUsd(testTokenC),
+          getEncodedChainlinkRouteViaUsd(testTokenD),
+          getEncodedChainlinkRouteViaUsd(testTokenD),
+          [],
+        );
       const expectedClosePosition = {
         positionI: 0,
         trader: trader.address,
@@ -972,7 +824,7 @@ describe("SpotTrading", function () {
         bucketAddress: AddressZero,
         soldAsset: testTokenC.address,
         positionAsset: testTokenD.address,
-        decreasePositionAmount: positionAmount,
+        decreasePositionAmount: positionAmountAfterFee,
         profit: profit,
         positionDebt: 0,
         amountOut: amountCOut,
@@ -988,27 +840,75 @@ describe("SpotTrading", function () {
     });
 
     it("Should NOT revert close position when prices on dex and oracle are different, but the position is spot", async function () {
-      await setBadOraclePrice(priceFeed, fivePercent, false);
-      expect(await positionManager.connect(trader).closePosition(0, trader.address, routesForClose, 0));
+      await setBadOraclePrice(testTokenC, testTokenD);
+      expect(
+        await positionManager
+          .connect(trader)
+          .closePosition(
+            0,
+            trader.address,
+            megaRoutesForClose,
+            0,
+            getEncodedChainlinkRouteViaUsd(testTokenC),
+            getEncodedChainlinkRouteViaUsd(testTokenD),
+            getEncodedChainlinkRouteViaUsd(testTokenD),
+            [],
+          ),
+      );
     });
 
     it("Should NOT revert partially close position when prices on dex and oracle are different", async function () {
-      await setBadOraclePrice(priceFeed, fivePercent, false);
+      await setBadOraclePrice(testTokenC, testTokenD);
       const amount = parseEther("0.1");
-      expect(await positionManager.connect(trader).partiallyClosePosition(0, amount, trader.address, routesForClose, 0));
+      expect(
+        await positionManager
+          .connect(trader)
+          .partiallyClosePosition(
+            0,
+            amount,
+            trader.address,
+            megaRoutesForClose,
+            0,
+            getEncodedChainlinkRouteViaUsd(testTokenC),
+            getEncodedChainlinkRouteViaUsd(testTokenD),
+            getEncodedChainlinkRouteViaUsd(testTokenD),
+            [],
+          ),
+      );
     });
 
     it("Should partially close spot position", async function () {
       // Since the quickswapv3 has a dynamic fee system the amount0Out from the Quoter may differ from the actual amountOut in swap in separate transactions
       if (dex === "quickswapv3") this.skip();
       const amount = parseEther("0.1");
-      const minPositionSize = 0;
-      const amountInBorrowed = await getAmountsOut(dex, amount, [testTokenD.address, testTokenC.address]);
+      const amountOutMin = 0;
+      const feeInPositionAsset = await calculateFeeInPositionAsset(
+        testTokenD.address,
+        amount,
+        FeeRateType.SpotPositionClosedByTrader,
+        0,
+        false,
+        getEncodedChainlinkRouteViaUsd(testTokenD),
+      );
+      const amountAfterFee = amount.sub(feeInPositionAsset);
+      const amountInBorrowed = await getAmountsOut(dex, amountAfterFee, [testTokenD.address, testTokenC.address]);
       const { availableBalance: availableBefore } = await traderBalanceVault.balances(trader.address, testTokenC.address);
       const positionBefore = await positionManager.getPosition(0);
 
       await expect(() =>
-        positionManager.connect(trader).partiallyClosePosition(0, amount, trader.address, routesForClose, minPositionSize),
+        positionManager
+          .connect(trader)
+          .partiallyClosePosition(
+            0,
+            amount,
+            trader.address,
+            megaRoutesForClose,
+            amountOutMin,
+            getEncodedChainlinkRouteViaUsd(testTokenC),
+            getEncodedChainlinkRouteViaUsd(testTokenD),
+            getEncodedChainlinkRouteViaUsd(testTokenD),
+            [],
+          ),
       ).to.changeTokenBalance(testTokenC, traderBalanceVault, amountInBorrowed);
 
       const { availableBalance: availableAfter } = await traderBalanceVault.balances(trader.address, testTokenC.address);
@@ -1019,63 +919,58 @@ describe("SpotTrading", function () {
     });
   });
 
-  describe("liquidatePosition by SL/TP", function () {
+  describe("closePosition by SL/TP", function () {
     let borrowedAmount,
       amountOutMin,
       deadline,
       takeDepositFromWallet,
-      payFeeFromWallet,
       snapshotId,
       stopLossPrice,
       takeProfitPrice,
-      additionalParams,
-      conditionIndex;
+      conditionIndex,
+      closePositionByConditionParams;
     before(async function () {
       conditionIndex = 0;
       borrowedAmount = 0;
       amountOutMin = 0;
       takeDepositFromWallet = true;
-      payFeeFromWallet = true;
 
       await testTokenC.connect(trader).approve(positionManager.address, depositAmount.add(depositAmount));
 
       const amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
 
       const limitPrice = wadDiv(amountDOut.toString(), depositAmount.toString()).toString();
-      await priceFeed.setAnswer(limitPrice);
+      const price0 = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenC, testTokenD, price0);
       stopLossPrice = BigNumber.from(wadDiv(depositAmount.toString(), amountDOut.toString()).toString()).sub("10");
       takeProfitPrice = BigNumber.from(wadDiv(depositAmount.toString(), amountDOut.toString()).toString()).add("10");
       deadline = new Date().getTime() + 600;
 
-      const feeAmountCalculateWithETHRate = wadMul(
-        depositAmount.add(borrowedAmount).toString(),
-        (await PrimexDNS.feeRates(OrderType.MARKET_ORDER, NATIVE_CURRENCY)).toString(),
-      ).toString();
-      feeAmountInEth = wadMul(feeAmountCalculateWithETHRate.toString(), PriceInETH.toString()).toString();
-
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "",
-            borrowedAmount: borrowedAmount,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: firstAssetRoutes,
-          depositAsset: testTokenC.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenD.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice))],
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "",
+          borrowedAmount: borrowedAmount,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: feeAmountInEth },
-      );
+        firstAssetMegaRoutes: firstAssetMegaRoutes,
+        depositAsset: testTokenC.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenD.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice))],
+        firstAssetOracleData: [],
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        pullOracleData: [],
+      });
 
-      await priceFeed.setAnswer(BigNumber.from(limitPrice).mul(2));
-
-      additionalParams = getTakeProfitStopLossAdditionalParams(routesForClose);
+      await setOraclePrice(testTokenC, testTokenD, BigNumber.from(price0).mul(2));
     });
     after(async function () {
       await network.provider.request({
@@ -1088,6 +983,21 @@ describe("SpotTrading", function () {
       });
     });
     beforeEach(async function () {
+      const ethAddress = await priceOracle.eth();
+      closePositionByConditionParams = {
+        id: 0,
+        keeper: liquidator.address,
+        megaRoutes: megaRoutesForClose,
+        conditionIndex: conditionIndex,
+        ccmAdditionalParams: "0x",
+        closeReason: CloseReason.LIMIT_CONDITION,
+        positionSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+        positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: ethAddress }),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        pullOracleData: [],
+      };
       snapshotId = await network.provider.request({
         method: "evm_snapshot",
         params: [],
@@ -1102,76 +1012,103 @@ describe("SpotTrading", function () {
 
     it("Should close position by stop loss and transfer testTokenD from 'PositionManager' to 'Pair'", async function () {
       const { positionAmount } = await positionManager.getPosition(0);
+      const feeInPositionAsset = await calculateFeeInPositionAsset(
+        testTokenD.address,
+        positionAmount,
+        FeeRateType.SpotPositionClosedByKeeper,
+        0,
+        false,
+        getEncodedChainlinkRouteViaUsd(testTokenD),
+      );
+      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
 
       await expect(() =>
-        positionManager
-          .connect(liquidator)
-          .closePositionByCondition(0, liquidator.address, routesForClose, conditionIndex, "0x", CloseReason.LIMIT_CONDITION, []),
-      ).to.changeTokenBalances(testTokenD, [positionManager, pair], [positionAmount.mul(NegativeOne), positionAmount]);
+        positionManager.connect(liquidator).closePositionByCondition({ ...closePositionByConditionParams }),
+      ).to.changeTokenBalances(testTokenD, [positionManager, pair], [positionAmount.mul(NegativeOne), positionAmountAfterFee]);
     });
 
     it("Should close position by stop loss and transfer testTokenC from 'Pair' to 'traderBalanceVault'", async function () {
       const { positionAmount } = await positionManager.getPosition(0);
+      const feeInPositionAsset = await calculateFeeInPositionAsset(
+        testTokenD.address,
+        positionAmount,
+        FeeRateType.SpotPositionClosedByKeeper,
+        0,
+        false,
+        getEncodedChainlinkRouteViaUsd(testTokenD),
+      );
+      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
 
-      const amount0Out = await getAmountsOut(dex, positionAmount, [testTokenD.address, testTokenC.address]);
+      const amount0Out = await getAmountsOut(dex, positionAmountAfterFee, [testTokenD.address, testTokenC.address]);
 
       await expect(() =>
-        positionManager
-          .connect(liquidator)
-          .closePositionByCondition(0, liquidator.address, routesForClose, conditionIndex, "0x", CloseReason.LIMIT_CONDITION, []),
+        positionManager.connect(liquidator).closePositionByCondition({ ...closePositionByConditionParams }),
       ).to.changeTokenBalances(testTokenC, [pair, traderBalanceVault], [amount0Out.mul(NegativeOne), amount0Out]);
     });
 
-    it("Should liquidate position by stop loss and correctly updated balances in the vault", async function () {
+    it("Should close position by stop loss and correctly updated balances in the vault", async function () {
       const { positionAmount } = await positionManager.getPosition(0);
-      const amountCOut = await getAmountsOut(dex, positionAmount, [testTokenD.address, testTokenC.address]);
-      expect(await primexLens.isStopLossReached(pmAddress, 0)).to.equal(true);
+      const feeInPositionAsset = await calculateFeeInPositionAsset(
+        testTokenD.address,
+        positionAmount,
+        FeeRateType.SpotPositionClosedByKeeper,
+        0,
+        false,
+        getEncodedChainlinkRouteViaUsd(testTokenD),
+      );
+      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
+      const amountCOut = await getAmountsOut(dex, positionAmountAfterFee, [testTokenD.address, testTokenC.address]);
+      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenC))).to.equal(true);
 
       await expect(() =>
-        positionManager
-          .connect(liquidator)
-          .closePositionByCondition(0, liquidator.address, routesForClose, conditionIndex, "0x", CloseReason.LIMIT_CONDITION, []),
+        positionManager.connect(liquidator).closePositionByCondition({ ...closePositionByConditionParams }),
       ).to.changeTokenBalance(testTokenC, traderBalanceVault, amountCOut);
 
       const { availableBalance: traderBalance } = await traderBalanceVault.balances(trader.address, testTokenC.address);
       expect(traderBalance).to.be.equal(amountCOut);
     });
 
-    it("Should liquidate position by take profit and correctly updated balances in the vault", async function () {
+    it("Should close position by take profit and correctly updated balances in the vault", async function () {
       await swapExactTokensForTokens({
         dex: dex,
         amountIn: parseEther("4").toString(),
         path: [testTokenC.address, testTokenD.address],
       });
       const { positionAmount } = await positionManager.getPosition(0);
+      const feeInPositionAsset = await calculateFeeInPositionAsset(
+        testTokenD.address,
+        positionAmount,
+        FeeRateType.SpotPositionClosedByKeeper,
+        0,
+        false,
+        getEncodedChainlinkRouteViaUsd(testTokenD),
+      );
+      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
 
-      const amountCOut = await getAmountsOut(dex, positionAmount, [testTokenD.address, testTokenC.address]);
+      const amountCOut = await getAmountsOut(dex, positionAmountAfterFee, [testTokenD.address, testTokenC.address]);
 
       await expect(() =>
-        positionManager
-          .connect(liquidator)
-          .closePositionByCondition(
-            0,
-            liquidator.address,
-            routesForClose,
-            conditionIndex,
-            additionalParams,
-            CloseReason.LIMIT_CONDITION,
-            [],
-          ),
+        positionManager.connect(liquidator).closePositionByCondition({ ...closePositionByConditionParams }),
       ).to.changeTokenBalance(testTokenC, traderBalanceVault, amountCOut);
 
       const { availableBalance: traderBalance } = await traderBalanceVault.balances(trader.address, testTokenC.address);
       expect(traderBalance).to.be.equal(amountCOut);
     });
 
-    it("Should liquidate position by stop loss and throw event", async function () {
+    it("Should close position by stop loss and throw event", async function () {
       const { positionAmount } = await positionManager.getPosition(0);
-      const amountCOut = await getAmountsOut(dex, positionAmount, [testTokenD.address, testTokenC.address]);
+      const feeInPositionAsset = await calculateFeeInPositionAsset(
+        testTokenD.address,
+        positionAmount,
+        FeeRateType.SpotPositionClosedByKeeper,
+        0,
+        false,
+        getEncodedChainlinkRouteViaUsd(testTokenD),
+      );
+      const positionAmountAfterFee = positionAmount.sub(feeInPositionAsset);
+      const amountCOut = await getAmountsOut(dex, positionAmountAfterFee, [testTokenD.address, testTokenC.address]);
 
-      const tx = await positionManager
-        .connect(liquidator)
-        .closePositionByCondition(0, liquidator.address, routesForClose, conditionIndex, "0x", CloseReason.LIMIT_CONDITION, []);
+      const tx = await positionManager.connect(liquidator).closePositionByCondition({ ...closePositionByConditionParams });
       const thReceipt = await tx.wait();
 
       const profit = amountCOut.sub(depositAmount);
@@ -1183,7 +1120,7 @@ describe("SpotTrading", function () {
         bucketAddress: AddressZero,
         soldAsset: testTokenC.address,
         positionAsset: testTokenD.address,
-        decreasePositionAmount: positionAmount,
+        decreasePositionAmount: positionAmountAfterFee,
         profit: profit,
         positionDebt: 0,
         amountOut: amountCOut,
@@ -1201,16 +1138,11 @@ describe("SpotTrading", function () {
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
-
-      const feeAmountCalculateWithETHRate = wadMul(
-        depositAmount.add(borrowedAmount).toString(),
-        (await PrimexDNS.feeRates(OrderType.MARKET_ORDER, NATIVE_CURRENCY)).toString(),
-      ).toString();
-      feeAmountInEth = wadMul(feeAmountCalculateWithETHRate.toString(), PriceInETH.toString()).toString();
 
       const amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
       const limitPrice = wadDiv(amountDOut.toString(), depositAmount.toString()).toString();
+      const price0 = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenC, testTokenD, price0);
 
       dexesWithAncillaryData = [
         {
@@ -1222,27 +1154,30 @@ describe("SpotTrading", function () {
           ancillaryData: ancillaryDexData2,
         },
       ];
-      await priceFeed.setAnswer(limitPrice);
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "",
-            borrowedAmount: borrowedAmount,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: firstAssetRoutes,
-          depositAsset: testTokenC.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenD.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "",
+          borrowedAmount: borrowedAmount,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: feeAmountInEth },
-      );
+        firstAssetMegaRoutes: firstAssetMegaRoutes,
+        depositAsset: testTokenC.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenD.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: [],
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        pullOracleData: [],
+      });
     });
 
     after(async function () {
@@ -1277,7 +1212,7 @@ describe("SpotTrading", function () {
       parseArguments(bestShares, {
         returnAmount: amountCOut1,
         estimateGasAmount: await getGas(dex),
-        routes: routesForClose,
+        megaRoutes: megaRoutesForClose,
       });
     });
     it("When second dex is best to swap borrowedAmount return correct dexes name", async function () {
@@ -1300,7 +1235,7 @@ describe("SpotTrading", function () {
       const bestRoute = {
         returnAmount: amountCOut2,
         estimateGasAmount: await getGas(dex2),
-        routes: dex2Route,
+        megaRoutes: dex2Route,
       };
       parseArguments(bestShares, bestRoute);
     });
@@ -1309,7 +1244,6 @@ describe("SpotTrading", function () {
   describe("getBestDexForOpenablePosition", function () {
     let snapshotId, dexesWithAncillaryData, getBestDexForOpenablePositionData, expectedBestShares;
     before(async function () {
-      // const amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
       dexesWithAncillaryData = [
         {
           dex: dex,
@@ -1332,8 +1266,8 @@ describe("SpotTrading", function () {
       };
       expectedBestShares = {
         firstAssetReturnParams: {},
-        depositInThirdAssetReturnParams: { returnAmount: 0, estimateGasAmount: 0, routes: [] },
-        depositToBorrowedReturnParams: { returnAmount: 0, estimateGasAmount: 0, routes: [] },
+        depositInThirdAssetReturnParams: { returnAmount: 0, estimateGasAmount: 0, megaRoutes: [] },
+        depositToBorrowedReturnParams: { returnAmount: 0, estimateGasAmount: 0, megaRoutes: [] },
       };
 
       await swapExactTokensForTokens({
@@ -1373,7 +1307,7 @@ describe("SpotTrading", function () {
       expectedBestShares.firstAssetReturnParams = {
         returnAmount: amount0Out1,
         estimateGasAmount: await getGas(dex),
-        routes: firstAssetRoutes,
+        megaRoutes: firstAssetMegaRoutes,
       };
 
       parseArguments(bestShares, expectedBestShares);
@@ -1393,104 +1327,15 @@ describe("SpotTrading", function () {
       expectedBestShares.firstAssetReturnParams = {
         returnAmount: amount0Out2,
         estimateGasAmount: await getGas(dex2),
-        routes: await getSingleRoute([testTokenC.address, testTokenD.address], dex2),
+        megaRoutes: await getSingleMegaRoute([testTokenC.address, testTokenD.address], dex2),
       };
 
       parseArguments(bestShares, expectedBestShares);
     });
   });
 
-  describe("getCurrentPriceAndProfitByPosition", function () {
-    let snapshotId, dexesWithAncillaryData;
-
-    // eslint-disable-next-line mocha/no-hooks-for-single-case
-    before(async function () {
-      dexesWithAncillaryData = [
-        {
-          dex: dex,
-          ancillaryData: ancillaryDexData,
-        },
-        {
-          dex: dex2,
-          ancillaryData: ancillaryDexData2,
-        },
-      ];
-      await testTokenC.connect(trader).approve(positionManager.address, depositAmount);
-      const borrowedAmount = 0;
-      const amountOutMin = 0;
-      const deadline = new Date().getTime() + 600;
-      const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
-
-      const amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
-      const limitPrice = wadDiv(amountDOut.toString(), depositAmount.toString()).toString();
-
-      await priceFeed.setAnswer(limitPrice);
-
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "",
-            borrowedAmount: borrowedAmount,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: firstAssetRoutes,
-          depositAsset: testTokenC.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenD.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
-        },
-        { value: feeAmountInEth },
-      );
-    });
-
-    // eslint-disable-next-line mocha/no-hooks-for-single-case
-    after(async function () {
-      await network.provider.request({
-        method: "evm_revert",
-        params: [snapshotIdBase],
-      });
-      snapshotIdBase = await network.provider.request({
-        method: "evm_snapshot",
-        params: [],
-      });
-    });
-
-    // eslint-disable-next-line mocha/no-hooks-for-single-case
-    beforeEach(async function () {
-      snapshotId = await network.provider.request({
-        method: "evm_snapshot",
-        params: [],
-      });
-    });
-
-    // eslint-disable-next-line mocha/no-hooks-for-single-case
-    afterEach(async function () {
-      await network.provider.request({
-        method: "evm_revert",
-        params: [snapshotId],
-      });
-    });
-    it("Return correct profit and current price", async function () {
-      const { positionAmount } = await positionManager.getPosition(0);
-      const amountCOut1 = await getAmountsOut(dex, positionAmount, [testTokenD.address, testTokenC.address]);
-      const amountCOut2 = await getAmountsOut(dex2, positionAmount, [testTokenD.address, testTokenC.address]);
-
-      const amountOut = amountCOut1.gt(amountCOut2) ? amountCOut1 : amountCOut2;
-      const expectedPorfit = amountOut.sub(depositAmount);
-      const currentPrice = wadDiv(amountOut.toString(), positionAmount.toString()).toString();
-      const data = await bestDexLens.callStatic.getCurrentPriceAndProfitByPosition(positionManager.address, 0, 1, dexesWithAncillaryData);
-      expect(data[0]).to.equal(currentPrice);
-      expect(data[1]).to.equal(expectedPorfit);
-    });
-  });
-
   describe("canBeClosed", function () {
-    let borrowedAmount, amountDOut, depositAmount, amountOutMin, deadline, takeDepositFromWallet, snapshotId, exchangeRate;
+    let borrowedAmount, amountDOut, depositAmount, amountOutMin, deadline, takeDepositFromWallet, snapshotId, exchangeRate, price0;
 
     before(async function () {
       depositAmount = parseEther("15");
@@ -1498,16 +1343,12 @@ describe("SpotTrading", function () {
       amountOutMin = 0;
       deadline = new Date().getTime() + 600;
       takeDepositFromWallet = true;
-      const feeAmount = wadMul(
-        depositAmount.toString(),
-        (await PrimexDNS.feeRates(OrderType.MARKET_ORDER, NATIVE_CURRENCY)).toString(),
-      ).toString();
-      await testTokenC.connect(trader).approve(positionManager.address, depositAmount.add(feeAmount));
+      await testTokenC.connect(trader).approve(positionManager.address, depositAmount);
 
       amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
       exchangeRate = BigNumber.from(wadDiv(amountDOut.toString(), depositAmount.toString()).toString());
-
-      await priceFeed.setAnswer(exchangeRate);
+      price0 = BigNumber.from(exchangeRate).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenC, testTokenD, price0);
     });
     after(async function () {
       await network.provider.request({
@@ -1535,127 +1376,69 @@ describe("SpotTrading", function () {
     it("isStopLossReached should return 'false' when stopLossPrice < oracle price", async function () {
       const stopLossPrice = wadDiv(WAD, exchangeRate.add("1").toString()).toString();
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "",
-            borrowedAmount: borrowedAmount,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: firstAssetRoutes,
-          depositAsset: testTokenC.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenD.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: takeDepositFromWallet,
-          closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(0, stopLossPrice))],
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "",
+          borrowedAmount: borrowedAmount,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: feeAmountInEth },
-      );
-      expect(await primexLens.isStopLossReached(pmAddress, 0)).to.be.equal(false);
+        firstAssetMegaRoutes: firstAssetMegaRoutes,
+        depositAsset: testTokenC.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenD.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(0, stopLossPrice))],
+        firstAssetOracleData: [],
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        pullOracleData: [],
+      });
+      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenC))).to.be.equal(false);
     });
 
     it("isStopLossReached should return 'true' when oracle price <= stopLossPrice", async function () {
       const stopLossPrice = wadDiv(WAD, exchangeRate.add("1").toString()).toString();
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "",
-            borrowedAmount: borrowedAmount,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: firstAssetRoutes,
-          depositAsset: testTokenC.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenD.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: takeDepositFromWallet,
-          closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(0, stopLossPrice))],
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "",
+          borrowedAmount: borrowedAmount,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: feeAmountInEth },
-      );
-
-      await priceFeed.setAnswer(exchangeRate.add("2"));
-      expect(await primexLens.isStopLossReached(pmAddress, 0)).to.be.equal(true);
-    });
-
-    it("isTakeProfitReached should return 'false' when takeProfitPrice >= price on dex", async function () {
-      // Since the quickswapv3 has a dynamic fee system the amount0Out from the Quoter may differ from the actual amountOut in swap in separate transactions
-      if (dex === "quickswapv3") this.skip();
-      const positionAmount = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
-      const currentPrice = wadDiv(depositAmount.toString(), positionAmount.toString()).toString();
-
-      // increase price for 0.1% to conform possible pool fee influence
-      const takeProfitPrice = wadMul(currentPrice.toString(), parseEther("1.001").toString()).toString();
-
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "",
-            borrowedAmount: borrowedAmount,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: firstAssetRoutes,
-          depositAsset: testTokenC.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenD.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: takeDepositFromWallet,
-          closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, 0))],
-        },
-        { value: feeAmountInEth },
-      );
-
-      expect(await primexLens.callStatic.isTakeProfitReached(pmAddress, 0, routesForClose)).to.be.equal(false);
-    });
-
-    it("isTakeProfitReached should return 'true' when takeProfitPrice <= price on dex", async function () {
-      const positionAmount = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
-      const currentPrice = wadDiv(depositAmount.toString(), positionAmount.toString()).toString();
-      const takeProfitPrice = wadMul(currentPrice, parseEther("1.01").toString()).toString();
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "",
-            borrowedAmount: borrowedAmount,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: firstAssetRoutes,
-          depositAsset: testTokenC.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenD.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: takeDepositFromWallet,
-          closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, 0))],
-        },
-        { value: feeAmountInEth },
-      );
-
-      await swapExactTokensForTokens({
-        dex: dex,
-        amountIn: parseEther("4").toString(),
-        path: [testTokenC.address, testTokenD.address],
+        firstAssetMegaRoutes: firstAssetMegaRoutes,
+        depositAsset: testTokenC.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenD.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(0, stopLossPrice))],
+        firstAssetOracleData: [],
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        pullOracleData: [],
       });
-      // when takeProfitAmount < expectedBorrowedAssetAmount;
-      expect(await primexLens.callStatic.isTakeProfitReached(pmAddress, 0, routesForClose)).to.be.equal(true);
+
+      await setOraclePrice(testTokenC, testTokenD, price0.add(2));
+      expect(await primexLens.callStatic.isStopLossReached(pmAddress, 0, getEncodedChainlinkRouteViaUsd(testTokenC))).to.be.equal(true);
     });
   });
 
   describe("Limit Order", function () {
-    let snapshotId, leverage, takeDepositFromWallet, payFeeFromWallet, snapshotIdBase2;
+    let snapshotId, leverage, takeDepositFromWallet, snapshotIdBase2;
     before(async function () {
       leverage = parseEther("1");
       takeDepositFromWallet = true;
-      payFeeFromWallet = true;
 
       await testTokenC.connect(trader).approve(limitOrderManager.address, depositAmount);
 
@@ -1698,22 +1481,19 @@ describe("SpotTrading", function () {
         const deadline = new Date().getTime() + 600;
 
         await expect(
-          limitOrderManager.connect(trader).createLimitOrder(
-            {
-              bucket: "",
-              depositAsset: testTokenC.address,
-              depositAmount: depositAmount,
-              positionAsset: testTokenC.address,
-              deadline: deadline,
-              takeDepositFromWallet: takeDepositFromWallet,
-              payFeeFromWallet: takeDepositFromWallet,
-              closeConditions: [],
-              openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
-              leverage: leverage,
-              shouldOpenPosition: true,
-            },
-            { value: feeAmountInEthForLimitOrders },
-          ),
+          limitOrderManager.connect(trader).createLimitOrder({
+            bucket: "",
+            depositAsset: testTokenC.address,
+            depositAmount: depositAmount,
+            positionAsset: testTokenC.address,
+            deadline: deadline,
+            takeDepositFromWallet: takeDepositFromWallet,
+            closeConditions: [],
+            openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
+            leverage: leverage,
+            shouldOpenPosition: true,
+            nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "SHOULD_BE_DIFFERENT_ASSETS_IN_SPOT");
       });
 
@@ -1721,46 +1501,20 @@ describe("SpotTrading", function () {
         const deadline = new Date().getTime() + 600;
 
         await expect(
-          limitOrderManager.connect(trader).createLimitOrder(
-            {
-              bucket: "",
-              depositAsset: testTokenC.address,
-              depositAmount: depositAmount,
-              positionAsset: testTokenD.address,
-              deadline: deadline,
-              takeDepositFromWallet: takeDepositFromWallet,
-              payFeeFromWallet: payFeeFromWallet,
-              closeConditions: [],
-              openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
-              leverage: parseEther("2"),
-              shouldOpenPosition: true,
-            },
-            { value: feeAmountInEthForLimitOrders },
-          ),
+          limitOrderManager.connect(trader).createLimitOrder({
+            bucket: "",
+            depositAsset: testTokenC.address,
+            depositAmount: depositAmount,
+            positionAsset: testTokenD.address,
+            deadline: deadline,
+            takeDepositFromWallet: takeDepositFromWallet,
+            closeConditions: [],
+            openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
+            leverage: parseEther("2"),
+            shouldOpenPosition: true,
+            nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "LEVERAGE_SHOULD_BE_1");
-      });
-
-      it("Should revert when position asset doesn't have oracle price feed with the deposit asset.", async function () {
-        await testTokenC.connect(trader).approve(limitOrderManager.address, depositAmount);
-        const deadline = new Date().getTime() + 600;
-        await expect(
-          limitOrderManager.connect(trader).createLimitOrder(
-            {
-              bucket: "",
-              depositAsset: testTokenC.address,
-              depositAmount: depositAmount,
-              positionAsset: testTokenB.address,
-              deadline: deadline,
-              takeDepositFromWallet: takeDepositFromWallet,
-              payFeeFromWallet: payFeeFromWallet,
-              closeConditions: [],
-              openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
-              leverage: leverage,
-              shouldOpenPosition: true,
-            },
-            { value: feeAmountInEthForLimitOrders },
-          ),
-        ).to.be.revertedWithCustomError(ErrorsLibrary, "NO_PRICEFEED_FOUND");
       });
 
       it("Should create 'LimitOrder' and transfer testTokenC from trader to 'TraderBalanceVault'", async function () {
@@ -1773,22 +1527,19 @@ describe("SpotTrading", function () {
         expect(lockedBefore).to.equal(0);
 
         await expect(() =>
-          limitOrderManager.connect(trader).createLimitOrder(
-            {
-              bucket: "",
-              depositAsset: testTokenC.address,
-              depositAmount: depositAmount,
-              positionAsset: testTokenD.address,
-              deadline: deadline,
-              takeDepositFromWallet: takeDepositFromWallet,
-              payFeeFromWallet: payFeeFromWallet,
-              closeConditions: [],
-              openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
-              leverage: leverage,
-              shouldOpenPosition: true,
-            },
-            { value: feeAmountInEthForLimitOrders },
-          ),
+          limitOrderManager.connect(trader).createLimitOrder({
+            bucket: "",
+            depositAsset: testTokenC.address,
+            depositAmount: depositAmount,
+            positionAsset: testTokenD.address,
+            deadline: deadline,
+            takeDepositFromWallet: takeDepositFromWallet,
+            closeConditions: [],
+            openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
+            leverage: leverage,
+            shouldOpenPosition: true,
+            nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          }),
         ).to.changeTokenBalances(testTokenC, [trader, traderBalanceVault], [depositAmount.mul(NegativeOne), depositAmount]);
 
         const { availableBalance: availableAfter, lockedBalance: lockedAfter } = await traderBalanceVault.balances(
@@ -1809,10 +1560,8 @@ describe("SpotTrading", function () {
       it("Should create 'LimitOrder' with takeDepositFromWallet=false and lock testTokenC in 'TraderBalanceVault'", async function () {
         const deadline = new Date().getTime() + 600;
         const takeDepositFromWallet = false;
-        const payFeeFromWallet = false;
         await testTokenC.connect(trader).approve(traderBalanceVault.address, depositAmount);
         await traderBalanceVault.connect(trader).deposit(testTokenC.address, depositAmount);
-        await traderBalanceVault.connect(trader).deposit(NATIVE_CURRENCY, 0, { value: feeAmountInEthForLimitOrders });
         const { availableBalance: availableBefore, lockedBalance: lockedBefore } = await traderBalanceVault.balances(
           trader.address,
           testTokenC.address,
@@ -1820,22 +1569,19 @@ describe("SpotTrading", function () {
         expect(availableBefore).to.equal(depositAmount);
         expect(lockedBefore).to.equal(0);
 
-        await limitOrderManager.connect(trader).createLimitOrder(
-          {
-            bucket: "",
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
-            closeConditions: [],
-            leverage: leverage,
-            shouldOpenPosition: true,
-          },
-          { value: feeAmountInEthForLimitOrders },
-        );
+        await limitOrderManager.connect(trader).createLimitOrder({
+          bucket: "",
+          depositAsset: testTokenC.address,
+          depositAmount: depositAmount,
+          positionAsset: testTokenD.address,
+          deadline: deadline,
+          takeDepositFromWallet: takeDepositFromWallet,
+          openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
+          closeConditions: [],
+          leverage: leverage,
+          shouldOpenPosition: true,
+          nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        });
 
         const { availableBalance: availableAfter, lockedBalance: lockedAfter } = await traderBalanceVault.balances(
           trader.address,
@@ -1855,24 +1601,21 @@ describe("SpotTrading", function () {
       it("Should create 'LimitOrder' with the correct variables", async function () {
         const deadline = new Date().getTime() + 600;
 
-        await limitOrderManager.connect(trader).createLimitOrder(
-          {
-            bucket: "",
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            leverage: leverage,
-            shouldOpenPosition: true,
-            openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(parseEther("1")))],
-            closeConditions: [
-              getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(parseEther("2"), parseEther("1").sub("1"))),
-            ],
-          },
-          { value: feeAmountInEthForLimitOrders },
-        );
+        await limitOrderManager.connect(trader).createLimitOrder({
+          bucket: "",
+          depositAsset: testTokenC.address,
+          depositAmount: depositAmount,
+          positionAsset: testTokenD.address,
+          deadline: deadline,
+          takeDepositFromWallet: takeDepositFromWallet,
+          leverage: leverage,
+          shouldOpenPosition: true,
+          openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(parseEther("1")))],
+          closeConditions: [
+            getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(parseEther("2"), parseEther("1").sub("1"))),
+          ],
+          nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        });
         const orderCreatedAt = (await provider.getBlock("latest")).timestamp;
         const order = await limitOrderManager.getOrder(1);
 
@@ -1892,8 +1635,8 @@ describe("SpotTrading", function () {
           positionAsset: testTokenD.address,
           depositAsset: testTokenC.address,
           depositAmount: depositAmount,
-          feeToken: NATIVE_CURRENCY,
-          protocolFee: feeAmountInEthForLimitOrders,
+          feeToken: testTokenD.address,
+          protocolFee: 0,
           trader: trader.address,
           deadline: deadline,
           id: 1,
@@ -1915,8 +1658,6 @@ describe("SpotTrading", function () {
       it("Should create 'LimitOrder' with isProtocolFeeInPmx=true with takeDepositFromWallet=true", async function () {
         const deadline = new Date().getTime() + 600;
         await testTokenC.connect(trader).approve(limitOrderManager.address, depositAmount);
-        await PMXToken.transfer(trader.address, feeAmountInPmxForLimitOrders);
-        await PMXToken.connect(trader).approve(limitOrderManager.address, feeAmountInPmxForLimitOrders);
 
         await limitOrderManager.connect(trader).createLimitOrder({
           bucket: "",
@@ -1926,13 +1667,13 @@ describe("SpotTrading", function () {
           isProtocolFeeInPmx: true,
           deadline: deadline,
           takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
           leverage: leverage,
           shouldOpenPosition: true,
           openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(parseEther("1")))],
           closeConditions: [
             getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(parseEther("2"), parseEther("1").sub("1"))),
           ],
+          nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         });
         const orderCreatedAt = (await provider.getBlock("latest")).timestamp;
         const order = await limitOrderManager.getOrder(1);
@@ -1954,7 +1695,7 @@ describe("SpotTrading", function () {
           depositAsset: testTokenC.address,
           depositAmount: depositAmount,
           feeToken: PMXToken.address,
-          protocolFee: feeAmountInPmxForLimitOrders,
+          protocolFee: 0,
           trader: trader.address,
           deadline: deadline,
           id: 1,
@@ -1982,14 +1723,10 @@ describe("SpotTrading", function () {
       it("Should create 'LimitOrder' with isProtocolFeeInPmx=true with takeDepositFromWallet=false", async function () {
         const deadline = new Date().getTime() + 600;
         const takeDepositFromWallet = false;
-        const payFeeFromWallet = false;
 
         await testTokenC.connect(trader).approve(traderBalanceVault.address, depositAmount);
         await traderBalanceVault.connect(trader).deposit(testTokenC.address, depositAmount);
 
-        await PMXToken.transfer(trader.address, feeAmountInPmxForLimitOrders);
-        await PMXToken.connect(trader).approve(traderBalanceVault.address, feeAmountInPmxForLimitOrders);
-        await traderBalanceVault.connect(trader).deposit(PMXToken.address, feeAmountInPmxForLimitOrders);
         const { availableBalance: availableBefore, lockedBalance: lockedBefore } = await traderBalanceVault.balances(
           trader.address,
           testTokenC.address,
@@ -2005,13 +1742,13 @@ describe("SpotTrading", function () {
           isProtocolFeeInPmx: true,
           deadline: deadline,
           takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
           leverage: leverage,
           shouldOpenPosition: true,
           openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(parseEther("1")))],
           closeConditions: [
             getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(parseEther("2"), parseEther("1").sub("1"))),
           ],
+          nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         });
         const orderCreatedAt = (await provider.getBlock("latest")).timestamp;
         const order = await limitOrderManager.getOrder(1);
@@ -2022,7 +1759,7 @@ describe("SpotTrading", function () {
           depositAsset: testTokenC.address,
           depositAmount: depositAmount,
           feeToken: PMXToken.address,
-          protocolFee: feeAmountInPmxForLimitOrders,
+          protocolFee: 0,
           trader: trader.address,
           deadline: deadline,
           id: 1,
@@ -2045,8 +1782,6 @@ describe("SpotTrading", function () {
       it("Should open spot limit order and throw event", async function () {
         const deadline = new Date().getTime() + 600;
         const orderId = 1;
-        await PMXToken.transfer(trader.address, feeAmountInPmxForLimitOrders);
-        await PMXToken.connect(trader).approve(limitOrderManager.address, feeAmountInPmxForLimitOrders);
 
         const txCreateLimitOrder = await limitOrderManager.connect(trader).createLimitOrder({
           bucket: "",
@@ -2055,12 +1790,12 @@ describe("SpotTrading", function () {
           positionAsset: testTokenD.address,
           deadline: deadline,
           takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
           leverage: leverage,
           shouldOpenPosition: true,
           openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
           closeConditions: [],
           isProtocolFeeInPmx: true,
+          nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         });
 
         const orderObject = {
@@ -2069,7 +1804,7 @@ describe("SpotTrading", function () {
           depositAsset: testTokenC.address,
           depositAmount: depositAmount,
           feeToken: PMXToken.address,
-          protocolFee: feeAmountInPmxForLimitOrders,
+          protocolFee: 0,
           trader: trader.address,
           deadline: deadline,
           id: orderId,
@@ -2088,9 +1823,6 @@ describe("SpotTrading", function () {
       it("Should open swap limit order and throw event", async function () {
         const deadline = new Date().getTime() + 600;
         const orderId = 1;
-        const pmxFee = calculateFee(depositAmount, await PrimexDNS.feeRates(OrderType.SWAP_LIMIT_ORDER, PMXToken.address), PriceInPMX);
-        await PMXToken.transfer(trader.address, pmxFee);
-        await PMXToken.connect(trader).approve(limitOrderManager.address, pmxFee);
 
         const txCreateLimitOrder = await limitOrderManager.connect(trader).createLimitOrder({
           bucket: "",
@@ -2099,12 +1831,12 @@ describe("SpotTrading", function () {
           positionAsset: testTokenD.address,
           deadline: deadline,
           takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
           leverage: leverage,
           shouldOpenPosition: false,
           openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
           closeConditions: [],
           isProtocolFeeInPmx: true,
+          nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         });
 
         const orderObject = {
@@ -2113,7 +1845,7 @@ describe("SpotTrading", function () {
           depositAsset: testTokenC.address,
           depositAmount: depositAmount,
           feeToken: PMXToken.address,
-          protocolFee: pmxFee,
+          protocolFee: 0,
           trader: trader.address,
           deadline: deadline,
           id: orderId,
@@ -2134,22 +1866,19 @@ describe("SpotTrading", function () {
         const limitPrice = parseEther("1");
         const stopLossPrice = limitPrice.sub(1);
         await expect(
-          limitOrderManager.connect(trader).createLimitOrder(
-            {
-              bucket: "",
-              depositAsset: testTokenC.address,
-              depositAmount: depositAmount,
-              positionAsset: testTokenD.address,
-              deadline: deadline,
-              takeDepositFromWallet: takeDepositFromWallet,
-              payFeeFromWallet: payFeeFromWallet,
-              leverage: leverage,
-              shouldOpenPosition: true,
-              openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
-              closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(0, stopLossPrice))],
-            },
-            { value: feeAmountInEthForLimitOrders },
-          ),
+          limitOrderManager.connect(trader).createLimitOrder({
+            bucket: "",
+            depositAsset: testTokenC.address,
+            depositAmount: depositAmount,
+            positionAsset: testTokenD.address,
+            deadline: deadline,
+            takeDepositFromWallet: takeDepositFromWallet,
+            leverage: leverage,
+            shouldOpenPosition: true,
+            openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
+            closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(0, stopLossPrice))],
+            nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          }),
         ).to.emit(limitOrderManager, "CreateLimitOrder");
       });
     });
@@ -2161,23 +1890,19 @@ describe("SpotTrading", function () {
         const deadline = new Date().getTime() + 600;
         leverage = parseEther("1");
         takeDepositFromWallet = true;
-        payFeeFromWallet = true;
-        const txCreateLimitOrder = await limitOrderManager.connect(trader).createLimitOrder(
-          {
-            bucket: "",
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            leverage: leverage,
-            shouldOpenPosition: true,
-            openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
-            closeConditions: [],
-          },
-          { value: feeAmountInEthForLimitOrders },
-        );
+        const txCreateLimitOrder = await limitOrderManager.connect(trader).createLimitOrder({
+          bucket: "",
+          depositAsset: testTokenC.address,
+          depositAmount: depositAmount,
+          positionAsset: testTokenD.address,
+          deadline: deadline,
+          takeDepositFromWallet: takeDepositFromWallet,
+          leverage: leverage,
+          shouldOpenPosition: true,
+          openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
+          closeConditions: [],
+          nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        });
         const txReceipt = await txCreateLimitOrder.wait();
         orderId = txReceipt.events?.filter(x => {
           return x.event === "CreateLimitOrder";
@@ -2226,22 +1951,34 @@ describe("SpotTrading", function () {
       });
     });
     describe("CreateLimitOrder with minPositionSize", function () {
-      let tokenWETH, priceFeedTTAWETH, wethExchangeRate, additionalParams;
+      let additionalParams;
 
       before(async function () {
-        tokenWETH = await getContract("Wrapped Ether");
-        const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
-        priceFeedTTAWETH = await PrimexAggregatorV3TestServiceFactory.deploy("PrimexAggregatorV3TestService TTA_WETH", trader.address);
-        await priceOracle.updatePriceFeed(testTokenC.address, tokenWETH.address, priceFeedTTAWETH.address);
-        wethExchangeRate = parseEther("1");
-        await priceFeedTTAWETH.setAnswer(wethExchangeRate);
-        await priceFeedTTAWETH.setDecimals("18");
-
-        additionalParams = getLimitPriceAdditionalParams(firstAssetRoutes, [], []);
+        additionalParams = getLimitPriceAdditionalParams(firstAssetMegaRoutes, []);
       });
 
       it("Should revert when depositAmount < minPositionSize", async function () {
-        await positionManager.setMinPositionSize(depositAmount.add(parseEther("1")), tokenWETH.address);
+        const deadline = new Date().getTime() + 600;
+        const depositAmount = parseUnits("1", 14);
+
+        await expect(
+          limitOrderManager.connect(trader).createLimitOrder({
+            bucket: "",
+            depositAsset: testTokenC.address,
+            depositAmount: depositAmount,
+            positionAsset: testTokenD.address,
+            deadline: deadline,
+            takeDepositFromWallet: takeDepositFromWallet,
+            openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
+            closeConditions: [],
+            leverage: leverage,
+            shouldOpenPosition: true,
+            nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          }),
+        ).to.be.revertedWithCustomError(ErrorsLibrary, "INSUFFICIENT_POSITION_SIZE");
+      });
+
+      it("Should create limit order when position size >= minPositionSize", async function () {
         const deadline = new Date().getTime() + 600;
 
         await expect(
@@ -2252,147 +1989,23 @@ describe("SpotTrading", function () {
             positionAsset: testTokenD.address,
             deadline: deadline,
             takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
             openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
             closeConditions: [],
             leverage: leverage,
             shouldOpenPosition: true,
+            nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
           }),
-        ).to.be.revertedWithCustomError(ErrorsLibrary, "INSUFFICIENT_POSITION_SIZE");
-      });
-
-      it("Should create limit order when position size >= minPositionSize", async function () {
-        await positionManager.setMinPositionSize(depositAmount, tokenWETH.address);
-        const deadline = new Date().getTime() + 600;
-
-        await expect(
-          limitOrderManager.connect(trader).createLimitOrder(
-            {
-              bucket: "",
-              depositAsset: testTokenC.address,
-              depositAmount: depositAmount,
-              positionAsset: testTokenD.address,
-              deadline: deadline,
-              takeDepositFromWallet: takeDepositFromWallet,
-              payFeeFromWallet: payFeeFromWallet,
-              openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
-              closeConditions: [],
-              leverage: leverage,
-              shouldOpenPosition: true,
-            },
-            { value: feeAmountInEthForLimitOrders },
-          ),
         ).to.emit(limitOrderManager, "CreateLimitOrder");
       });
 
-      it("Should return false in canBeFilled when depositAmount < minPositionSize", async function () {
-        await positionManager.setMinPositionSize(depositAmount, tokenWETH.address);
-        const deadline = new Date().getTime() + 600;
-
-        await limitOrderManager.connect(trader).createLimitOrder(
-          {
-            bucket: "",
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
-            closeConditions: [],
-            leverage: leverage,
-            shouldOpenPosition: true,
-          },
-          { value: feeAmountInEthForLimitOrders },
-        );
-        const orderId = await limitOrderManager.ordersId();
-
-        await priceFeedTTAWETH.setAnswer(BigNumber.from(wethExchangeRate).div(2));
-
-        expect(await limitOrderManager.callStatic.canBeFilled(orderId, 0, additionalParams)).to.be.equal(false);
-      });
-
       it("Should revert openPositionByOrder when position size < minPositionSize", async function () {
-        await positionManager.setMinPositionSize(depositAmount, tokenWETH.address);
         const deadline = new Date().getTime() + 600;
-
-        await limitOrderManager.connect(trader).createLimitOrder(
-          {
-            bucket: "",
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
-            closeConditions: [],
-            leverage: leverage,
-            shouldOpenPosition: true,
-          },
-          { value: feeAmountInEthForLimitOrders },
+        const minPositionSize = await calculateMinPositionSize(
+          TradingOrderType.SpotMarketOrder,
+          testTokenC.address,
+          getEncodedChainlinkRouteViaUsd(testTokenC),
         );
-        const orderId = await limitOrderManager.ordersId();
-
-        await priceFeedTTAWETH.setAnswer(BigNumber.from(wethExchangeRate).div(2));
-
-        await expect(
-          limitOrderManager.openPositionByOrder({
-            orderId: orderId,
-            conditionIndex: 0,
-            comAdditionalParams: additionalParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositInThirdAssetRoutes: [],
-            keeper: liquidator.address,
-          }),
-        ).to.be.revertedWithCustomError(ErrorsLibrary, "INSUFFICIENT_POSITION_SIZE");
-      });
-    });
-
-    describe("canBeFilled", function () {
-      let orderId1, orderId2, orderId3, params, defaultAdditionalParams, conditionIndex;
-      before(async function () {
-        conditionIndex = 0;
-        const deadline = new Date().getTime() + 600;
-        const leverage = parseEther("1");
-        const takeDepositFromWallet = true;
-        const payFeeFromWallet = true;
-
-        const amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
-        const exchangeRate = BigNumber.from(wadDiv(amountDOut.toString(), depositAmount.toString()).toString());
-        await priceFeed.setAnswer(exchangeRate);
-        await priceFeed.setDecimals("18");
-
-        const limitPrice = BigNumber.from(wadDiv(depositAmount.toString(), amountDOut.toString()).toString());
-
-        await PMXToken.transfer(trader.address, feeAmountInPmxForLimitOrders);
-        await PMXToken.connect(trader).approve(limitOrderManager.address, feeAmountInPmxForLimitOrders);
-
-        await testTokenC.connect(trader).approve(limitOrderManager.address, depositAmount.mul(3));
-        await traderBalanceVault.deposit(NATIVE_CURRENCY, 0, { value: BigNumber.from(feeAmountInEth).mul(3) });
-        await limitOrderManager.connect(trader).createLimitOrder(
-          {
-            bucket: "",
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
-            closeConditions: [],
-            leverage: leverage,
-            shouldOpenPosition: true,
-          },
-          { value: feeAmountInEthForLimitOrders },
-        );
-
-        orderId1 = await limitOrderManager.ordersId();
-
-        await PMXToken.transfer(trader.address, feeAmountInPmxForLimitOrders);
-        await PMXToken.connect(trader).approve(traderBalanceVault.address, feeAmountInPmxForLimitOrders);
-        await traderBalanceVault.connect(trader).deposit(PMXToken.address, feeAmountInPmxForLimitOrders);
-
+        const depositAmount = minPositionSize.add(10);
         await limitOrderManager.connect(trader).createLimitOrder({
           bucket: "",
           depositAsset: testTokenC.address,
@@ -2400,103 +2013,36 @@ describe("SpotTrading", function () {
           positionAsset: testTokenD.address,
           deadline: deadline,
           takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          isProtocolFeeInPmx: true,
-          openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice.add(1)))],
+          openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
           closeConditions: [],
           leverage: leverage,
           shouldOpenPosition: true,
+          nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         });
+        const orderId = await limitOrderManager.ordersId();
 
-        orderId2 = await limitOrderManager.ordersId();
-        await limitOrderManager.connect(trader).createLimitOrder(
-          {
-            bucket: "",
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice.sub(1)))],
-            closeConditions: [],
-            leverage: leverage,
-            shouldOpenPosition: true,
-          },
-          { value: feeAmountInEthForLimitOrders },
-        );
-        orderId3 = await limitOrderManager.ordersId();
+        await setupUsdOraclesForTokens(testTokenC, await priceOracle.eth(), ttaPriceInETH.div(2));
 
-        defaultAdditionalParams = getLimitPriceAdditionalParams(firstAssetRoutes, [], []);
-      });
-      after(async function () {
-        await network.provider.request({
-          method: "evm_revert",
-          params: [snapshotIdBase2],
-        });
-        snapshotIdBase2 = await network.provider.request({
-          method: "evm_snapshot",
-          params: [],
-        });
-      });
-      beforeEach(async function () {
-        params = {
-          orderId: orderId2,
-          conditionIndex: 0,
-          comAdditionalParams: defaultAdditionalParams,
-          firstAssetRoutes: firstAssetRoutes,
-          depositInThirdAssetRoutes: [],
-          keeper: liquidator.address,
-        };
-      });
-
-      it("Should revert when firstAssetRoutes length is empty", async function () {
-        const additionalParams = getLimitPriceAdditionalParams([], [], []);
         await expect(
-          limitOrderManager.connect(liquidator).callStatic.canBeFilled(orderId2, conditionIndex, additionalParams),
-        ).to.be.revertedWithCustomError(ErrorsLibrary, "SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO");
-        params.firstAssetRoutes = [];
-        await expect(limitOrderManager.connect(liquidator).openPositionByOrder(params)).to.be.revertedWithCustomError(
-          ErrorsLibrary,
-          "SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO",
-        );
-      });
-
-      it("Should return true when limitPrice is less than current price on dex and trader has enough pmx in traderBalanceVault", async function () {
-        expect(
-          await limitOrderManager.connect(liquidator).callStatic.canBeFilled(orderId2, conditionIndex, defaultAdditionalParams),
-        ).to.be.equal(true);
-        await limitOrderManager.connect(liquidator).openPositionByOrder(params);
-      });
-
-      it("Should return true when limitPrice is current price on dex ", async function () {
-        params.orderId = orderId1;
-        expect(
-          await limitOrderManager.connect(liquidator).callStatic.canBeFilled(orderId1, conditionIndex, defaultAdditionalParams),
-        ).to.be.equal(true);
-        await limitOrderManager.connect(liquidator).openPositionByOrder(params);
-      });
-
-      it("Should return false when limitPrice is more than current price on dex ", async function () {
-        params.orderId = orderId3;
-        expect(
-          await limitOrderManager.connect(liquidator).callStatic.canBeFilled(orderId3, conditionIndex, defaultAdditionalParams),
-        ).to.be.equal(false);
-        await expect(limitOrderManager.connect(liquidator).openPositionByOrder(params)).to.be.revertedWithCustomError(
-          ErrorsLibrary,
-          "ORDER_CAN_NOT_BE_FILLED",
-        );
-      });
-      it("Should return false when limitPrice > current price(10) but deadline < block.timestamp", async function () {
-        await network.provider.send("evm_setNextBlockTimestamp", [new Date().getTime() + 800]);
-        await network.provider.send("evm_mine");
-        expect(
-          await limitOrderManager.connect(liquidator).callStatic.canBeFilled(orderId2, conditionIndex, defaultAdditionalParams),
-        ).to.be.equal(false);
-        await expect(limitOrderManager.connect(liquidator).callStatic.openPositionByOrder(params)).to.be.revertedWithCustomError(
-          ErrorsLibrary,
-          "ORDER_HAS_EXPIRED",
-        );
+          limitOrderManager.openPositionByOrder({
+            orderId: orderId,
+            conditionIndex: 0,
+            comAdditionalParams: additionalParams,
+            firstAssetMegaRoutes: firstAssetMegaRoutes,
+            depositInThirdAssetMegaRoutes: [],
+            keeper: liquidator.address,
+            firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+            thirdAssetOracleData: [],
+            depositSoldAssetOracleData: [],
+            nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+            positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
+            nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+            pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+            positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+            nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+            pullOracleData: [],
+          }),
+        ).to.be.revertedWithCustomError(ErrorsLibrary, "INSUFFICIENT_POSITION_SIZE");
       });
     });
 
@@ -2512,45 +2058,55 @@ describe("SpotTrading", function () {
         limitPrice,
         amountDOut,
         borrowedAmount,
-        defaultAdditionalParams;
+        positionAmountAfterFee,
+        feeInPositionAsset,
+        defaultAdditionalParams,
+        ethAddress,
+        openPositionByOrderParams;
       before(async function () {
         const deadline = new Date().getTime() + 600;
         borrowedAmount = BigNumber.from(0);
         const { availableBalance, lockedBalance } = await traderBalanceVault.balances(trader.address, testTokenC.address);
         availableBeforeAll = availableBalance;
         lockedBeforeAll = lockedBalance;
-
         amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
+        feeInPositionAsset = await calculateFeeInPositionAsset(
+          testTokenD.address,
+          amountDOut,
+          FeeRateType.SpotLimitOrderExecuted,
+          0,
+          false,
+          getEncodedChainlinkRouteViaUsd(testTokenD),
+        );
+        positionAmountAfterFee = amountDOut.sub(feeInPositionAsset);
         exchangeRate = BigNumber.from(wadDiv(amountDOut.toString(), depositAmount.toString()).toString());
-        await priceFeed.setAnswer(exchangeRate);
-        await priceFeed.setDecimals(18);
-
         limitPrice = BigNumber.from(wadDiv(depositAmount.toString(), amountDOut.toString()).toString());
+        const price0 = BigNumber.from(exchangeRate).div(USD_MULTIPLIER);
+        await setOraclePrice(testTokenC, testTokenD, price0);
+
         const difference = parseEther("1");
         slPrice = limitPrice.sub(difference);
         tpPrice = limitPrice.add(difference);
         closeConditions = [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(tpPrice, slPrice))];
-        await limitOrderManager.connect(trader).createLimitOrder(
-          {
-            bucket: "",
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            leverage: leverage,
-            shouldOpenPosition: true,
-            openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
-            closeConditions: closeConditions,
-          },
-          { value: feeAmountInEthForLimitOrders },
-        );
+        await limitOrderManager.connect(trader).createLimitOrder({
+          bucket: "",
+          depositAsset: testTokenC.address,
+          depositAmount: depositAmount,
+          positionAsset: testTokenD.address,
+          deadline: deadline,
+          takeDepositFromWallet: takeDepositFromWallet,
+          leverage: leverage,
+          shouldOpenPosition: true,
+          openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
+          closeConditions: closeConditions,
+          nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        });
         orderId = await limitOrderManager.ordersId();
         order = await limitOrderManager.getOrder(1);
 
-        defaultAdditionalParams = getLimitPriceAdditionalParams(firstAssetRoutes, [], []);
+        defaultAdditionalParams = getLimitPriceAdditionalParams(firstAssetMegaRoutes, []);
       });
+
       after(async function () {
         await network.provider.request({
           method: "evm_revert",
@@ -2561,29 +2117,54 @@ describe("SpotTrading", function () {
           params: [],
         });
       });
+      beforeEach(async function () {
+        ethAddress = await priceOracle.eth();
+        openPositionByOrderParams = {
+          orderId: orderId,
+          conditionIndex: 0,
+          comAdditionalParams: defaultAdditionalParams,
+          firstAssetMegaRoutes: firstAssetMegaRoutes,
+          depositInThirdAssetMegaRoutes: [],
+          keeper: liquidator.address,
+          firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          thirdAssetOracleData: [],
+          depositSoldAssetOracleData: [],
+          nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+          positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: ethAddress }),
+          nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+          nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
+        };
+        snapshotId = await network.provider.request({
+          method: "evm_snapshot",
+          params: [],
+        });
+      });
+      afterEach(async function () {
+        await network.provider.request({
+          method: "evm_revert",
+          params: [snapshotId],
+        });
+        snapshotId = await network.provider.request({
+          method: "evm_snapshot",
+          params: [],
+        });
+      });
 
-      it("Should revert openPositionByOrder when firstAssetRoutes is empty list", async function () {
+      it("Should revert openPositionByOrder when firstAssetMegaRoutes is empty list", async function () {
         await expect(
-          limitOrderManager.connect(liquidator).openPositionByOrder({
-            orderId: orderId,
-            conditionIndex: 0,
-            comAdditionalParams: defaultAdditionalParams,
-            firstAssetRoutes: [],
-            depositInThirdAssetRoutes: [],
-            keeper: liquidator.address,
-          }),
+          limitOrderManager.connect(liquidator).openPositionByOrder({ ...openPositionByOrderParams, firstAssetMegaRoutes: [] }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO");
       });
 
-      it("Should revert openPositionByOrder when depositInThirdAssetRoutes is not empty list", async function () {
+      it("Should revert openPositionByOrder when depositInThirdAssetMegaRoutes is not empty list", async function () {
         await expect(
           limitOrderManager.connect(liquidator).openPositionByOrder({
-            orderId: orderId,
-            conditionIndex: 0,
-            comAdditionalParams: defaultAdditionalParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositInThirdAssetRoutes: firstAssetRoutes,
-            keeper: liquidator.address,
+            ...openPositionByOrderParams,
+            depositInThirdAssetMegaRoutes: firstAssetMegaRoutes,
+            thirdAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "DEPOSIT_IN_THIRD_ASSET_ROUTES_LENGTH_SHOULD_BE_0");
       });
@@ -2597,29 +2178,17 @@ describe("SpotTrading", function () {
 
         const amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
         const exchangeRate = BigNumber.from(wadDiv(amountDOut.toString(), depositAmount.toString()).toString());
-        await priceFeed.setAnswer(exchangeRate);
+        const price0 = BigNumber.from(exchangeRate).div(USD_MULTIPLIER);
+        await setOraclePrice(testTokenC, testTokenD, price0);
+
         await expect(
-          limitOrderManager.connect(liquidator).openPositionByOrder({
-            orderId: orderId,
-            conditionIndex: 0,
-            comAdditionalParams: defaultAdditionalParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositInThirdAssetRoutes: [],
-            keeper: liquidator.address,
-          }),
+          limitOrderManager.connect(liquidator).openPositionByOrder({ ...openPositionByOrderParams }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "ORDER_CAN_NOT_BE_FILLED");
       });
 
       it("Should create position by order and transfer testTokenC from 'Bucket' to 'Pair'", async function () {
         await expect(() =>
-          limitOrderManager.connect(liquidator).openPositionByOrder({
-            orderId: orderId,
-            conditionIndex: 0,
-            comAdditionalParams: defaultAdditionalParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositInThirdAssetRoutes: [],
-            keeper: liquidator.address,
-          }),
+          limitOrderManager.connect(liquidator).openPositionByOrder({ ...openPositionByOrderParams }),
         ).to.changeTokenBalances(testTokenC, [traderBalanceVault, pair], [depositAmount.mul(NegativeOne.toString()), depositAmount]);
 
         expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
@@ -2627,28 +2196,14 @@ describe("SpotTrading", function () {
 
       it("Should create position by order and transfer testTokenD to 'PositionManager'", async function () {
         await expect(() =>
-          limitOrderManager.connect(liquidator).openPositionByOrder({
-            orderId: orderId,
-            conditionIndex: 0,
-            comAdditionalParams: defaultAdditionalParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositInThirdAssetRoutes: [],
-            keeper: liquidator.address,
-          }),
-        ).to.changeTokenBalance(testTokenD, positionManager, amountDOut);
+          limitOrderManager.connect(liquidator).openPositionByOrder({ ...openPositionByOrderParams }),
+        ).to.changeTokenBalance(testTokenD, positionManager, positionAmountAfterFee);
 
         expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
       });
 
       it("Should create position by order, increase traders count, add traderPositions and then deleted the order", async function () {
-        await limitOrderManager.connect(liquidator).openPositionByOrder({
-          orderId: orderId,
-          conditionIndex: 0,
-          comAdditionalParams: defaultAdditionalParams,
-          firstAssetRoutes: firstAssetRoutes,
-          depositInThirdAssetRoutes: [],
-          keeper: liquidator.address,
-        });
+        await limitOrderManager.connect(liquidator).openPositionByOrder({ ...openPositionByOrderParams });
 
         const positionCreatedAt = (await provider.getBlock("latest")).timestamp;
 
@@ -2656,6 +2211,7 @@ describe("SpotTrading", function () {
 
         const position = await positionManager.getPosition(0);
         expect(order.createdAt).to.lt(position.createdAt);
+        const extraParams = defaultAbiCoder.encode(["address"], [testTokenD.address]);
 
         const expectedPosition = {
           id: 0,
@@ -2664,12 +2220,12 @@ describe("SpotTrading", function () {
           depositAsset: testTokenC.address,
           depositAmount: depositAmount,
           positionAsset: testTokenD.address,
-          positionAmount: amountDOut,
+          positionAmount: positionAmountAfterFee,
           trader: trader.address,
           openBorrowIndex: 0,
           createdAt: positionCreatedAt,
           updatedConditionsAt: positionCreatedAt,
-          extraParams: "0x",
+          extraParams: extraParams,
         };
         parseArguments(expectedPosition, position);
         parseArguments(closeConditions, await positionManager.getCloseConditions(0));
@@ -2684,14 +2240,7 @@ describe("SpotTrading", function () {
         const entryPrice = wadDiv(borrowedAmount.add(depositAmount).toString(), amount0Out.toString()).toString();
         const leverage = wadDiv(borrowedAmount.add(depositAmount).toString(), depositAmount.toString()).toString();
 
-        const tx = await limitOrderManager.connect(liquidator).openPositionByOrder({
-          orderId: orderId,
-          conditionIndex: 0,
-          comAdditionalParams: defaultAdditionalParams,
-          firstAssetRoutes: firstAssetRoutes,
-          depositInThirdAssetRoutes: [],
-          keeper: liquidator.address,
-        });
+        const tx = await limitOrderManager.connect(liquidator).openPositionByOrder({ ...openPositionByOrderParams });
 
         const position = await positionManager.getPosition(0);
 
@@ -2700,8 +2249,6 @@ describe("SpotTrading", function () {
           trader: trader.address,
           openedBy: liquidator.address,
           position: position,
-          feeToken: NATIVE_CURRENCY,
-          protocolFee: feeAmountInEthForLimitOrders,
           entryPrice: entryPrice,
           leverage: leverage,
           closeConditions: closeConditions,
@@ -2713,14 +2260,7 @@ describe("SpotTrading", function () {
       it("Should open position by order and throw event 'CloseLimitOrder'", async function () {
         const closeReasonFilledSpot = 1;
         const newPositionID = await positionManager.positionsId();
-        const txCloseLimitOrder = await limitOrderManager.connect(liquidator).openPositionByOrder({
-          orderId: orderId,
-          conditionIndex: 0,
-          comAdditionalParams: defaultAdditionalParams,
-          firstAssetRoutes: firstAssetRoutes,
-          depositInThirdAssetRoutes: [],
-          keeper: liquidator.address,
-        });
+        const txCloseLimitOrder = await limitOrderManager.connect(liquidator).openPositionByOrder({ ...openPositionByOrderParams });
 
         const expectedArguments = {
           orderId: orderId,
@@ -2745,19 +2285,8 @@ describe("SpotTrading", function () {
         );
         expect(availableBefore).to.equal(availableBeforeAll);
         expect(lockedBefore).to.equal(lockedBeforeAll.add(depositAmount));
-        await expect(() =>
-          limitOrderManager.connect(liquidator).openPositionByOrder({
-            orderId: orderId,
-            conditionIndex: 0,
-            comAdditionalParams: defaultAdditionalParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositInThirdAssetRoutes: [],
-            keeper: liquidator.address,
-          }),
-        ).to.changeEtherBalances(
-          [traderBalanceVault, Treasury],
-          [BigNumber.from(feeAmountInEthForLimitOrders).mul(NegativeOne), feeAmountInEthForLimitOrders],
-        );
+
+        await limitOrderManager.connect(liquidator).openPositionByOrder({ ...openPositionByOrderParams });
         const { availableBalance: availableAfter } = await traderBalanceVault.balances(trader.address, testTokenC.address);
 
         expect(availableAfter).to.equal(availableBefore);
@@ -2766,8 +2295,27 @@ describe("SpotTrading", function () {
       it("Should open position by order when isProtocolFeeInPmx=true", async function () {
         // second order with isProtocolFeeInPmx=true
         await testTokenC.connect(trader).approve(limitOrderManager.address, depositAmount);
-        await PMXToken.transfer(trader.address, feeAmountInPmxForLimitOrders);
-        await PMXToken.connect(trader).approve(limitOrderManager.address, feeAmountInPmxForLimitOrders);
+        const pmxDiscountMultiplier = await PrimexDNS.pmxDiscountMultiplier();
+        const feeInPositionAsset = await calculateFeeInPositionAsset(
+          testTokenD.address,
+          amountDOut,
+          FeeRateType.SpotLimitOrderExecuted,
+          0,
+          false,
+          getEncodedChainlinkRouteViaUsd(testTokenD),
+        );
+        const feeInPositonAssetWithDiscount = wadMul(feeInPositionAsset.toString(), pmxDiscountMultiplier.toString()).toString();
+        const feeAmountInPmxForLimitOrders = await calculateFeeAmountInPmx(
+          testTokenD.address,
+          PMXToken.address,
+          feeInPositonAssetWithDiscount,
+          getEncodedChainlinkRouteViaUsd(PMXToken),
+        );
+
+        await PMXToken.transfer(trader.address, parseUnits("2", 18));
+        await PMXToken.connect(trader).approve(traderBalanceVault.address, parseUnits("2", 18));
+        await traderBalanceVault.connect(trader).deposit(PMXToken.address, parseUnits("2", 18));
+
         const deadline = new Date().getTime() + 600;
 
         await limitOrderManager.connect(trader).createLimitOrder({
@@ -2778,11 +2326,11 @@ describe("SpotTrading", function () {
           isProtocolFeeInPmx: true,
           deadline: deadline,
           takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
           leverage: leverage,
           shouldOpenPosition: true,
           openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
           closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(tpPrice, slPrice))],
+          nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         });
         const orderId = await limitOrderManager.ordersId();
 
@@ -2790,8 +2338,6 @@ describe("SpotTrading", function () {
           trader.address,
           testTokenC.address,
         );
-
-        const { lockedBalance: pmxLockedBefore } = await traderBalanceVault.balances(trader.address, PMXToken.address);
         expect(availableBefore).to.equal(availableBeforeAll);
         expect(lockedBefore).to.equal(lockedBeforeAll.add(depositAmount).add(depositAmount));
         await expect(() =>
@@ -2799,9 +2345,19 @@ describe("SpotTrading", function () {
             orderId: orderId,
             conditionIndex: 0,
             comAdditionalParams: defaultAdditionalParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositInThirdAssetRoutes: [],
+            firstAssetMegaRoutes: firstAssetMegaRoutes,
+            depositInThirdAssetMegaRoutes: [],
             keeper: liquidator.address,
+            firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+            thirdAssetOracleData: [],
+            depositSoldAssetOracleData: [],
+            nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+            positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: ethAddress }),
+            nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+            pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+            positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+            nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+            pullOracleData: [],
           }),
         ).to.changeTokenBalances(
           PMXToken,
@@ -2813,50 +2369,39 @@ describe("SpotTrading", function () {
           trader.address,
           testTokenC.address,
         );
-
         expect(availableAfter).to.equal(availableBefore);
         expect(lockedAfter).to.equal(lockedBefore.sub(depositAmount));
-        const { lockedBalance: pmxLockedAfter } = await traderBalanceVault.balances(trader.address, PMXToken.address);
-
-        expect(pmxLockedBefore.sub(pmxLockedAfter)).to.equal(feeAmountInPmxForLimitOrders);
       });
     });
 
     describe("openPositionByOrder - swap order", function () {
-      let orderId, exchangeRate, limitPrice, amountDOut, defaultAdditionalParams;
+      let orderId, exchangeRate, limitPrice, amountDOut, defaultAdditionalParams, ethAddress;
       before(async function () {
         const deadline = new Date().getTime() + 600;
-
-        // const { availableBalance, lockedBalance } = await traderBalanceVault.balances(trader.address, testTokenC.address);
-        // availableBeforeAll = availableBalance;
-        // lockedBeforeAll = lockedBalance;
-
+        ethAddress = await priceOracle.eth();
         amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
         exchangeRate = BigNumber.from(wadDiv(amountDOut.toString(), depositAmount.toString()).toString());
-        await priceFeed.setAnswer(exchangeRate);
-        await priceFeed.setDecimals(18);
+        const price0 = BigNumber.from(exchangeRate).div(USD_MULTIPLIER);
+        await setOraclePrice(testTokenC, testTokenD, price0);
 
         limitPrice = BigNumber.from(wadDiv(depositAmount.toString(), amountDOut.toString()).toString());
 
-        await limitOrderManager.connect(trader).createLimitOrder(
-          {
-            bucket: "",
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            leverage: leverage,
-            shouldOpenPosition: false,
-            openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
-            closeConditions: [],
-          },
-          { value: feeAmountInEthForLimitOrders },
-        );
+        await limitOrderManager.connect(trader).createLimitOrder({
+          bucket: "",
+          depositAsset: testTokenC.address,
+          depositAmount: depositAmount,
+          positionAsset: testTokenD.address,
+          deadline: deadline,
+          takeDepositFromWallet: takeDepositFromWallet,
+          leverage: leverage,
+          shouldOpenPosition: false,
+          openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
+          closeConditions: [],
+          nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        });
         orderId = await limitOrderManager.ordersId();
 
-        defaultAdditionalParams = getLimitPriceAdditionalParams(firstAssetRoutes, [], []);
+        defaultAdditionalParams = getLimitPriceAdditionalParams(firstAssetMegaRoutes, []);
       });
       after(async function () {
         await network.provider.request({
@@ -2875,18 +2420,31 @@ describe("SpotTrading", function () {
           amountIn: parseEther("1").toString(),
           path: [testTokenC.address, testTokenD.address],
         });
-
         const amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
         const exchangeRate = BigNumber.from(wadDiv(amountDOut.toString(), depositAmount.toString()).toString());
-        await priceFeed.setAnswer(exchangeRate);
+        const price0 = BigNumber.from(exchangeRate).div(USD_MULTIPLIER);
+        await setOraclePrice(testTokenC, testTokenD, price0);
+
+        await testTokenD.connect(trader).approve(SwapManager.address, depositAmount);
+
         await expect(
           limitOrderManager.connect(liquidator).openPositionByOrder({
             orderId: orderId,
             conditionIndex: 0,
             comAdditionalParams: defaultAdditionalParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositInThirdAssetRoutes: [],
+            firstAssetMegaRoutes: firstAssetMegaRoutes,
+            depositInThirdAssetMegaRoutes: [],
             keeper: liquidator.address,
+            firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+            thirdAssetOracleData: [],
+            depositSoldAssetOracleData: [],
+            nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+            positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: ethAddress }),
+            nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+            pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+            positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+            nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+            pullOracleData: [],
           }),
         ).to.be.revertedWithCustomError(ErrorsLibrary, "ORDER_CAN_NOT_BE_FILLED");
       });
@@ -2897,9 +2455,19 @@ describe("SpotTrading", function () {
             orderId: orderId,
             conditionIndex: 0,
             comAdditionalParams: defaultAdditionalParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositInThirdAssetRoutes: [],
+            firstAssetMegaRoutes: firstAssetMegaRoutes,
+            depositInThirdAssetMegaRoutes: [],
             keeper: liquidator.address,
+            firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+            thirdAssetOracleData: [],
+            depositSoldAssetOracleData: [],
+            nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+            positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: ethAddress }),
+            nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+            pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+            positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+            nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+            pullOracleData: [],
           }),
         ).to.changeTokenBalances(testTokenC, [traderBalanceVault, pair], [depositAmount.mul(NegativeOne.toString()), depositAmount]);
 
@@ -2922,20 +2490,35 @@ describe("SpotTrading", function () {
         expect(availableBeforeD).to.equal(0);
         expect(lockedBeforeD).to.equal(0);
 
-        const feeInEth = calculateFee(depositAmount, await PrimexDNS.feeRates(OrderType.SWAP_LIMIT_ORDER, NATIVE_CURRENCY), PriceInETH);
+        const feeInPositionAsset = await calculateFeeInPositionAsset(
+          testTokenD.address,
+          amountDOut,
+          FeeRateType.SwapLimitOrderExecuted,
+          0,
+          false,
+          getEncodedChainlinkRouteViaUsd(testTokenD),
+        );
+        const amountOutAfterFee = amountDOut.sub(feeInPositionAsset);
 
         const tx = await limitOrderManager.connect(liquidator).openPositionByOrder({
           orderId: orderId,
           conditionIndex: 0,
           comAdditionalParams: defaultAdditionalParams,
-          firstAssetRoutes: firstAssetRoutes,
-          depositInThirdAssetRoutes: [],
+          firstAssetMegaRoutes: firstAssetMegaRoutes,
+          depositInThirdAssetMegaRoutes: [],
           keeper: liquidator.address,
+          firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          thirdAssetOracleData: [],
+          depositSoldAssetOracleData: [],
+          nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+          positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: ethAddress }),
+          nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+          nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
         });
-
-        await expect(() => tx)
-          .to.changeTokenBalance(testTokenD, traderBalanceVault, amountDOut)
-          .to.changeEtherBalances([traderBalanceVault, Treasury], [BigNumber.from(feeInEth).mul(NegativeOne), feeInEth]);
+        await expect(() => tx).to.changeTokenBalance(testTokenD, traderBalanceVault, amountOutAfterFee);
 
         const { availableBalance: availableAfterC, lockedBalance: lockedAfterC } = await traderBalanceVault.balances(
           trader.address,
@@ -2949,38 +2532,20 @@ describe("SpotTrading", function () {
         expect(availableAfterC).to.equal(0);
         expect(lockedAfterC).to.equal(0);
 
-        expect(availableAfterD).to.equal(amountDOut);
+        expect(availableAfterD).to.equal(amountOutAfterFee);
         expect(lockedAfterD).to.equal(0);
 
         expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(0);
-      });
-
-      it("Should check the tolerable limit when executing the swap order", async function () {
-        await positionManager.connect(deployer).setOracleTolerableLimit(testTokenC.address, testTokenD.address, parseEther("0.000001"));
-        await swapExactTokensForTokens({
-          dex: dex,
-          amountIn: parseUnits("8", decimalsC),
-          path: [testTokenC.address, testTokenD.address],
-        });
-        await expect(
-          limitOrderManager.connect(liquidator).openPositionByOrder({
-            orderId: orderId,
-            conditionIndex: 0,
-            comAdditionalParams: defaultAdditionalParams,
-            firstAssetRoutes: firstAssetRoutes,
-            depositInThirdAssetRoutes: [],
-            keeper: liquidator.address,
-          }),
-        ).to.be.revertedWithCustomError(ErrorsLibrary, "DIFFERENT_PRICE_DEX_AND_ORACLE");
       });
 
       it("Should not create position by order and transfer testTokenD to traderBalanceVault, update trader balance in traderBalanceVault. protocolFeeInPmx=true", async function () {
         // second order with isProtocolFeeInPmx=true
         await testTokenC.connect(trader).approve(limitOrderManager.address, depositAmount);
         const deadline = new Date().getTime() + 600;
-        const feeInPmx = calculateFee(depositAmount, await PrimexDNS.feeRates(OrderType.SWAP_LIMIT_ORDER, PMXToken.address), PriceInPMX);
-        await PMXToken.transfer(trader.address, feeInPmx);
-        await PMXToken.connect(trader).approve(limitOrderManager.address, feeInPmx);
+        await PMXToken.transfer(trader.address, parseEther("1"));
+        await PMXToken.connect(trader).approve(traderBalanceVault.address, parseEther("1"));
+        await traderBalanceVault.connect(trader).deposit(PMXToken.address, parseEther("1"));
+
         await limitOrderManager.connect(trader).createLimitOrder({
           bucket: "",
           depositAsset: testTokenC.address,
@@ -2989,11 +2554,11 @@ describe("SpotTrading", function () {
           isProtocolFeeInPmx: true,
           deadline: deadline,
           takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
           leverage: leverage,
           shouldOpenPosition: false,
           openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
           closeConditions: [],
+          nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         });
         const orderId = await limitOrderManager.ordersId();
 
@@ -3006,7 +2571,6 @@ describe("SpotTrading", function () {
           trader.address,
           testTokenD.address,
         );
-        const { lockedBalance: lockedBeforePMX } = await traderBalanceVault.balances(trader.address, PMXToken.address);
         expect(availableBeforeC).to.equal(0);
         expect(lockedBeforeC).to.equal(depositAmount.add(depositAmount));
 
@@ -3016,13 +2580,21 @@ describe("SpotTrading", function () {
           orderId: orderId,
           conditionIndex: 0,
           comAdditionalParams: defaultAdditionalParams,
-          firstAssetRoutes: firstAssetRoutes,
-          depositInThirdAssetRoutes: [],
+          firstAssetMegaRoutes: firstAssetMegaRoutes,
+          depositInThirdAssetMegaRoutes: [],
           keeper: liquidator.address,
+          firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          thirdAssetOracleData: [],
+          depositSoldAssetOracleData: [],
+          nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+          positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: ethAddress }),
+          nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+          nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
         });
-        await expect(() => tx)
-          .to.changeTokenBalance(testTokenD, traderBalanceVault, amountDOut)
-          .changeTokenBalances(PMXToken, [traderBalanceVault, Treasury], [BigNumber.from(feeInPmx).mul(NegativeOne), feeInPmx]);
+        await expect(() => tx).to.changeTokenBalance(testTokenD, traderBalanceVault, amountDOut);
 
         const { availableBalance: availableAfterC, lockedBalance: lockedAfterC } = await traderBalanceVault.balances(
           trader.address,
@@ -3034,14 +2606,12 @@ describe("SpotTrading", function () {
           testTokenD.address,
         );
 
-        const { lockedBalance: lockedAfterPMX } = await traderBalanceVault.balances(trader.address, PMXToken.address);
         expect(availableAfterC).to.equal(0);
         expect(lockedAfterC).to.equal(depositAmount);
 
         expect(availableAfterD).to.equal(amountDOut);
         expect(lockedAfterD).to.equal(0);
 
-        expect(lockedBeforePMX.sub(lockedAfterPMX)).to.equal(feeInPmx);
         expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(0);
       });
       it("Should throw event 'CloseLimitOrder'", async function () {
@@ -3051,9 +2621,19 @@ describe("SpotTrading", function () {
           orderId: orderId,
           conditionIndex: 0,
           comAdditionalParams: defaultAdditionalParams,
-          firstAssetRoutes: firstAssetRoutes,
-          depositInThirdAssetRoutes: [],
+          firstAssetMegaRoutes: firstAssetMegaRoutes,
+          depositInThirdAssetMegaRoutes: [],
           keeper: liquidator.address,
+          firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          thirdAssetOracleData: [],
+          depositSoldAssetOracleData: [],
+          nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+          positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: ethAddress }),
+          nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+          positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+          nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+          pullOracleData: [],
         });
 
         const expectedArguments = {
@@ -3089,22 +2669,19 @@ describe("SpotTrading", function () {
         ];
 
         const deadline = new Date().getTime() + 600;
-        await limitOrderManager.connect(trader).createLimitOrder(
-          {
-            bucket: "",
-            depositAsset: testTokenC.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenD.address,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
-            closeConditions: [],
-            leverage: leverage,
-            shouldOpenPosition: true,
-          },
-          { value: feeAmountInEthForLimitOrders },
-        );
+        await limitOrderManager.connect(trader).createLimitOrder({
+          bucket: "",
+          depositAsset: testTokenC.address,
+          depositAmount: depositAmount,
+          positionAsset: testTokenD.address,
+          deadline: deadline,
+          takeDepositFromWallet: takeDepositFromWallet,
+          openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(1))],
+          closeConditions: [],
+          leverage: leverage,
+          shouldOpenPosition: true,
+          nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        });
       });
 
       after(async function () {
@@ -3140,29 +2717,29 @@ describe("SpotTrading", function () {
 
         expect(amount0Out1).to.be.gt(amount0Out2);
         const bestShares = await bestDexLens.callStatic[
-          "getBestDexByOrder((address,address,uint256,(uint256,uint256,uint256),(string,bytes32)[]))"
+          "getBestDexByOrder((address,address,uint256,(uint256,uint256,uint256),(string,bytes32)[],bytes))"
         ]([
           positionManager.address,
           limitOrderManager.address,
           1,
           { firstAssetShares: 1, depositInThirdAssetShares: 1, depositToBorrowedShares: 1 },
           dexesWithAncillaryData,
+          getEncodedChainlinkRouteViaUsd(testTokenC),
         ]);
-
         parseArguments(bestShares.firstAssetReturnParams, {
           returnAmount: amount0Out1,
           estimateGasAmount: await getGas(dex),
-          routes: firstAssetRoutes,
+          megaRoutes: firstAssetMegaRoutes,
         });
         parseArguments(bestShares.depositInThirdAssetReturnParams, {
           returnAmount: 0,
           estimateGasAmount: 0,
-          routes: [],
+          megaRoutes: [],
         });
         parseArguments(bestShares.depositToBorrowedReturnParams, {
           returnAmount: 0,
           estimateGasAmount: 0,
-          routes: [],
+          megaRoutes: [],
         });
       });
 
@@ -3178,29 +2755,29 @@ describe("SpotTrading", function () {
         expect(amount0Out2).to.be.gt(amount0Out1);
 
         const bestShares = await bestDexLens.callStatic[
-          "getBestDexByOrder((address,address,uint256,(uint256,uint256,uint256),(string,bytes32)[]))"
+          "getBestDexByOrder((address,address,uint256,(uint256,uint256,uint256),(string,bytes32)[],bytes))"
         ]([
           positionManager.address,
           limitOrderManager.address,
           1,
           { firstAssetShares: 1, depositInThirdAssetShares: 1, depositToBorrowedShares: 1 },
           dexesWithAncillaryData,
+          getEncodedChainlinkRouteViaUsd(testTokenC),
         ]);
-
         parseArguments(bestShares.firstAssetReturnParams, {
           returnAmount: amount0Out2,
           estimateGasAmount: await getGas(dex2),
-          routes: await getSingleRoute([testTokenC.address, testTokenD.address], dex2),
+          megaRoutes: await getSingleMegaRoute([testTokenC.address, testTokenD.address], dex2),
         });
         parseArguments(bestShares.depositInThirdAssetReturnParams, {
           returnAmount: 0,
           estimateGasAmount: 0,
-          routes: [],
+          megaRoutes: [],
         });
         parseArguments(bestShares.depositToBorrowedReturnParams, {
           returnAmount: 0,
           estimateGasAmount: 0,
-          routes: [],
+          megaRoutes: [],
         });
       });
     });
@@ -3212,33 +2789,38 @@ describe("SpotTrading", function () {
       const borrowedAmount = 0;
       const amountOutMin = 0;
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
       await testTokenC.connect(trader).approve(positionManager.address, depositAmount.add(depositAmount));
       const amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
 
       const limitPrice = wadDiv(amountDOut.toString(), depositAmount.toString()).toString();
-      await priceFeed.setAnswer(limitPrice);
+      const price0 = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenC, testTokenD, price0);
+
       const deadline = new Date().getTime() + 600;
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "",
-            borrowedAmount: borrowedAmount,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: firstAssetRoutes,
-          depositAsset: testTokenC.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenD.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "",
+          borrowedAmount: borrowedAmount,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: feeAmountInEth },
-      );
+        firstAssetMegaRoutes: firstAssetMegaRoutes,
+        depositAsset: testTokenC.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenD.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: [],
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenD),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+        pullOracleData: [],
+      });
       positionId = 0;
     });
 
@@ -3265,10 +2847,9 @@ describe("SpotTrading", function () {
 
     it("Revert when decreaseDeposit for spot position", async function () {
       const depositDecrease = parseEther("1");
-      await expect(positionManager.connect(trader).decreaseDeposit(positionId, depositDecrease)).to.be.revertedWithCustomError(
-        ErrorsLibrary,
-        "IS_SPOT_POSITION",
-      );
+      await expect(
+        positionManager.connect(trader).decreaseDeposit(positionId, depositDecrease, getEncodedChainlinkRouteViaUsd(testTokenC), []),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "IS_SPOT_POSITION");
     });
   });
 
@@ -3277,36 +2858,32 @@ describe("SpotTrading", function () {
     // eslint-disable-next-line mocha/no-hooks-for-single-case
     before(async function () {
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
       leverage = parseEther("1");
       const deadline = new Date().getTime() + 600;
 
       amountDOut = await getAmountsOut(dex, depositAmount, [testTokenC.address, testTokenD.address]);
       exchangeRate = BigNumber.from(wadDiv(amountDOut.toString(), depositAmount.toString()).toString());
-      await priceFeed.setAnswer(exchangeRate);
-      await priceFeed.setDecimals(18);
+      const price0 = BigNumber.from(exchangeRate).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenC, testTokenD, price0);
 
       limitPrice = BigNumber.from(wadDiv(depositAmount.toString(), amountDOut.toString()).toString());
 
       stopLossPrice = limitPrice.sub("100");
       takeProfitPrice = limitPrice.add("100");
       await testTokenC.connect(trader).approve(limitOrderManager.address, depositAmount);
-      await limitOrderManager.connect(trader).createLimitOrder(
-        {
-          bucket: "",
-          depositAsset: testTokenC.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenD.address,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          leverage: leverage,
-          shouldOpenPosition: true,
-          openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
-          closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice))],
-        },
-        { value: feeAmountInEthForLimitOrders },
-      );
+      await limitOrderManager.connect(trader).createLimitOrder({
+        bucket: "",
+        depositAsset: testTokenC.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenD.address,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        leverage: leverage,
+        shouldOpenPosition: true,
+        openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
+        closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice))],
+        nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+      });
     });
 
     it("Should revert when update leverage", async function () {
@@ -3314,30 +2891,27 @@ describe("SpotTrading", function () {
       await testTokenC.connect(trader).approve(limitOrderManager.address, depositAmount);
       const deadline = new Date().getTime() + 600;
 
-      await limitOrderManager.connect(trader).createLimitOrder(
-        {
-          bucket: "",
-          depositAsset: testTokenC.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenD.address,
-          deadline: deadline,
-          takeDepositFromWallet: true,
-          payFeeFromWallet: true,
-          leverage: leverage,
-          shouldOpenPosition: true,
-          openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
-          closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice))],
-        },
-        { value: feeAmountInEthForLimitOrders },
-      );
+      await limitOrderManager.connect(trader).createLimitOrder({
+        bucket: "",
+        depositAsset: testTokenC.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenD.address,
+        deadline: deadline,
+        takeDepositFromWallet: true,
+        leverage: leverage,
+        shouldOpenPosition: true,
+        openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
+        closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice))],
+        nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
+      });
       const orderId = await limitOrderManager.ordersId();
 
       await expect(
         limitOrderManager.connect(trader).updateOrder({
-          bucket: "bucket1",
           orderId: orderId,
           depositAmount: depositAmount,
           leverage: newLeverage,
+          nativeDepositOracleData: getEncodedChainlinkRouteViaUsd(testTokenC),
         }),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "CANNOT_CHANGE_SPOT_ORDER_TO_MARGIN");
     });

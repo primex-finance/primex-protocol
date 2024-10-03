@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -12,14 +12,14 @@ import {TokenTransfersLibrary} from "./TokenTransfersLibrary.sol";
 
 import {NATIVE_CURRENCY} from "../Constants.sol";
 import {ITraderBalanceVault} from "../TraderBalanceVault/ITraderBalanceVault.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
-import {IPrimexDNSStorage} from "../PrimexDNS/IPrimexDNSStorage.sol";
-import {IPriceOracle} from "../PriceOracle/IPriceOracle.sol";
-import {IBucket} from "../Bucket/IBucket.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
+import {IPrimexDNSStorageV3} from "../PrimexDNS/IPrimexDNSStorage.sol";
+import {IPriceOracleV2} from "../PriceOracle/IPriceOracle.sol";
+import {IBucketV3} from "../Bucket/IBucket.sol";
 import {IConditionalOpeningManager} from "../interfaces/IConditionalOpeningManager.sol";
 import {IConditionalClosingManager} from "../interfaces/IConditionalClosingManager.sol";
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
-import {ISwapManager} from "../interfaces/ISwapManager.sol";
+import {IPositionManagerV2} from "../PositionManager/IPositionManager.sol";
+import {ISwapManager} from "../SwapManager/ISwapManager.sol";
 
 import "./Errors.sol";
 
@@ -44,7 +44,7 @@ library LimitOrderLibrary {
      * @param positionAsset The address of output token for exchange
      * @param depositAsset The address of the deposit token
      * @param depositAmount The amount of deposit trader funds for deal
-     * @param feeToken An asset in which the fee will be paid. At this point it could be the pmx, the epmx or a native currency
+     * @param feeToken An asset in which the fee will be paid. At this point it could be the pmx, the epmx or a positionAsset
      * @param trader The trader, who has created the order
      * @param deadline Unix timestamp after which the order will not be filled
      * @param id The unique id of the order
@@ -54,7 +54,7 @@ library LimitOrderLibrary {
      * @param updatedConditionsAt The timestamp when the open condition was updated
      */
     struct LimitOrder {
-        IBucket bucket;
+        IBucketV3 bucket;
         address positionAsset;
         address depositAsset;
         uint256 depositAmount;
@@ -94,21 +94,23 @@ library LimitOrderLibrary {
         address positionAsset;
         uint256 deadline;
         bool takeDepositFromWallet;
-        bool payFeeFromWallet;
         uint256 leverage;
         bool shouldOpenPosition;
         Condition[] openConditions;
         Condition[] closeConditions;
         bool isProtocolFeeInPmx;
+        bytes nativeDepositAssetOracleData;
     }
 
     struct CreateLimitOrderVars {
         bool isSpot;
-        IBucket bucket;
+        IBucketV3 bucket;
         uint256 positionSize;
         address priceOracle;
         uint256 rate;
         address feeToken;
+        IPrimexDNSStorageV3.TradingOrderType tradingOrderType;
+        bool isThirdAsset;
     }
 
     /**
@@ -116,16 +118,26 @@ library LimitOrderLibrary {
      * @param orderId order id
      * @param com address of ConditionalOpeningManager
      * @param comAdditionalParams  params needed for ConditionalOpeningManager to calc canBeFilled
-     * @param firstAssetRoutes routes to swap first asset
-     * @param depositInThirdAssetRoutes routes to swap deposit asset
+     * @param firstAssetMegaRoutes routes to swap first asset
+     * @param depositInThirdAssetMegaRoutes routes to swap deposit asset
      */
     struct OpenPositionParams {
         uint256 orderId;
         uint256 conditionIndex;
         bytes comAdditionalParams;
-        PrimexPricingLibrary.Route[] firstAssetRoutes;
-        PrimexPricingLibrary.Route[] depositInThirdAssetRoutes;
+        PrimexPricingLibrary.MegaRoute[] firstAssetMegaRoutes;
+        PrimexPricingLibrary.MegaRoute[] depositInThirdAssetMegaRoutes;
         address keeper;
+        bytes firstAssetOracleData;
+        bytes thirdAssetOracleData;
+        bytes depositSoldAssetOracleData;
+        bytes nativePmxOracleData;
+        bytes positionNativeAssetOracleData;
+        bytes nativePositionAssetOracleData;
+        bytes pmxPositionAssetOracleData;
+        bytes positionUsdOracleData;
+        bytes nativeSoldAssetOracleData;
+        bytes[] pullOracleData;
     }
 
     struct OpenPositionByOrderVars {
@@ -136,21 +148,30 @@ library LimitOrderLibrary {
         CloseReason closeReason;
         uint256 newPositionId;
         uint256 exchangeRate;
+        uint256 feeInPositionAsset;
+        uint256 feeInPmx;
     }
 
     /**
      * @dev Params for PositionManager to open position
      * @param order order
-     * @param firstAssetRoutes routes to swap first asset on dex
+     * @param firstAssetMegaRoutes routes to swap first asset on dex
      * (borrowedAmount + depositAmount if deposit in borrowedAsset)
-     * @param depositInThirdAssetRoutes routes to swap deposit in third asset on dex
+     * @param depositInThirdAssetMegaRoutes routes to swap deposit in third asset on dex
      */
     struct OpenPositionByOrderParams {
         address sender;
         LimitOrder order;
         Condition[] closeConditions;
-        PrimexPricingLibrary.Route[] firstAssetRoutes;
-        PrimexPricingLibrary.Route[] depositInThirdAssetRoutes;
+        PrimexPricingLibrary.MegaRoute[] firstAssetMegaRoutes;
+        PrimexPricingLibrary.MegaRoute[] depositInThirdAssetMegaRoutes;
+        bytes firstAssetOracleData;
+        bytes thirdAssetOracleData;
+        bytes depositSoldAssetOracleData;
+        bytes positionUsdOracleData;
+        bytes nativePositionAssetOracleData;
+        bytes pmxPositionAssetOracleData;
+        bytes nativeSoldAssetOracleData;
     }
 
     /**
@@ -160,7 +181,6 @@ library LimitOrderLibrary {
      * @param makeDeposit Bool, add a collateral deposit within the current transaction
      * @param leverage leverage for trading
      * @param takeDepositFromWallet Bool, add a collateral deposit within the current transaction
-     * @param payFeeFromWallet A flag indicating whether the Limit Order fee is perfomed from a wallet or a protocol balance.
      */
     struct UpdateLimitOrderParams {
         uint256 orderId;
@@ -168,93 +188,25 @@ library LimitOrderLibrary {
         uint256 leverage;
         bool isProtocolFeeInPmx;
         bool takeDepositFromWallet;
-        bool payFeeFromWallet;
-    }
-
-    /**
-     * @notice Updates the protocol fee for a LimitOrder.
-     * @param _order The LimitOrder storage object to update.
-     * @param _params The new parameters for the LimitOrder.
-     * @param _traderBalanceVault The instance of the TraderBalanceVault contract.
-     * @param _primexDNS The PrimexDNS contract for accessing PMX-related information.
-     * @param _priceOracle The address of the price oracle contract.
-     */
-    function updateProtocolFee(
-        LimitOrder storage _order,
-        UpdateLimitOrderParams calldata _params,
-        ITraderBalanceVault _traderBalanceVault,
-        IPrimexDNS _primexDNS,
-        address _priceOracle
-    ) public {
-        address feeToken;
-        if (_params.isProtocolFeeInPmx) {
-            feeToken = _primexDNS.pmx();
-            _require(msg.value == 0, Errors.DISABLED_TRANSFER_NATIVE_CURRENCY.selector);
-        } else {
-            feeToken = NATIVE_CURRENCY;
-        }
-        if (
-            _params.leverage != _order.leverage ||
-            _params.depositAmount != _order.depositAmount ||
-            feeToken != _order.feeToken
-        ) {
-            uint256 newProtocolFee = PrimexPricingLibrary.calculateProtocolFee(
-                PrimexPricingLibrary.DepositData({
-                    protocolFee: 0,
-                    depositAsset: _order.depositAsset,
-                    depositAmount: _params.depositAmount,
-                    leverage: _params.leverage
-                }),
-                _primexDNS,
-                _priceOracle,
-                _order.shouldOpenPosition
-                    ? IPrimexDNSStorage.OrderType.LIMIT_ORDER
-                    : IPrimexDNSStorage.OrderType.SWAP_LIMIT_ORDER,
-                feeToken
-            );
-            if (feeToken == _order.feeToken) {
-                uint256 amount;
-                unchecked {
-                    if (newProtocolFee > _order.protocolFee) amount = newProtocolFee - _order.protocolFee;
-                    else amount = _order.protocolFee - newProtocolFee;
-                }
-                depositLockOrUnlock(
-                    _traderBalanceVault,
-                    feeToken,
-                    amount,
-                    _params.payFeeFromWallet,
-                    newProtocolFee > _order.protocolFee
-                );
-            } else {
-                if (newProtocolFee > 0) {
-                    //lock the new fee token
-                    depositLockOrUnlock(_traderBalanceVault, feeToken, newProtocolFee, _params.payFeeFromWallet, true);
-                }
-                //unlock the old fee token
-                depositLockOrUnlock(
-                    _traderBalanceVault,
-                    _order.feeToken,
-                    _order.protocolFee,
-                    _params.payFeeFromWallet,
-                    false
-                );
-                _order.feeToken = feeToken;
-            }
-            _order.protocolFee = newProtocolFee;
-        }
+        bytes nativeDepositOracleData;
     }
 
     /**
      * @notice Updates the leverage of a limit order.
      * @param _order The limit order to update.
      * @param _leverage The new leverage value in WAD format for the order.
+     * @param _primexDNS The instance of the PrimexDNS contract
      */
-    function updateLeverage(LimitOrder storage _order, uint256 _leverage) public {
+    function updateLeverage(LimitOrder storage _order, uint256 _leverage, IPrimexDNSV3 _primexDNS) public {
         _require(_leverage > WadRayMath.WAD, Errors.LEVERAGE_MUST_BE_MORE_THAN_1.selector);
         _require(_order.leverage != WadRayMath.WAD, Errors.CANNOT_CHANGE_SPOT_ORDER_TO_MARGIN.selector);
 
         _require(
-            _leverage < _order.bucket.maxAssetLeverage(_order.positionAsset),
+            _leverage <
+                _order.bucket.maxAssetLeverage(
+                    _order.positionAsset,
+                    _primexDNS.protocolFeeRates(IPrimexDNSStorageV3.FeeRateType.MarginLimitOrderExecuted)
+                ),
             Errors.LEVERAGE_EXCEEDS_MAX_LEVERAGE.selector
         );
         _order.leverage = _leverage;
@@ -294,7 +246,7 @@ library LimitOrderLibrary {
         LimitOrderLibrary.LimitOrder memory _order,
         mapping(uint256 => Condition[]) storage openConditionsMap,
         Condition[] memory openConditions,
-        IPrimexDNS primexDNS
+        IPrimexDNSV3 primexDNS
     ) public {
         _require(hasNoConditionManagerTypeDuplicates(openConditions), Errors.SHOULD_NOT_HAVE_DUPLICATES.selector);
         _require(openConditions.length > 0, Errors.SHOULD_HAVE_OPEN_CONDITIONS.selector);
@@ -325,7 +277,7 @@ library LimitOrderLibrary {
         LimitOrderLibrary.LimitOrder memory _order,
         mapping(uint256 => Condition[]) storage closeConditionsMap,
         Condition[] memory closeConditions,
-        IPrimexDNS primexDNS
+        IPrimexDNSV3 primexDNS
     ) public {
         _require(hasNoConditionManagerTypeDuplicates(closeConditions), Errors.SHOULD_NOT_HAVE_DUPLICATES.selector);
         _require(
@@ -359,9 +311,9 @@ library LimitOrderLibrary {
      */
     function createLimitOrder(
         CreateLimitOrderParams calldata _params,
-        IPositionManager pm,
+        IPositionManagerV2 pm,
         ITraderBalanceVault traderBalanceVault,
-        IPrimexDNS primexDNS
+        IPrimexDNSV3 primexDNS
     ) public returns (LimitOrder memory) {
         _require(_params.leverage >= WadRayMath.WAD, Errors.INCORRECT_LEVERAGE.selector);
         _require(_params.deadline > block.timestamp, Errors.INCORRECT_DEADLINE.selector);
@@ -373,26 +325,38 @@ library LimitOrderLibrary {
         if (vars.isSpot) {
             _require(_params.leverage == WadRayMath.WAD, Errors.LEVERAGE_SHOULD_BE_1.selector);
             _require(_params.depositAsset != _params.positionAsset, Errors.SHOULD_BE_DIFFERENT_ASSETS_IN_SPOT.selector);
-            IPriceOracle(vars.priceOracle).getPriceFeedsPair(_params.positionAsset, _params.depositAsset);
+            vars.tradingOrderType = _params.shouldOpenPosition
+                ? IPrimexDNSStorageV3.TradingOrderType.SpotLimitOrder
+                : IPrimexDNSStorageV3.TradingOrderType.SwapLimitOrder;
         } else {
             _require(_params.shouldOpenPosition, Errors.SHOULD_OPEN_POSITION.selector);
             _require(_params.leverage > WadRayMath.WAD, Errors.LEVERAGE_MUST_BE_MORE_THAN_1.selector);
-            vars.bucket = IBucket(primexDNS.getBucketAddress(_params.bucket));
+            vars.bucket = IBucketV3(primexDNS.getBucketAddress(_params.bucket));
             _require(vars.bucket.getLiquidityMiningParams().isBucketLaunched, Errors.BUCKET_IS_NOT_LAUNCHED.selector);
 
             (, bool tokenAllowed) = vars.bucket.allowedAssets(_params.positionAsset);
             _require(tokenAllowed, Errors.TOKEN_NOT_SUPPORTED.selector);
             _require(
-                _params.leverage < vars.bucket.maxAssetLeverage(_params.positionAsset),
+                _params.leverage <
+                    vars.bucket.maxAssetLeverage(
+                        _params.positionAsset,
+                        primexDNS.protocolFeeRates(IPrimexDNSStorageV3.FeeRateType.MarginLimitOrderExecuted)
+                    ),
                 Errors.LEVERAGE_EXCEEDS_MAX_LEVERAGE.selector
             );
+            vars.isThirdAsset =
+                _params.depositAsset != address(vars.bucket.borrowedAsset()) &&
+                _params.depositAsset != _params.positionAsset;
+            vars.tradingOrderType = vars.isThirdAsset
+                ? IPrimexDNSStorageV3.TradingOrderType.MarginLimitOrderDepositInThirdAsset
+                : IPrimexDNSStorageV3.TradingOrderType.MarginLimitOrder;
         }
         LimitOrder memory order = LimitOrder({
-            bucket: IBucket(address(0)),
+            bucket: IBucketV3(address(0)),
             positionAsset: _params.positionAsset,
             depositAsset: _params.depositAsset,
             depositAmount: _params.depositAmount,
-            feeToken: _params.isProtocolFeeInPmx ? primexDNS.pmx() : NATIVE_CURRENCY,
+            feeToken: _params.isProtocolFeeInPmx ? primexDNS.pmx() : _params.positionAsset,
             protocolFee: 0,
             trader: msg.sender,
             deadline: _params.deadline,
@@ -406,38 +370,20 @@ library LimitOrderLibrary {
         order.bucket = vars.bucket;
 
         PrimexPricingLibrary.validateMinPositionSize(
-            pm.minPositionSize(),
-            pm.minPositionAsset(),
             vars.positionSize,
             order.depositAsset,
-            vars.priceOracle
+            vars.priceOracle,
+            pm.keeperRewardDistributor(),
+            primexDNS,
+            vars.tradingOrderType,
+            _params.nativeDepositAssetOracleData
         );
         if (_params.isProtocolFeeInPmx) {
             vars.feeToken = primexDNS.pmx();
-            _require(msg.value == 0, Errors.DISABLED_TRANSFER_NATIVE_CURRENCY.selector);
         } else {
-            vars.feeToken = NATIVE_CURRENCY;
+            vars.feeToken = order.positionAsset;
         }
 
-        order.protocolFee = PrimexPricingLibrary.calculateProtocolFee(
-            PrimexPricingLibrary.DepositData({
-                protocolFee: 0,
-                depositAsset: _params.depositAsset,
-                depositAmount: _params.depositAmount,
-                leverage: _params.leverage
-            }),
-            primexDNS,
-            vars.priceOracle,
-            order.shouldOpenPosition
-                ? IPrimexDNSStorage.OrderType.LIMIT_ORDER
-                : IPrimexDNSStorage.OrderType.SWAP_LIMIT_ORDER,
-            vars.feeToken
-        );
-
-        if (order.protocolFee > 0) {
-            // fee locking
-            depositLockOrUnlock(traderBalanceVault, vars.feeToken, order.protocolFee, _params.payFeeFromWallet, true);
-        }
         // deposit locking
         depositLockOrUnlock(
             traderBalanceVault,
@@ -457,7 +403,6 @@ library LimitOrderLibrary {
      * @param _closeConditions The Condition array containing close conditions for the position.
      * @param pm The instance of the PositionManager contract.
      * @param traderBalanceVault The instance of the TraderBalanceVault contract.
-     * @param primexDNS The instance of the PrimexDNS contract.
      * @param swapManager The instance of the SwapManager contract.
      * @return vars The OpenPositionByOrderVars struct containing the result of the open position operation.
      */
@@ -465,53 +410,40 @@ library LimitOrderLibrary {
         LimitOrder storage order,
         OpenPositionParams calldata _params,
         Condition[] memory _closeConditions,
-        IPositionManager pm,
+        IPositionManagerV2 pm,
         ITraderBalanceVault traderBalanceVault,
-        IPrimexDNS primexDNS,
-        ISwapManager swapManager
+        ISwapManager swapManager,
+        uint256 _initialGasLeft
     ) public returns (OpenPositionByOrderVars memory) {
         OpenPositionByOrderVars memory vars;
         bool isSpot = address(order.bucket) == address(0);
 
         if (order.shouldOpenPosition) {
             vars.closeReason = isSpot ? CloseReason.FilledSpot : CloseReason.FilledMargin;
-            (vars.amountIn, vars.amountOut, vars.newPositionId, vars.exchangeRate) = pm.openPositionByOrder(
-                OpenPositionByOrderParams({
-                    sender: msg.sender,
-                    order: order,
-                    closeConditions: _closeConditions,
-                    firstAssetRoutes: _params.firstAssetRoutes,
-                    depositInThirdAssetRoutes: _params.depositInThirdAssetRoutes
-                })
-            );
+            (vars.amountIn, vars.amountOut, vars.newPositionId, vars.exchangeRate, vars.feeInPositionAsset) = pm
+                .openPositionByOrder(
+                    OpenPositionByOrderParams({
+                        sender: msg.sender,
+                        order: order,
+                        closeConditions: _closeConditions,
+                        firstAssetMegaRoutes: _params.firstAssetMegaRoutes,
+                        depositInThirdAssetMegaRoutes: _params.depositInThirdAssetMegaRoutes,
+                        firstAssetOracleData: _params.firstAssetOracleData,
+                        thirdAssetOracleData: _params.thirdAssetOracleData,
+                        depositSoldAssetOracleData: _params.depositSoldAssetOracleData,
+                        positionUsdOracleData: _params.positionUsdOracleData,
+                        nativePositionAssetOracleData: _params.nativePositionAssetOracleData,
+                        pmxPositionAssetOracleData: _params.pmxPositionAssetOracleData,
+                        nativeSoldAssetOracleData: _params.nativeSoldAssetOracleData
+                    })
+                );
         } else {
             _require(
-                _params.depositInThirdAssetRoutes.length == 0,
+                _params.depositInThirdAssetMegaRoutes.length == 0,
                 Errors.DEPOSIT_IN_THIRD_ASSET_ROUTES_LENGTH_SHOULD_BE_0.selector
             );
             vars.closeReason = CloseReason.FilledSwap;
             vars.amountIn = order.depositAmount;
-
-            // calculateFee is false so 'depositData' and 'priceOracle' are default values except 'protocolFee'
-            PrimexPricingLibrary.payProtocolFee(
-                PrimexPricingLibrary.ProtocolFeeParams({
-                    depositData: PrimexPricingLibrary.DepositData({
-                        protocolFee: order.protocolFee,
-                        depositAsset: address(0),
-                        depositAmount: 0,
-                        leverage: 0
-                    }),
-                    feeToken: order.feeToken,
-                    isSwapFromWallet: false,
-                    calculateFee: false,
-                    orderType: IPrimexDNSStorage.OrderType.SWAP_LIMIT_ORDER,
-                    trader: order.trader,
-                    priceOracle: address(0),
-                    traderBalanceVault: traderBalanceVault,
-                    primexDNS: primexDNS
-                })
-            );
-
             traderBalanceVault.unlockAsset(
                 ITraderBalanceVault.UnlockAssetParams({
                     trader: order.trader,
@@ -521,27 +453,30 @@ library LimitOrderLibrary {
                 })
             );
 
-            vars.amountOut = swapManager.swap(
-                ISwapManager.SwapParams({
-                    tokenA: order.depositAsset,
-                    tokenB: order.positionAsset,
-                    amountTokenA: order.depositAmount,
-                    amountOutMin: 0,
-                    routes: _params.firstAssetRoutes,
-                    receiver: order.trader,
+            (vars.amountOut, vars.feeInPositionAsset) = swapManager.swapInLimitOrder(
+                ISwapManager.SwapInLimitOrderParams({
+                    depositAsset: order.depositAsset,
+                    positionAsset: order.positionAsset,
+                    depositAmount: order.depositAmount,
+                    megaRoutes: _params.firstAssetMegaRoutes,
+                    trader: order.trader,
                     deadline: order.deadline,
-                    isSwapFromWallet: false,
-                    isSwapToWallet: false,
-                    isSwapFeeInPmx: false,
-                    payFeeFromWallet: false
+                    feeToken: order.feeToken,
+                    keeperRewardDistributor: address(pm.keeperRewardDistributor()),
+                    gasSpent: _initialGasLeft - gasleft(),
+                    depositPositionAssetOracleData: _params.firstAssetOracleData,
+                    pmxPositionAssetOracleData: _params.pmxPositionAssetOracleData,
+                    nativePositionAssetOracleData: _params.nativePositionAssetOracleData
                 }),
-                pm.getOracleTolerableLimit(order.depositAsset, order.positionAsset),
-                true
+                pm.getOracleTolerableLimit(order.depositAsset, order.positionAsset)
             );
+
             uint256 multiplierDepositAsset = 10 ** (18 - IERC20Metadata(order.depositAsset).decimals());
             uint256 multiplierPositionAsset = 10 ** (18 - IERC20Metadata(order.positionAsset).decimals());
             vars.exchangeRate =
-                (vars.amountIn * multiplierDepositAsset).wdiv(vars.amountOut * multiplierPositionAsset) /
+                (vars.amountIn * multiplierDepositAsset).wdiv(
+                    (vars.amountOut + vars.feeInPositionAsset) * multiplierPositionAsset
+                ) /
                 multiplierDepositAsset;
         }
 

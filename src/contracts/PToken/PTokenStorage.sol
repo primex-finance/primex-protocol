@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -9,10 +9,10 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/se
 import "../libraries/Errors.sol";
 
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
-import {IPTokenStorage, IBucket, IFeeExecutor, IActivityRewardDistributor} from "./IPTokenStorage.sol";
+import {IPTokenStorage, IBucketV3, IFeeExecutor, IActivityRewardDistributor} from "./IPTokenStorage.sol";
 
 abstract contract PTokenStorage is IPTokenStorage, ERC20Upgradeable, ERC165Upgradeable, ReentrancyGuardUpgradeable {
-    IBucket public override bucket;
+    IBucketV3 public override bucket;
     IFeeExecutor public override interestIncreaser;
     IActivityRewardDistributor public override lenderRewardDistributor;
 

@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
@@ -71,7 +71,7 @@ interface IKeeperRewardDistributorStorage {
 
     function nativePartInReward() external view returns (uint256);
 
-    function positionSizeCoefficientA() external view returns (uint256);
+    function positionSizeCoefficient() external view returns (uint256);
 
     function positionSizeCoefficientB() external view returns (int256);
 
@@ -95,5 +95,5 @@ interface IKeeperRewardDistributorStorage {
 }
 
 interface IKeeperRewardDistributorStorageV2 is IKeeperRewardDistributorStorage {
-    function minPositionSizeMultiplier() external view returns (int256);
+    function minPositionSizeMultiplier() external view returns (uint256);
 }

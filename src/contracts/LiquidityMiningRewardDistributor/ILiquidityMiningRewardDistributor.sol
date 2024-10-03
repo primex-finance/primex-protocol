@@ -1,10 +1,10 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
 import {ITraderBalanceVault} from "../TraderBalanceVault/ITraderBalanceVault.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
 import {ILiquidityMiningRewardDistributorStorage} from "./ILiquidityMiningRewardDistributorStorage.sol";
@@ -42,7 +42,7 @@ interface ILiquidityMiningRewardDistributor is ILiquidityMiningRewardDistributor
      * @param _whiteBlackList The address of the WhiteBlackList contract.
      */
     function initialize(
-        IPrimexDNS _primexDNS,
+        IPrimexDNSV3 _primexDNS,
         IERC20 _pmx,
         ITraderBalanceVault _traderBalanceVault,
         address _registry,

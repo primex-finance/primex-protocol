@@ -1,10 +1,10 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
 import {ITraderBalanceVault} from "../TraderBalanceVault/ITraderBalanceVault.sol";
 
 interface ILiquidityMiningRewardDistributorStorage {
@@ -20,7 +20,7 @@ interface ILiquidityMiningRewardDistributorStorage {
         mapping(address => LenderInfo) lendersInfo;
     }
 
-    function primexDNS() external view returns (IPrimexDNS);
+    function primexDNS() external view returns (IPrimexDNSV3);
 
     function pmx() external view returns (IERC20);
 

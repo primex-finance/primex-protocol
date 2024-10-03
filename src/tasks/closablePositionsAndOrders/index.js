@@ -30,7 +30,6 @@ task(
   .addOptionalParam("positionAsset", "The position asset of the opening position", "link")
   .addOptionalParam("depositAmount", "A deposit amount of the deposit asset without decimals", "500")
   .addOptionalParam("takeDepositFromWallet", "Bool, add a collateral deposit within the current transaction", "false")
-  .addOptionalParam("payFeeFromWallet", "A flag indicating whether the fee is perfomed from a wallet or a protocol balance.", "false")
   .addOptionalParam("leverage", "leverage for trading. eg 2 or 2.1", "1")
   .addOptionalParam("shouldOpenPosition", "The flag to indicate whether position should be opened", "true")
   .addOptionalParam("deadline", "The deadline for the order being created", (3600 * 24).toString())

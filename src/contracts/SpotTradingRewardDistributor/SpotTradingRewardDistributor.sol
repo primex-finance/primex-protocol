@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -11,12 +11,12 @@ import "../libraries/Errors.sol";
 
 import {SpotTradingRewardDistributorStorage} from "./SpotTradingRewardDistributorStorage.sol";
 import {BIG_TIMELOCK_ADMIN, MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN, EMERGENCY_ADMIN, PM_ROLE, USD} from "../Constants.sol";
-import {ISpotTradingRewardDistributor, IPausable} from "./ISpotTradingRewardDistributor.sol";
-import {IPriceOracle} from "../PriceOracle/IPriceOracle.sol";
+import {ISpotTradingRewardDistributorV2, IPausable} from "./ISpotTradingRewardDistributor.sol";
+import {IPriceOracleV2} from "../PriceOracle/IPriceOracle.sol";
 import {ITraderBalanceVault} from "../TraderBalanceVault/ITraderBalanceVault.sol";
 import {ITreasury} from "../Treasury/ITreasury.sol";
 
-contract SpotTradingRewardDistributor is ISpotTradingRewardDistributor, SpotTradingRewardDistributorStorage {
+contract SpotTradingRewardDistributor is ISpotTradingRewardDistributorV2, SpotTradingRewardDistributorStorage {
     constructor() {
         _disableInitializers();
     }
@@ -31,7 +31,7 @@ contract SpotTradingRewardDistributor is ISpotTradingRewardDistributor, SpotTrad
     }
 
     /**
-     * @inheritdoc ISpotTradingRewardDistributor
+     * @inheritdoc ISpotTradingRewardDistributorV2
      */
     function initialize(
         address _registry,
@@ -43,7 +43,7 @@ contract SpotTradingRewardDistributor is ISpotTradingRewardDistributor, SpotTrad
     ) external override initializer {
         _require(
             IERC165Upgradeable(_registry).supportsInterface(type(IAccessControl).interfaceId) &&
-                IERC165Upgradeable(_priceOracle).supportsInterface(type(IPriceOracle).interfaceId) &&
+                IERC165Upgradeable(_priceOracle).supportsInterface(type(IPriceOracleV2).interfaceId) &&
                 IERC165Upgradeable(address(_traderBalanceVault)).supportsInterface(
                     type(ITraderBalanceVault).interfaceId
                 ) &&
@@ -65,12 +65,13 @@ contract SpotTradingRewardDistributor is ISpotTradingRewardDistributor, SpotTrad
     }
 
     /**
-     * @inheritdoc ISpotTradingRewardDistributor
+     * @inheritdoc ISpotTradingRewardDistributorV2
      */
     function updateTraderActivity(
         address trader,
         address positionAsset,
-        uint256 positionAmount
+        uint256 positionAmount,
+        bytes calldata positionUsdOracleData
     ) external override onlyRole(PM_ROLE) {
         uint256 currentPeriod = _getCurrentPeriod(block.timestamp);
         PeriodInfo storage periodInfo = periods[currentPeriod];
@@ -87,7 +88,8 @@ contract SpotTradingRewardDistributor is ISpotTradingRewardDistributor, SpotTrad
             positionAsset,
             USD,
             positionAmount,
-            priceOracle
+            priceOracle,
+            positionUsdOracleData
         );
 
         periodInfo.traderActivity[trader] += positionSizeInUsd;
@@ -116,7 +118,7 @@ contract SpotTradingRewardDistributor is ISpotTradingRewardDistributor, SpotTrad
     }
 
     /**
-     * @inheritdoc ISpotTradingRewardDistributor
+     * @inheritdoc ISpotTradingRewardDistributorV2
      */
     function setRewardPerPeriod(uint256 _rewardPerPeriod) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
         rewardPerPeriod = _rewardPerPeriod;
@@ -124,7 +126,7 @@ contract SpotTradingRewardDistributor is ISpotTradingRewardDistributor, SpotTrad
     }
 
     /**
-     * @inheritdoc ISpotTradingRewardDistributor
+     * @inheritdoc ISpotTradingRewardDistributorV2
      */
     function decreaseRewardPerPeriod(uint256 _rewardPerPeriod) external override onlyRole(EMERGENCY_ADMIN) {
         _require(_rewardPerPeriod < rewardPerPeriod, Errors.REWARD_PER_PERIOD_IS_NOT_CORRECT.selector);
@@ -133,7 +135,7 @@ contract SpotTradingRewardDistributor is ISpotTradingRewardDistributor, SpotTrad
     }
 
     /**
-     * @inheritdoc ISpotTradingRewardDistributor
+     * @inheritdoc ISpotTradingRewardDistributorV2
      */
     function claimReward() external override nonReentrant whenNotPaused {
         (uint256 reward, uint256 currentPeriod) = calculateReward(msg.sender);
@@ -152,7 +154,7 @@ contract SpotTradingRewardDistributor is ISpotTradingRewardDistributor, SpotTrad
     }
 
     /**
-     * @inheritdoc ISpotTradingRewardDistributor
+     * @inheritdoc ISpotTradingRewardDistributorV2
      */
     function topUpUndistributedPmxBalance(uint256 amount) external override nonReentrant {
         undistributedPMX += amount;
@@ -161,7 +163,7 @@ contract SpotTradingRewardDistributor is ISpotTradingRewardDistributor, SpotTrad
     }
 
     /**
-     * @inheritdoc ISpotTradingRewardDistributor
+     * @inheritdoc ISpotTradingRewardDistributorV2
      */
     function withdrawPmx(uint256 amount) external override onlyRole(BIG_TIMELOCK_ADMIN) {
         _require(undistributedPMX >= amount, Errors.AMOUNT_EXCEEDS_AVAILABLE_BALANCE.selector);
@@ -171,7 +173,7 @@ contract SpotTradingRewardDistributor is ISpotTradingRewardDistributor, SpotTrad
     }
 
     /**
-     * @inheritdoc ISpotTradingRewardDistributor
+     * @inheritdoc ISpotTradingRewardDistributorV2
      */
     function getPeriodInfo(uint256 _timestamp) external view override returns (uint256, uint256) {
         uint256 periodNumber = _getCurrentPeriod(_timestamp);
@@ -188,14 +190,14 @@ contract SpotTradingRewardDistributor is ISpotTradingRewardDistributor, SpotTrad
     }
 
     /**
-     * @inheritdoc ISpotTradingRewardDistributor
+     * @inheritdoc ISpotTradingRewardDistributorV2
      */
     function getSpotTraderActivity(uint256 periodNumber, address trader) external view override returns (uint256) {
         return periods[periodNumber].traderActivity[trader];
     }
 
     /**
-     * @inheritdoc ISpotTradingRewardDistributor
+     * @inheritdoc ISpotTradingRewardDistributorV2
      */
     function calculateReward(address trader) public view override returns (uint256 reward, uint256 currentPeriod) {
         currentPeriod = _getCurrentPeriod(block.timestamp);
@@ -213,7 +215,7 @@ contract SpotTradingRewardDistributor is ISpotTradingRewardDistributor, SpotTrad
     }
 
     /**
-     * @inheritdoc ISpotTradingRewardDistributor
+     * @inheritdoc ISpotTradingRewardDistributorV2
      */
     function getPeriodsWithTraderActivity(address trader) public view override returns (uint256[] memory) {
         return periodsWithTraderActivity[trader];
@@ -224,7 +226,8 @@ contract SpotTradingRewardDistributor is ISpotTradingRewardDistributor, SpotTrad
      * @param _interfaceId The interface id to check
      */
     function supportsInterface(bytes4 _interfaceId) public view override returns (bool) {
-        return _interfaceId == type(ISpotTradingRewardDistributor).interfaceId || super.supportsInterface(_interfaceId);
+        return
+            _interfaceId == type(ISpotTradingRewardDistributorV2).interfaceId || super.supportsInterface(_interfaceId);
     }
 
     function _getCurrentPeriod(uint256 currentTimestamp) internal view returns (uint256) {

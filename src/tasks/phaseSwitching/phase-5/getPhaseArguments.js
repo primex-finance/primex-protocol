@@ -11,7 +11,7 @@ const { encodeFunctionData } = require("../../utils/encodeFunctionData.js");
 async function getPhase5Arguments() {
   const targets = [];
   const payloads = [];
-  const BucketsFactory = await getContract("BucketsFactory");
+  const BucketsFactory = await getContract("BucketsFactoryV2");
   const buckets = await BucketsFactory.allBuckets();
   const FeeDecreaser = await getContract("FeeDecreaser");
   const InterestIncreaser = await getContract("InterestIncreaser");

@@ -9,13 +9,12 @@ function getLimitPriceParams(limitPrice) {
   return defaultAbiCoder.encode(["tuple(uint256)"], [[limitPrice]]);
 }
 
-function getLimitPriceAdditionalParams(firstAssetRoutes, depositInThirdAssetRoutes) {
+function getLimitPriceAdditionalParams(firstAssetMegaRoutes, depositInThirdAssetMegaRoutes) {
   return defaultAbiCoder.encode(
     [
-      `tuple(tuple(uint256 shares, tuple(string dexName, bytes encodedPath)[] paths)[] firstAssetRoutes, 
-    tuple(uint256 shares, tuple(string dexName, bytes encodedPath)[] paths)[] depositInThirdAssetRoutes)`,
+      "tuple(tuple(uint256 shares, tuple(address to, tuple(string dexName, uint256 shares, bytes payload)[] paths)[] routes)[] firstAssetMegaRoutes,tuple(uint256 shares, tuple(address to, tuple(string dexName, uint256 shares, bytes payload)[] paths)[] routes)[] depositInThirdAssetMegaRoutes)",
     ],
-    [[firstAssetRoutes, depositInThirdAssetRoutes]],
+    [[firstAssetMegaRoutes, depositInThirdAssetMegaRoutes]],
   );
 }
 
@@ -23,8 +22,13 @@ function getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice) {
   return defaultAbiCoder.encode(["tuple(uint256, uint256)"], [[takeProfitPrice, stopLossPrice]]);
 }
 
-function getTakeProfitStopLossAdditionalParams(routes) {
-  return defaultAbiCoder.encode(["tuple(tuple(uint256 shares, tuple(string dexName, bytes encodedPath)[] paths)[]) routes"], [[routes]]);
+function getTakeProfitStopLossAdditionalParams(megaRoutes, positionSoldAssetOracleData) {
+  return defaultAbiCoder.encode(
+    [
+      "tuple(tuple(uint256 shares, tuple(address to, tuple(string dexName, uint256 shares, bytes payload)[] paths)[] routes)[] megaRoutes, bytes positionSoldAssetOracleData)",
+    ],
+    [[megaRoutes, positionSoldAssetOracleData]],
+  );
 }
 
 function getTrailingStopParams(activationPrice, trailingDelta) {

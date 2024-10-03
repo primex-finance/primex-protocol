@@ -23,7 +23,7 @@
       "quoterV2": "0xe5ab8235B215c0f08E198BF01875f0057553773c",
       "nonfungiblePositionManager": "0x3762c2413976B4B183a8b6188C04E69453690Db2",
       "factory": "0x85CdD1531BbFaA710856F00cF75Ece88AE561d25",
-      "poolDeployer":"0xC3e954911ff43CA69b0F4Ee2FFfed89a8d47c46B"
+      "poolDeployer": "0xC3e954911ff43CA69b0F4Ee2FFfed89a8d47c46B"
     },
     "curve": {
       "router": "0xCE28216e9f126c9AD193B2A36CF179805f099e4F",

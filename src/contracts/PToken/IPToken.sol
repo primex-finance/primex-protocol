@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
@@ -6,7 +6,7 @@ import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {IERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 
-import {IPTokenStorage, IBucket, IFeeExecutor, IERC20MetadataUpgradeable, IActivityRewardDistributor} from "./IPTokenStorage.sol";
+import {IPTokenStorage, IBucket, IBucketV3, IFeeExecutor, IERC20MetadataUpgradeable, IActivityRewardDistributor} from "./IPTokenStorage.sol";
 
 interface IPToken is IPTokenStorage {
     /**

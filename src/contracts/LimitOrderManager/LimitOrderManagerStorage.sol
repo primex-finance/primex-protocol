@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -15,13 +15,13 @@ import {TokenTransfersLibrary} from "../libraries/TokenTransfersLibrary.sol";
 import {LimitOrderLibrary} from "../libraries/LimitOrderLibrary.sol";
 import "../libraries/Errors.sol";
 
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
+import {IPositionManagerV2} from "../PositionManager/IPositionManager.sol";
 import {ILimitOrderManagerStorage} from "./ILimitOrderManagerStorage.sol";
 import {ITraderBalanceVault} from "../TraderBalanceVault/ITraderBalanceVault.sol";
-import {IBucket} from "../Bucket/IBucket.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
+import {IBucketV3} from "../Bucket/IBucket.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
 import {IConditionalOpeningManager} from "../interfaces/IConditionalOpeningManager.sol";
-import {ISwapManager} from "../interfaces/ISwapManager.sol";
+import {ISwapManager} from "../SwapManager/ISwapManager.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
 
 abstract contract LimitOrderManagerStorage is
@@ -48,8 +48,8 @@ abstract contract LimitOrderManagerStorage is
 
     IAccessControl public override registry;
     ITraderBalanceVault public override traderBalanceVault;
-    IPrimexDNS public override primexDNS;
-    IPositionManager public override pm;
+    IPrimexDNSV3 public override primexDNS;
+    IPositionManagerV2 public override pm;
     ISwapManager public override swapManager;
     IWhiteBlackList internal whiteBlackList;
 }

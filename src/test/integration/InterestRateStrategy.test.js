@@ -6,7 +6,6 @@ const {
   ethers: {
     getContract,
     getContractAt,
-    getContractFactory,
     getNamedSigners,
     utils: { parseEther, parseUnits },
     constants: { MaxUint256, Zero },
@@ -15,21 +14,29 @@ const {
   deployments: { fixture },
 } = require("hardhat");
 const { BigNumber: BN } = require("bignumber.js");
-const { getSingleRoute, checkIsDexSupported, addLiquidity } = require("../utils/dexOperations");
+const { getSingleMegaRoute, checkIsDexSupported, addLiquidity, getAmountsOut } = require("../utils/dexOperations");
 
-const { rayMul, rayDiv, wadMul, calculateBar } = require("../utils/math");
-const { WAD, OrderType, NATIVE_CURRENCY, MAX_TOKEN_DECIMALITY } = require("../utils/constants");
+const { rayMul, rayDiv, wadMul, wadDiv, calculateBar } = require("../utils/math");
+const { WAD, USD_DECIMALS, MAX_TOKEN_DECIMALITY, USD_MULTIPLIER } = require("../utils/constants");
 const reserveRate = "100000000000000000"; // 0.1 - 10%
 const { barCalcParams } = require("../utils/defaultBarCalcParams");
+const { encodeFunctionData } = require("../../tasks/utils/encodeFunctionData");
+const {
+  setupUsdOraclesForToken,
+  setupUsdOraclesForTokens,
+  getEncodedChainlinkRouteViaUsd,
+  getEncodedChainlinkRouteToUsd,
+  setOraclePrice,
+} = require("../utils/oracleUtils");
 
 process.env.TEST = true;
 
 describe("InterestRateStrategy_integration", function () {
-  let priceFeed, testTokenA, decimalsA, bucket, positionManager, testTokenB, interestRateStrategy, decimalsB, PrimexDNS, dex;
+  let priceOracle, testTokenA, decimalsA, bucket, positionManager, testTokenB, interestRateStrategy, decimalsB, PrimexDNS, dex;
   let testTokenX;
+  let multiplierA, multiplierB;
   let deployer, lender, trader;
   let depositAmount;
-  let protocolRate;
   let ttaPriceInETH;
   let ErrorsLibrary;
   before(async function () {
@@ -40,7 +47,6 @@ describe("InterestRateStrategy_integration", function () {
     testTokenB = await getContract("TestTokenB");
     decimalsB = await testTokenB.decimals();
     PrimexDNS = await getContract("PrimexDNS");
-    protocolRate = await PrimexDNS.feeRates(OrderType.MARKET_ORDER, NATIVE_CURRENCY);
     ErrorsLibrary = await getContract("Errors");
 
     const bucketAddress = (await PrimexDNS.buckets("bucket1")).bucketAddress;
@@ -49,7 +55,12 @@ describe("InterestRateStrategy_integration", function () {
 
     positionManager = await getContract("PositionManager");
 
-    await positionManager.setMaxPositionSize(testTokenA.address, testTokenB.address, 0, MaxUint256);
+    const { payload } = await encodeFunctionData(
+      "setMaxPositionSize",
+      [testTokenA.address, testTokenB.address, 0, MaxUint256],
+      "PositionManagerExtension",
+    );
+    await positionManager.setProtocolParamsByAdmin(payload);
 
     await run("deploy:ERC20Mock", {
       name: "TestTokenX",
@@ -69,24 +80,15 @@ describe("InterestRateStrategy_integration", function () {
     await testTokenA.mint(trader.address, parseUnits("100", decimalsA));
     await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
 
-    priceFeed = await getContract("PrimexAggregatorV3TestService TEST price feed");
-    const priceOracle = await getContract("PriceOracle");
-    await priceOracle.updatePriceFeed(testTokenA.address, testTokenB.address, priceFeed.address);
-    await priceFeed.setAnswer(1);
-    await priceFeed.setDecimals(decimalsB);
+    priceOracle = await getContract("PriceOracle");
+    ttaPriceInETH = parseUnits("0.3", USD_DECIMALS); // 1 tta=0.3 ETH
 
-    const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
-    const priceFeedTTAETH = await PrimexAggregatorV3TestServiceFactory.deploy("TTA_ETH", deployer.address);
-    ttaPriceInETH = parseUnits("0.3", "18"); // 1 tta=0.3 eth
-    await priceFeedTTAETH.setDecimals("18");
-    await priceFeedTTAETH.setAnswer(ttaPriceInETH);
-    await priceOracle.updatePriceFeed(testTokenA.address, await priceOracle.eth(), priceFeedTTAETH.address);
+    await setupUsdOraclesForTokens(testTokenA, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForTokens(testTokenX, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForToken(testTokenB, parseUnits("1", USD_DECIMALS));
+    multiplierA = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsA));
+    multiplierB = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB));
   });
-  function calculateFee(depositAmount, borrowedAmount, decimalsA) {
-    const multiplierA = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsA));
-    const feeAmountCalculateWithETHRate = wadMul(borrowedAmount.add(depositAmount).toString(), protocolRate.toString()).toString();
-    return wadMul(BigNumber.from(feeAmountCalculateWithETHRate).mul(multiplierA).toString(), ttaPriceInETH.toString()).toString();
-  }
 
   describe("calculateInterestRates", function () {
     let snapshotId;
@@ -125,28 +127,39 @@ describe("InterestRateStrategy_integration", function () {
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
       await testTokenA.connect(trader).approve(positionManager.address, deposit);
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "bucket1",
-            borrowedAmount: borrow,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenB.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      const swapSize = borrow.add(depositAmount);
+      const swap = swapSize.mul(multiplierA);
+      const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+      const amountB = amount0Out.mul(multiplierB);
+      const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
+
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "bucket1",
+          borrowedAmount: borrow,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: calculateFee(deposit, borrow, decimalsA) },
-      );
+        firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenB.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
 
       const uRatio = new BN(rayDiv(borrow.toString(), deposit.toString()));
       const barCalcParams = await interestRateStrategy.getBarCalculationParams(bucket.address);
@@ -165,28 +178,39 @@ describe("InterestRateStrategy_integration", function () {
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
       await testTokenA.connect(trader).approve(positionManager.address, deposit);
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "bucket1",
-            borrowedAmount: borrow,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenB.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      const swapSize = borrow.add(depositAmount);
+      const swap = swapSize.mul(multiplierA);
+      const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+      const amountB = amount0Out.mul(multiplierB);
+      const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
+
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "bucket1",
+          borrowedAmount: borrow,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: calculateFee(deposit, borrow, decimalsA) },
-      );
+        firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenB.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
 
       const uRatio = new BN(rayDiv(borrow.toString(), deposit.toString()));
       const barCalcParams = await interestRateStrategy.getBarCalculationParams(bucket.address);
@@ -205,28 +229,39 @@ describe("InterestRateStrategy_integration", function () {
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
       await testTokenA.connect(trader).approve(positionManager.address, deposit);
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "bucket1",
-            borrowedAmount: borrow,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenB.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      const swapSize = borrow.add(depositAmount);
+      const swap = swapSize.mul(multiplierA);
+      const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+      const amountB = amount0Out.mul(multiplierB);
+      const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
+
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "bucket1",
+          borrowedAmount: borrow,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: calculateFee(deposit, borrow, decimalsA) },
-      );
+        firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenB.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
 
       const uRatio = new BN(rayDiv(borrow.toString(), deposit.toString()));
       const barCalcParams = await interestRateStrategy.getBarCalculationParams(bucket.address);
@@ -245,28 +280,39 @@ describe("InterestRateStrategy_integration", function () {
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
       await testTokenA.connect(trader).approve(positionManager.address, deposit);
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "bucket1",
-            borrowedAmount: borrow,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenB.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      const swapSize = borrow.add(depositAmount);
+      const swap = swapSize.mul(multiplierA);
+      const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+      const amountB = amount0Out.mul(multiplierB);
+      const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
+
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "bucket1",
+          borrowedAmount: borrow,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: calculateFee(deposit, borrow, decimalsA) },
-      );
+        firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenB.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
 
       const uRatio = new BN(rayDiv(borrow.toString(), deposit.toString()));
       const barCalcParams = await interestRateStrategy.getBarCalculationParams(bucket.address);
@@ -285,28 +331,39 @@ describe("InterestRateStrategy_integration", function () {
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
       await testTokenA.connect(trader).approve(positionManager.address, deposit);
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "bucket1",
-            borrowedAmount: borrow,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenB.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      const swapSize = borrow.add(depositAmount);
+      const swap = swapSize.mul(multiplierA);
+      const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+      const amountB = amount0Out.mul(multiplierB);
+      const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
+
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "bucket1",
+          borrowedAmount: borrow,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: calculateFee(deposit, borrow, decimalsA) },
-      );
+        firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenB.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
 
       const barCalcParams = await interestRateStrategy.getBarCalculationParams(bucket.address);
 
@@ -349,29 +406,40 @@ describe("InterestRateStrategy_integration", function () {
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
       await testTokenA.connect(trader).approve(positionManager.address, deposit);
 
+      const swapSize = borrow.add(depositAmount);
+      const swap = swapSize.mul(multiplierA);
+      const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+      const amountB = amount0Out.mul(multiplierB);
+      const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
+
       await expect(
-        positionManager.connect(trader).openPosition(
-          {
-            marginParams: {
-              bucket: "bucket2",
-              borrowedAmount: borrow,
-              depositInThirdAssetRoutes: [],
-            },
-            firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
-            depositAsset: testTokenA.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenB.address,
-            amountOutMin: amountOutMin,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            closeConditions: [],
+        positionManager.connect(trader).openPosition({
+          marginParams: {
+            bucket: "bucket2",
+            borrowedAmount: borrow,
+            depositInThirdAssetMegaRoutes: [],
           },
-          { value: calculateFee(deposit, borrow, decimalsA) },
-        ),
+          firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
+          depositAsset: testTokenA.address,
+          depositAmount: depositAmount,
+          positionAsset: testTokenB.address,
+          amountOutMin: amountOutMin,
+          deadline: deadline,
+          takeDepositFromWallet: takeDepositFromWallet,
+          closeConditions: [],
+          firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+          thirdAssetOracleData: [],
+          depositSoldAssetOracleData: [],
+          positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+          nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+          pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+          nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+        }),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "BAR_OVERFLOW");
     });
 
@@ -383,28 +451,39 @@ describe("InterestRateStrategy_integration", function () {
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
       await testTokenA.connect(trader).approve(positionManager.address, deposit);
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "bucket1",
-            borrowedAmount: borrow,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenB.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      const swapSize = borrow.add(depositAmount);
+      const swap = swapSize.mul(multiplierA);
+      const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+      const amountB = amount0Out.mul(multiplierB);
+      const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
+
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "bucket1",
+          borrowedAmount: borrow,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: calculateFee(deposit, borrow, decimalsA) },
-      );
+        firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenB.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
 
       const uRatio = new BN(rayDiv(borrow.toString(), deposit.toString()));
       const barCalcParams = await interestRateStrategy.getBarCalculationParams(bucket.address);
@@ -424,28 +503,39 @@ describe("InterestRateStrategy_integration", function () {
         const amountOutMin = 0;
         const deadline = new Date().getTime() + 600;
         const takeDepositFromWallet = true;
-        const payFeeFromWallet = true;
         await testTokenA.connect(trader).approve(positionManager.address, deposit);
 
-        await positionManager.connect(trader).openPosition(
-          {
-            marginParams: {
-              bucket: "bucket1",
-              borrowedAmount: borrow,
-              depositInThirdAssetRoutes: [],
-            },
-            firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
-            depositAsset: testTokenA.address,
-            depositAmount: depositAmount,
-            positionAsset: testTokenB.address,
-            amountOutMin: amountOutMin,
-            deadline: deadline,
-            takeDepositFromWallet: takeDepositFromWallet,
-            payFeeFromWallet: payFeeFromWallet,
-            closeConditions: [],
+        const swapSize = borrow.add(depositAmount);
+        const swap = swapSize.mul(multiplierA);
+        const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+        const amountB = amount0Out.mul(multiplierB);
+        const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+        const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+        await setOraclePrice(testTokenA, testTokenB, price);
+
+        await positionManager.connect(trader).openPosition({
+          marginParams: {
+            bucket: "bucket1",
+            borrowedAmount: borrow,
+            depositInThirdAssetMegaRoutes: [],
           },
-          { value: calculateFee(deposit, borrow, decimalsA) },
-        );
+          firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
+          depositAsset: testTokenA.address,
+          depositAmount: depositAmount,
+          positionAsset: testTokenB.address,
+          amountOutMin: amountOutMin,
+          deadline: deadline,
+          takeDepositFromWallet: takeDepositFromWallet,
+          closeConditions: [],
+          firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+          thirdAssetOracleData: [],
+          depositSoldAssetOracleData: [],
+          positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+          nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+          pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+          nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+          pullOracleData: [],
+        });
         const uRatio = new BN(rayDiv(borrow.toString(), deposit.toString()));
         const barCalcParams = await interestRateStrategy.getBarCalculationParams(bucket.address);
         const BAR = calculateBar(uRatio, barCalcParams);
@@ -461,28 +551,39 @@ describe("InterestRateStrategy_integration", function () {
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
       await testTokenA.connect(trader).approve(positionManager.address, deposit);
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "bucket1",
-            borrowedAmount: borrow,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenB.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      let swapSize = borrow.add(depositAmount);
+      let swap = swapSize.mul(multiplierA);
+      let amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+      let amountB = amount0Out.mul(multiplierB);
+      let limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      let price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
+
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "bucket1",
+          borrowedAmount: borrow,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: calculateFee(deposit, borrow, decimalsA) },
-      );
+        firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenB.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
 
       let uRatio = new BN(rayDiv(borrow.toString(), deposit.toString()));
       const barCalcParams = await interestRateStrategy.getBarCalculationParams(bucket.address);
@@ -496,25 +597,37 @@ describe("InterestRateStrategy_integration", function () {
         await network.provider.send("evm_mine");
       }
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "bucket1",
-            borrowedAmount: borrow,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenB.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      swapSize = borrow.add(depositAmount);
+      swap = swapSize.mul(multiplierA);
+      amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+      amountB = amount0Out.mul(multiplierB);
+      limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
+
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "bucket1",
+          borrowedAmount: borrow,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: calculateFee(deposit, borrow, decimalsA) },
-      );
+        firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenB.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
 
       const debtTokenAddress = await bucket.debtToken();
       const debtToken = await getContractAt("DebtToken", debtTokenAddress);

@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
-module.exports = async function ({ registry, errorsLibrary, eth }, { getNamedAccounts, deployments: { deploy }, ethers: { getContract } }) {
+module.exports = async function (
+  { registry, errorsLibrary, eth, uniswapPriceFeed, pyth },
+  { getNamedAccounts, deployments: { deploy }, ethers: { getContract, getContractAt } },
+) {
   const { deployer } = await getNamedAccounts();
 
   if (!errorsLibrary) {
     errorsLibrary = (await getContract("Errors")).address;
   }
 
-  return await deploy("PriceOracle", {
+  const priceOracle = await deploy("PriceOracle", {
     from: deployer,
     log: true,
     proxy: {
@@ -24,4 +27,10 @@ module.exports = async function ({ registry, errorsLibrary, eth }, { getNamedAcc
       Errors: errorsLibrary,
     },
   });
+  if (priceOracle.newlyDeployed) {
+    const PriceOracle = await getContractAt("PriceOracle", priceOracle.address);
+    // await PriceOracle.setUniswapPriceFeed(uniswapPriceFeed);
+    await PriceOracle.setPyth(pyth);
+  }
+  return priceOracle;
 };

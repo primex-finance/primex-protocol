@@ -1,50 +1,62 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
 import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
 import {IPrimexPricingLibraryMock} from "../interfaces/IPrimexPricingLibraryMock.sol";
 import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
-import {IBucket} from "../Bucket/IBucket.sol";
+import {IBucketV3} from "../Bucket/IBucket.sol";
+import {IDexAdapter} from "../interfaces/IDexAdapter.sol";
 
 import "../libraries/Errors.sol";
 
 contract PrimexPricingLibraryMock is IPrimexPricingLibraryMock {
     using WadRayMath for uint256;
 
-    function getAmountOut(PrimexPricingLibrary.AmountParams memory _params) public override returns (uint256) {
-        return PrimexPricingLibrary.getAmountOut(_params);
-    }
-
     function getDepositAmountInBorrowed(
-        PrimexPricingLibrary.AmountParams memory _params,
+        IDexAdapter.AmountParams calldata _params,
         bool _isThirdAsset,
-        address _priceOracle
-    ) public override returns (uint256) {
-        return PrimexPricingLibrary.getDepositAmountInBorrowed(_params, _isThirdAsset, _priceOracle);
-    }
-
-    function multiSwap(
-        PrimexPricingLibrary.MultiSwapParams memory _params,
-        uint256 _oracleTolerableLimit,
-        address _primexDNS,
+        address payable _dexAdapter,
         address _priceOracle,
-        bool _needCheck
+        bytes calldata _oracleData
     ) public override returns (uint256) {
-        return PrimexPricingLibrary.multiSwap(_params, _oracleTolerableLimit, _primexDNS, _priceOracle, _needCheck);
+        return
+            PrimexPricingLibrary.getDepositAmountInBorrowed(
+                _params,
+                _isThirdAsset,
+                _dexAdapter,
+                _priceOracle,
+                _oracleData
+            );
     }
 
-    function getAmountIn(PrimexPricingLibrary.AmountParams memory _params) public override returns (uint256) {
-        return PrimexPricingLibrary.getAmountIn(_params);
+    function megaSwap(
+        PrimexPricingLibrary.MegaSwapParams calldata _params,
+        uint256 _maximumOracleTolerableLimit,
+        address payable _dexAdapter,
+        address _priceOracle,
+        bool _needOracleTolerableLimitCheck,
+        bytes calldata _oracleData
+    ) public override returns (uint256) {
+        return
+            PrimexPricingLibrary.megaSwap(
+                _params,
+                _maximumOracleTolerableLimit,
+                _dexAdapter,
+                _priceOracle,
+                _needOracleTolerableLimitCheck,
+                _oracleData
+            );
     }
 
     function getOracleAmountsOut(
         address _tokenA,
         address _tokenB,
         uint256 _amountAssetA,
-        address _priceOracle
-    ) public view override returns (uint256) {
-        return PrimexPricingLibrary.getOracleAmountsOut(_tokenA, _tokenB, _amountAssetA, _priceOracle);
+        address _priceOracle,
+        bytes calldata _oracleData
+    ) public override returns (uint256) {
+        return PrimexPricingLibrary.getOracleAmountsOut(_tokenA, _tokenB, _amountAssetA, _priceOracle, _oracleData);
     }
 
     function getLiquidationPrice(
@@ -75,7 +87,7 @@ contract PrimexPricingLibraryMock is IPrimexPricingLibraryMock {
         _require(_positionAsset != address(0), Errors.ADDRESS_NOT_SUPPORTED.selector);
         if (_leverage == WadRayMath.WAD) return 0;
         PrimexPricingLibrary.LiquidationPriceData memory data;
-        data.bucket = IBucket(_bucket);
+        data.bucket = IBucketV3(_bucket);
 
         (, bool tokenAllowed) = data.bucket.allowedAssets(_positionAsset);
         _require(tokenAllowed, Errors.TOKEN_NOT_SUPPORTED.selector);

@@ -19,7 +19,7 @@ async function getPhase6ArgumentsUpdateRewardConfigurationsInBuckets() {
   const payloads = [];
   const { Role } = require("../../../test/utils/activityRewardDistributorMath.js");
   const { earlyLendersRewards, earlyTradersRewards } = require("../../deployScripts/phaseSwitching/config.json");
-  const BucketsFactory = await getContract("BucketsFactory");
+  const BucketsFactory = await getContract("BucketsFactoryV2");
   const buckets = await BucketsFactory.allBuckets();
   const activityRewardDistributor = await getContract("ActivityRewardDistributorNewPmx");
   let encodeResult;
@@ -55,18 +55,30 @@ async function getPhase6ArgumentsUpdateRewardConfigurationsInBuckets() {
 async function getPhase6ArgumentsUpdateRewards() {
   const targets = [];
   const payloads = [];
-  const BucketsFactory = await getContract("BucketsFactory");
+  const BucketsFactory = await getContract("BucketsFactoryV2");
   const buckets = await BucketsFactory.allBuckets();
   const activityRewardDistributor = await getContract("ActivityRewardDistributorNewPmx");
   const spotTradingRewardDistributor = await getContract("SpotTradingRewardDistributorNewPmx");
   const keeperRewardDistributor = await getContract("KeeperRewardDistributorNewPmx");
   let encodeResult;
 
-  encodeResult = await encodeFunctionData("setSpotTradingRewardDistributor", [spotTradingRewardDistributor.address], "PositionManager");
+  const { payload: payload1 } = await encodeFunctionData(
+    "setSpotTradingRewardDistributor",
+    [spotTradingRewardDistributor.address],
+    "PositionManagerExtension",
+  );
+
+  encodeResult = await encodeFunctionData("setProtocolParamsByAdmin", [payload1], "PositionManager");
   targets.push(encodeResult.contractAddress);
   payloads.push(encodeResult.payload);
 
-  encodeResult = await encodeFunctionData("setKeeperRewardDistributor", [keeperRewardDistributor.address], "PositionManager");
+  const { payload: payload2 } = await encodeFunctionData(
+    "setKeeperRewardDistributor",
+    [keeperRewardDistributor.address],
+    "PositionManagerExtension",
+  );
+
+  encodeResult = await encodeFunctionData("setProtocolParamsByAdmin", [payload2], "PositionManager");
   targets.push(encodeResult.contractAddress);
   payloads.push(encodeResult.payload);
 

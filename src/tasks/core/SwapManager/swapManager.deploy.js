@@ -3,13 +3,13 @@ module.exports = async function (
   {
     registry,
     primexDNS,
-    contractName,
     traderBalanceVault,
     priceOracle,
     whiteBlackList,
     primexPricingLibrary,
     tokenTransfersLibrary,
     errorsLibrary,
+    notExecuteNewDeployedTasks,
   },
   {
     getNamedAccounts,
@@ -26,10 +26,20 @@ module.exports = async function (
   }
   const { deployer } = await getNamedAccounts();
 
-  const swapManager = await deploy(contractName ?? "SwapManager", {
+  const swapManager = await deploy("SwapManager", {
     from: deployer,
-    args: [registry, primexDNS, traderBalanceVault, priceOracle, whiteBlackList],
     log: true,
+    proxy: {
+      owner: (await getContract("PrimexProxyAdmin")).address,
+      viaAdminContract: "PrimexProxyAdmin",
+      proxyContract: "OpenZeppelinTransparentProxy",
+      execute: {
+        init: {
+          methodName: "initialize",
+          args: [registry, primexDNS, traderBalanceVault, priceOracle, whiteBlackList],
+        },
+      },
+    },
     libraries: {
       PrimexPricingLibrary: primexPricingLibrary,
       TokenTransfersLibrary: tokenTransfersLibrary,
@@ -37,7 +47,7 @@ module.exports = async function (
     },
   });
 
-  if (swapManager.newlyDeployed) {
+  if (swapManager.newlyDeployed && !notExecuteNewDeployedTasks) {
     whiteBlackList = await getContractAt("WhiteBlackList", whiteBlackList);
     const tx = await whiteBlackList.addAddressToWhitelist(swapManager.address);
     await tx.wait();

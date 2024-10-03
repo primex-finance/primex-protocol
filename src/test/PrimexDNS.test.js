@@ -27,13 +27,23 @@ const {
 } = require("./utils/waffleMocks");
 const { barCalcParams } = require("./utils/defaultBarCalcParams");
 const { getAdminSigners } = require("./utils/hardhatUtils");
-const { OrderType, WAD, NATIVE_CURRENCY, BAR_CALC_PARAMS_DECODE } = require("./utils/constants");
+const { FeeRateType, TradingOrderType, BAR_CALC_PARAMS_DECODE } = require("./utils/constants");
 
 process.env.TEST = true;
 
 const { getConfigByName } = require("../config/configUtils");
 const {
-  PrimexDNSconfig: { rates, delistingDelayInDays, adminWithdrawalDelayInDays },
+  PrimexDNSconfig: {
+    delistingDelayInDays,
+    adminWithdrawalDelayInDays,
+    protocolFeeCoefficient,
+    liquidationGasAmount,
+    pmxDiscountMultiplier,
+    gasPriceBuffer,
+    additionalGasSpent,
+    feeRates,
+    averageGasPerAction,
+  },
 } = getConfigByName("generalConfig.json");
 
 const feeBuffer = "1000200000000000000"; // 1.0002
@@ -57,7 +67,7 @@ describe("PrimexDNS", function () {
     ({ BigTimelockAdmin, MediumTimelockAdmin, SmallTimelockAdmin, EmergencyAdmin } = await getAdminSigners());
 
     PrimexDNS = await getContract("PrimexDNS");
-    BucketsFactory = await getContract("BucketsFactory");
+    BucketsFactory = await getContract("BucketsFactoryV2");
     ErrorsLibrary = await getContract("Errors");
     PMXToken = await getContract("EPMXToken");
 
@@ -96,24 +106,41 @@ describe("PrimexDNS", function () {
       primexDNSFactory = await getContractFactory("PrimexDNS");
     });
     beforeEach(async function () {
+      const maxProtocolFee = MaxUint256;
       args = [
-        registry.address,
-        PMXToken.address,
-        mockTreasury.address,
-        delistingDelay,
-        adminWithdrawalDelay,
-        [
-          {
-            orderType: OrderType.MARKET_ORDER,
-            feeToken: PMXToken.address,
-            rate: parseEther(rates.MARKET_ORDER.protocolRateInPmx),
-          },
-          {
-            orderType: OrderType.MARKET_ORDER,
-            feeToken: NATIVE_CURRENCY,
-            rate: parseEther(rates.MARKET_ORDER.protocolRate),
-          },
-        ],
+        {
+          registry: registry.address,
+          pmx: PMXToken.address,
+          treasury: mockTreasury.address,
+          delistingDelay: delistingDelay,
+          adminWithdrawalDelay: adminWithdrawalDelay,
+          feeRateParams: [
+            {
+              feeRateType: FeeRateType.SpotPositionClosedByTrader,
+              feeRate: parseEther(feeRates.SpotPositionClosedByTrader),
+            },
+            {
+              feeRateType: FeeRateType.MarginPositionClosedByTrader,
+              feeRate: parseEther(feeRates.MarginPositionClosedByTrader),
+            },
+          ],
+          averageGasPerActionParams: [
+            {
+              tradingOrderType: TradingOrderType.SpotMarketOrder,
+              averageGasPerAction: parseEther(averageGasPerAction.SpotMarketOrder),
+            },
+            {
+              tradingOrderType: TradingOrderType.MarginMarketOrder,
+              averageGasPerAction: parseEther(averageGasPerAction.MarginMarketOrder),
+            },
+          ],
+          maxProtocolFee: maxProtocolFee,
+          liquidationGasAmount: parseEther(liquidationGasAmount),
+          protocolFeeCoefficient: parseEther(protocolFeeCoefficient),
+          additionalGasSpent: parseEther(additionalGasSpent),
+          pmxDiscountMultiplier: parseEther(pmxDiscountMultiplier),
+          gasPriceBuffer: parseEther(gasPriceBuffer),
+        },
       ];
     });
 
@@ -122,13 +149,13 @@ describe("PrimexDNS", function () {
     });
 
     it("Should revert when registry address not supported", async function () {
-      args[0] = positionManager.address;
+      args[0].registry = positionManager.address;
       await expect(
         upgrades.deployProxy(primexDNSFactory, args, { unsafeAllow: ["constructor", "delegatecall"] }),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
     it("Should revert when PMXToken address not supported", async function () {
-      args[1] = positionManager.address;
+      args[0].pmx = positionManager.address;
       await expect(
         upgrades.deployProxy(primexDNSFactory, args, { unsafeAllow: ["constructor", "delegatecall"] }),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
@@ -250,50 +277,151 @@ describe("PrimexDNS", function () {
     });
   });
 
-  describe("setFeeRate", function () {
-    it("change setFeeRate if called by BIG_TIMELOCK_ADMIN and throw event", async function () {
-      await expect(PrimexDNS.connect(BigTimelockAdmin).setFeeRate([OrderType.LIMIT_ORDER, NATIVE_CURRENCY, 5]))
-        .to.emit(PrimexDNS, "ChangeFeeRate")
-        .withArgs(OrderType.LIMIT_ORDER, NATIVE_CURRENCY, 5);
-      expect(await PrimexDNS.feeRates(OrderType.LIMIT_ORDER, NATIVE_CURRENCY)).to.equal(5);
+  describe("setMaxProtocolFee", function () {
+    let maxProtocolFee;
+    before(async function () {
+      maxProtocolFee = parseEther("2");
+    });
+    it("change maxProtocolFee if called by BIG_TIMELOCK_ADMIN and throw event", async function () {
+      await expect(PrimexDNS.connect(BigTimelockAdmin).setMaxProtocolFee(maxProtocolFee))
+        .to.emit(PrimexDNS, "ChangeMaxProtocolFee")
+        .withArgs(maxProtocolFee);
+      expect(await PrimexDNS.maxProtocolFee()).to.equal(maxProtocolFee);
     });
 
-    it("Should revert if not BIG_TIMELOCK_ADMIN call setFeeRate", async function () {
-      await expect(PrimexDNS.connect(caller).setFeeRate([OrderType.LIMIT_ORDER, NATIVE_CURRENCY, 5])).to.be.revertedWithCustomError(
-        ErrorsLibrary,
-        "FORBIDDEN",
-      );
-    });
-    it("should revert if new value is greater than WAD", async function () {
-      await expect(
-        PrimexDNS.connect(BigTimelockAdmin).setFeeRate([OrderType.LIMIT_ORDER, NATIVE_CURRENCY, BigNumber.from(WAD).add("1")]),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "INCORRECT_FEE_RATE");
+    it("Should revert if not BIG_TIMELOCK_ADMIN call setMaxProtocolFee", async function () {
+      await expect(PrimexDNS.connect(caller).setMaxProtocolFee(maxProtocolFee)).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
     });
   });
-
-  describe("setFeeRestrictions", function () {
-    let feeRestrictions;
+  describe("setLiquidationGasAmount", function () {
+    let liquidationGasAmount;
     before(async function () {
-      feeRestrictions = [BigNumber.from("12"), BigNumber.from("435")];
+      liquidationGasAmount = parseEther("0.5");
     });
-    it("change setFeeRestrictions if called by BIG_TIMELOCK_ADMIN and throw event", async function () {
-      await expect(PrimexDNS.connect(BigTimelockAdmin).setFeeRestrictions(OrderType.LIMIT_ORDER, feeRestrictions))
-        .to.emit(PrimexDNS, "ChangeFeeRestrictions")
-        .withArgs(OrderType.LIMIT_ORDER, feeRestrictions);
-      expect(await PrimexDNS.feeRestrictions(OrderType.LIMIT_ORDER)).to.deep.equal(feeRestrictions);
+    it("change liquidationGasAmount if called by MEDIUM_TIMELOCK_ADMIN and throw event", async function () {
+      await expect(PrimexDNS.connect(BigTimelockAdmin).setLiquidationGasAmount(liquidationGasAmount))
+        .to.emit(PrimexDNS, "ChangeLiquidationGasAmount")
+        .withArgs(liquidationGasAmount);
+      expect(await PrimexDNS.liquidationGasAmount()).to.equal(liquidationGasAmount);
     });
 
-    it("Should revert if not BIG_TIMELOCK_ADMIN call setFeeRestrictions", async function () {
-      await expect(PrimexDNS.connect(caller).setFeeRestrictions(OrderType.LIMIT_ORDER, feeRestrictions)).to.be.revertedWithCustomError(
+    it("Should revert if not BIG_TIMELOCK_ADMIN call setLiquidationGasAmount", async function () {
+      await expect(PrimexDNS.connect(caller).setLiquidationGasAmount(liquidationGasAmount)).to.be.revertedWithCustomError(
         ErrorsLibrary,
         "FORBIDDEN",
       );
     });
-    it("should revert setFeeRestrictions if minProtocolFee is more than maxProtocolFee", async function () {
-      const feeRestrictions = [20, 11];
-      await expect(
-        PrimexDNS.connect(BigTimelockAdmin).setFeeRestrictions(OrderType.LIMIT_ORDER, feeRestrictions),
-      ).to.be.revertedWithCustomError(ErrorsLibrary, "INCORRECT_RESTRICTIONS");
+  });
+  describe("setProtocolFeeCoefficient", function () {
+    let protocolFeeCoefficient;
+    before(async function () {
+      protocolFeeCoefficient = parseEther("0.5");
+    });
+    it("change protocolFeeCoefficient if called by BIG_TIMELOCK_ADMIN and throw event", async function () {
+      await expect(PrimexDNS.connect(BigTimelockAdmin).setProtocolFeeCoefficient(protocolFeeCoefficient))
+        .to.emit(PrimexDNS, "ChangeProtocolFeeCoefficient")
+        .withArgs(protocolFeeCoefficient);
+      expect(await PrimexDNS.protocolFeeCoefficient()).to.equal(protocolFeeCoefficient);
+    });
+
+    it("Should revert if not BIG_TIMELOCK_ADMIN call setProtocolFeeCoefficient", async function () {
+      await expect(PrimexDNS.connect(caller).setProtocolFeeCoefficient(protocolFeeCoefficient)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+  });
+  describe("setProtocolFeeRate", function () {
+    let feeRateType, feeRate;
+    before(async function () {
+      feeRateType = FeeRateType.SpotPositionClosedByTrader;
+      feeRate = parseEther("0.01");
+    });
+    it("change protocolFeeRate if called by BIG_TIMELOCK_ADMIN and throw event", async function () {
+      await expect(PrimexDNS.connect(BigTimelockAdmin).setProtocolFeeRate([feeRateType, feeRate]))
+        .to.emit(PrimexDNS, "ChangeProtocolFeeRate")
+        .withArgs(feeRateType, feeRate);
+      expect(await PrimexDNS.protocolFeeRates(feeRateType)).to.equal(feeRate);
+    });
+
+    it("Should revert if not BIG_TIMELOCK_ADMIN call setProtocolFeeRate", async function () {
+      await expect(PrimexDNS.connect(caller).setProtocolFeeRate([feeRateType, feeRate])).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+  });
+  describe("setAverageGasPerAction", function () {
+    let tradingOrderType, averageGasPerAction;
+    before(async function () {
+      tradingOrderType = TradingOrderType.SpotMarketOrder;
+      averageGasPerAction = parseEther("0.01");
+    });
+    it("change averageGasPerAction if called by MEDIUM_TIMELOCK_ADMIN and throw event", async function () {
+      await expect(PrimexDNS.connect(MediumTimelockAdmin).setAverageGasPerAction([tradingOrderType, averageGasPerAction]))
+        .to.emit(PrimexDNS, "ChangeAverageGasPerAction")
+        .withArgs(tradingOrderType, averageGasPerAction);
+      expect(await PrimexDNS.averageGasPerAction(tradingOrderType)).to.equal(averageGasPerAction);
+    });
+    it("Should revert if not MEDIUM_TIMELOCK_ADMIN call setAverageGasPerAction", async function () {
+      await expect(PrimexDNS.connect(caller).setAverageGasPerAction([tradingOrderType, averageGasPerAction])).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+  });
+  describe("setAdditionalGasSpent", function () {
+    let additionalGasSpent;
+    before(async function () {
+      additionalGasSpent = parseEther("0.5");
+    });
+    it("change additionalGasSpent if called by MEDIUM_TIMELOCK_ADMIN and throw event", async function () {
+      await expect(PrimexDNS.connect(MediumTimelockAdmin).setAdditionalGasSpent(additionalGasSpent))
+        .to.emit(PrimexDNS, "ChangeAdditionalGasSpent")
+        .withArgs(additionalGasSpent);
+      expect(await PrimexDNS.additionalGasSpent()).to.equal(additionalGasSpent);
+    });
+
+    it("Should revert if not MEDIUM_TIMELOCK_ADMIN call setAdditionalGasSpent", async function () {
+      await expect(PrimexDNS.connect(caller).setAdditionalGasSpent(additionalGasSpent)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+  });
+  describe("setPmxDiscountMultiplier", function () {
+    let pmxDiscountMultiplier;
+    before(async function () {
+      pmxDiscountMultiplier = parseEther("0.95");
+    });
+    it("change pmxDiscountMultiplier if called by SMALL_TIMELOCK_ADMIN and throw event", async function () {
+      await expect(PrimexDNS.connect(SmallTimelockAdmin).setPmxDiscountMultiplier(pmxDiscountMultiplier))
+        .to.emit(PrimexDNS, "ChangePmxDiscountMultiplier")
+        .withArgs(pmxDiscountMultiplier);
+      expect(await PrimexDNS.pmxDiscountMultiplier()).to.equal(pmxDiscountMultiplier);
+    });
+
+    it("Should revert if not SMALL_TIMELOCK_ADMIN call setPmxDiscountMultiplier", async function () {
+      await expect(PrimexDNS.connect(caller).setPmxDiscountMultiplier(pmxDiscountMultiplier)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+  });
+  describe("setGasPriceBuffer", function () {
+    let gasPriceBuffer;
+    before(async function () {
+      gasPriceBuffer = parseEther("0.5");
+    });
+    it("change gasPriceBuffergasPriceBuffer if called by MEDIUM_TIMELOCK_ADMIN and throw event", async function () {
+      await expect(PrimexDNS.connect(MediumTimelockAdmin).setGasPriceBuffer(gasPriceBuffer))
+        .to.emit(PrimexDNS, "ChangeGasPriceBuffer")
+        .withArgs(gasPriceBuffer);
+      expect(await PrimexDNS.gasPriceBuffer()).to.equal(gasPriceBuffer);
+    });
+
+    it("Should revert if not MEDIUM_TIMELOCK_ADMIN call setGasPriceBuffer", async function () {
+      await expect(PrimexDNS.connect(caller).setGasPriceBuffer(gasPriceBuffer)).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
     });
   });
 
@@ -316,7 +444,7 @@ describe("PrimexDNS", function () {
     expect((await PrimexDNS.dexes("notAddedBucket")).routerAddress).to.equal(AddressZero);
     expect((await PrimexDNS.dexes("notAddedBucket")).isActive).to.equal(false);
   });
-  it("should revert if not MEDIUM_TIMELOCK_ADMIN call addBucket", async function () {
+  it("should revert if not SMALL_TIMELOCK_ADMIN call addBucket", async function () {
     await expect(PrimexDNS.connect(caller).addBucket(AddressZero, 0)).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
   });
 
@@ -373,7 +501,7 @@ describe("PrimexDNS", function () {
         }
       }
 
-      txAddBucket = await PrimexDNS.connect(BigTimelockAdmin).addBucket(newBucketAddress, 0);
+      txAddBucket = await PrimexDNS.connect(SmallTimelockAdmin).addBucket(newBucketAddress, 0);
     });
 
     it("dnsBucket return correct bucketData", async function () {

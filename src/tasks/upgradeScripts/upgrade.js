@@ -16,28 +16,29 @@ module.exports = async function (
     upgrades,
   },
 ) {
-  const { getConfigByName, getAddress, getDecimals } = require("../../config/configUtils");
+  const { getConfigByName } = require("../../config/configUtils");
   const { encodeFunctionData } = require("../utils/encodeFunctionData.js");
 
   const { OrderType, NATIVE_CURRENCY } = require("../../test/utils/constants");
-  const { BATCH_MANAGER_ROLE, VAULT_ACCESS_ROLE, MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN } = require("../../Constants.js");
+  const { MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN } = require("../../Constants.js");
   const { deployer } = await getNamedAccounts();
 
   // immutable
   const bigTimeLock = await getContract("BigTimelockAdmin");
   const TokenTransfersLibrary = await getContract("TokenTransfersLibrary");
-  const TraderBalanceVault = await getContract("TraderBalanceVault");
   const Registry = await getContract("Registry");
   const PriceOracle = await getContract("PriceOracle");
   const WhiteBlackList = await getContract("WhiteBlackList");
   const PrimexDNSProxy = await getContract("PrimexDNS_Proxy");
   const PrimexDNS = await getContractAt("PrimexDNS", PrimexDNSProxy.address);
   const PrimexProxyAdmin = await getContract("PrimexProxyAdmin");
-  const BucketsFactory = await getContract("BucketsFactory");
+  const BucketsFactory = await getContract("BucketsFactoryV2");
   const PositionManager = await getContract("PositionManager");
   const KeeperRewardDistributor = await getContract("KeeperRewardDistributor");
   const LimitOrderManager = await getContract("LimitOrderManager");
   const SpotTradingRewardDistributor = await getContract("SpotTradingRewardDistributor");
+  const SwapManager = await getContract("SwapManager");
+  const BatchManager = await getContract("BatchManager");
   const PMXToken = await getContract("EPMXToken");
 
   let tx;
@@ -140,7 +141,7 @@ module.exports = async function (
     );
   }
 
-  const { PrimexDNSconfig, PositionManagerConfig } = getConfigByName("generalConfig.json");
+  const { PrimexDNSconfig } = getConfigByName("generalConfig.json");
 
   const rates = [];
   const restrictions = [];
@@ -192,20 +193,6 @@ module.exports = async function (
       argsForBigTimeLock.targets.push(PrimexDNS.address);
       argsForBigTimeLock.payloads.push((await encodeFunctionData("setFeeRate", [rate], "PrimexDNS", PrimexDNS.address)).payload);
     }
-  }
-
-  const minPositionAsset = await getAddress(PositionManagerConfig.minPositionAsset);
-  const minPositionSize = parseUnits(PositionManagerConfig.minPositionSize, await getDecimals(minPositionAsset));
-
-  if (executeFromDeployer) {
-    tx = await PositionManager.setMinPositionSize(minPositionSize, minPositionAsset);
-    await tx.wait();
-  } else {
-    argsForBigTimeLock.targets.push(PositionManager.address);
-    argsForBigTimeLock.payloads.push(
-      (await encodeFunctionData("setMinPositionSize", [minPositionSize, minPositionAsset], "PositionManager", PositionManager.address))
-        .payload,
-    );
   }
 
   /**
@@ -276,99 +263,33 @@ module.exports = async function (
     isBeacon: false,
   });
 
-  const oldSwapManager = await getContract("SwapManager");
-
-  const newSwapManager = await deploy("SwapManager", {
-    from: deployer,
-    args: [Registry.address, PrimexDNS.address, TraderBalanceVault.address, PriceOracle.address, WhiteBlackList.address],
-    log: true,
+  /**
+   * SwapManager upgrade
+   */
+  await upgradeProxyWithCheck({
+    proxyAddress: SwapManager.address,
+    contractName: "SwapManager",
+    implArtifactName: "SwapManager_Implementation",
     libraries: {
       PrimexPricingLibrary: PrimexPricingLibrary.address,
       TokenTransfersLibrary: TokenTransfersLibrary.address,
     },
+    isBeacon: false,
   });
 
-  addToWhiteList.push(newSwapManager.address);
-  removeFromWhiteList.push(oldSwapManager.address);
-
-  if (executeFromDeployer) {
-    tx = await Registry.grantRole(VAULT_ACCESS_ROLE, newSwapManager.address);
-    await tx.wait();
-
-    tx = await Registry.revokeRole(VAULT_ACCESS_ROLE, oldSwapManager.address);
-    await tx.wait();
-
-    tx = await LimitOrderManager.setSwapManager(newSwapManager.address);
-    await tx.wait();
-  } else {
-    argsForBigTimeLock.targets.push(Registry.address);
-    argsForBigTimeLock.payloads.push(
-      (await encodeFunctionData("grantRole", [VAULT_ACCESS_ROLE, newSwapManager.address], "PrimexRegistry", Registry.address)).payload,
-    );
-
-    argsForBigTimeLock.targets.push(Registry.address);
-    argsForBigTimeLock.payloads.push(
-      (await encodeFunctionData("revokeRole", [VAULT_ACCESS_ROLE, oldSwapManager.address], "PrimexRegistry", Registry.address)).payload,
-    );
-
-    argsForBigTimeLock.targets.push(LimitOrderManager.address);
-    argsForBigTimeLock.payloads.push(
-      (await encodeFunctionData("setSwapManager", [newSwapManager.address], "LimitOrderManager", LimitOrderManager.address)).payload,
-    );
-  }
   /**
-   * BatchManager deploy
+   * SwapManager upgrade
    */
-  const oldBatchManager = await getContract("BatchManager");
-
-  const newBatchManager = await deploy("BatchManager", {
-    from: deployer,
-    log: true,
-    args: [PositionManager.address, PriceOracle.address, WhiteBlackList.address, Registry.address],
+  await upgradeProxyWithCheck({
+    proxyAddress: BatchManager.address,
+    contractName: "BatchManager",
+    implArtifactName: "BatchManager_Implementation",
     libraries: {
       PrimexPricingLibrary: PrimexPricingLibrary.address,
       PositionLibrary: PositionLibrary.address,
     },
+    isBeacon: false,
   });
-
-  addToWhiteList.push(newBatchManager.address);
-  removeFromWhiteList.push(oldBatchManager.address);
-
-  if (executeFromDeployer) {
-    tx = await Registry.grantRole(BATCH_MANAGER_ROLE, newBatchManager.address);
-    await tx.wait();
-    tx = await Registry.grantRole(VAULT_ACCESS_ROLE, newBatchManager.address);
-    await tx.wait();
-
-    // revoke rights
-    tx = await Registry.revokeRole(BATCH_MANAGER_ROLE, oldBatchManager.address);
-    await tx.wait();
-
-    tx = await Registry.revokeRole(VAULT_ACCESS_ROLE, oldBatchManager.address);
-    await tx.wait();
-  } else {
-    argsForBigTimeLock.targets.push(Registry.address);
-    argsForBigTimeLock.payloads.push(
-      (await encodeFunctionData("grantRole", [BATCH_MANAGER_ROLE, newBatchManager.address], "PrimexRegistry", Registry.address)).payload,
-    );
-
-    argsForBigTimeLock.targets.push(Registry.address);
-    argsForBigTimeLock.payloads.push(
-      (await encodeFunctionData("grantRole", [VAULT_ACCESS_ROLE, newBatchManager.address], "PrimexRegistry", Registry.address)).payload,
-    );
-
-    // revoke rights
-
-    argsForBigTimeLock.targets.push(Registry.address);
-    argsForBigTimeLock.payloads.push(
-      (await encodeFunctionData("revokeRole", [BATCH_MANAGER_ROLE, oldBatchManager.address], "PrimexRegistry", Registry.address)).payload,
-    );
-
-    argsForBigTimeLock.targets.push(Registry.address);
-    argsForBigTimeLock.payloads.push(
-      (await encodeFunctionData("revokeRole", [VAULT_ACCESS_ROLE, oldBatchManager.address], "PrimexRegistry", Registry.address)).payload,
-    );
-  }
 
   /**
    * ConditionalManagers deploy

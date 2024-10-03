@@ -19,12 +19,12 @@
       },
       "maxTotalDeposit": 20000,
       "LiquidityMining": {
-        "amount":1600,
-        "durationInDays":7,
-        "stabilizationPeriodDurationInDays":5,
-        "amountPerUser":1000,
-        "pmxReward":50000,
-        "isInvestEnabled":true
+        "amount": 1600,
+        "durationInDays": 7,
+        "stabilizationPeriodDurationInDays": 5,
+        "amountPerUser": 1000,
+        "pmxReward": 50000,
+        "isInvestEnabled": true
       }
     },
     {
@@ -45,12 +45,12 @@
       },
       "maxTotalDeposit": 1000,
       "LiquidityMining": {
-        "amount":100,
-        "durationInDays":6,
-        "stabilizationPeriodDurationInDays":3,
-        "amountPerUser":125,
-        "pmxReward":45000,
-        "isInvestEnabled":true
+        "amount": 100,
+        "durationInDays": 6,
+        "stabilizationPeriodDurationInDays": 3,
+        "amountPerUser": 125,
+        "pmxReward": 45000,
+        "isInvestEnabled": true
       }
     },
     {
@@ -90,12 +90,12 @@
       },
       "maxTotalDeposit": 100e6,
       "LiquidityMining": {
-        "amount":540000,
-        "durationInDays":3,
-        "stabilizationPeriodDurationInDays":3,
-        "amountPerUser":1e6,
-        "pmxReward":80000,
-        "isInvestEnabled":false
+        "amount": 540000,
+        "durationInDays": 3,
+        "stabilizationPeriodDurationInDays": 3,
+        "amountPerUser": 1e6,
+        "pmxReward": 80000,
+        "isInvestEnabled": false
       }
     }
   ]

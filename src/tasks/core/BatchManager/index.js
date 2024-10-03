@@ -8,5 +8,7 @@ task("deploy:BatchManager", "Deploy PositionManager contract", require("./batchM
   .addParam("positionManager", "The address of the PositionManager")
   .addParam("priceOracle", "The address of the PriceOracle")
   .addParam("whiteBlackList", "The address of the WhiteBlackList")
+  .addParam("gasPerPosition", "The gas amount per position")
+  .addParam("gasPerBatch", "The gas amount per batch")
   .addOptionalParam("errorsLibrary", "The address of errorsLibrary contract")
-  .addOptionalParam("contractName", "The name of the contract artifact e.g BatchManager");
+  .addFlag("notExecuteNewDeployedTasks", "Whether to ignore the newDeployed if statement");

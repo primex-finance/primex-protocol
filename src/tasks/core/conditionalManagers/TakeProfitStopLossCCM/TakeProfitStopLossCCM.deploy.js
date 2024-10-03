@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 module.exports = async function (
-  { primexPricingLibrary, positionLibrary, primexDNS, priceOracle, errorsLibrary },
+  { primexPricingLibrary, registry, positionLibrary, primexDNS, priceOracle, errorsLibrary },
   { getNamedAccounts, deployments: { deploy }, ethers: { getContractAt, getContract } },
 ) {
   const { deployer } = await getNamedAccounts();
@@ -10,7 +10,7 @@ module.exports = async function (
 
   const takeProfitStopLossCCM = await deploy("TakeProfitStopLossCCM", {
     from: deployer,
-    args: [primexDNS, priceOracle],
+    args: [registry],
     log: true,
     libraries: {
       PrimexPricingLibrary: primexPricingLibrary,
@@ -20,6 +20,10 @@ module.exports = async function (
   });
 
   if (takeProfitStopLossCCM.newlyDeployed) {
+    const TakeProfitStopLossCCM = await getContractAt("TakeProfitStopLossCCM", takeProfitStopLossCCM.address);
+    const initializeTx = await TakeProfitStopLossCCM.initialize(primexDNS, priceOracle);
+    await initializeTx.wait();
+
     const primexDNScontract = await getContractAt("PrimexDNS", primexDNS);
     const addCCM = await primexDNScontract.setConditionalManager("2", takeProfitStopLossCCM.address);
     await addCCM.wait();

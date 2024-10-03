@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
@@ -6,9 +6,9 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 
 import {IPToken} from "../PToken/IPToken.sol";
 import {IDebtToken} from "../DebtToken/IDebtToken.sol";
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
-import {IPriceOracle} from "../PriceOracle/IPriceOracle.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
+import {IPositionManagerV2} from "../PositionManager/IPositionManager.sol";
+import {IPriceOracleV2} from "../PriceOracle/IPriceOracle.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
 import {IReserve} from "../Reserve/IReserve.sol";
 import {ILiquidityMiningRewardDistributor} from "../LiquidityMiningRewardDistributor/ILiquidityMiningRewardDistributor.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
@@ -68,7 +68,7 @@ interface IBucketStorage {
 
     function registry() external view returns (address);
 
-    function positionManager() external view returns (IPositionManager);
+    function positionManager() external view returns (IPositionManagerV2);
 
     function reserve() external view returns (IReserve);
 
@@ -105,4 +105,8 @@ interface IBucketStorage {
     function whiteBlackList() external view returns (IWhiteBlackList);
 
     function maxTotalDeposit() external view returns (uint256);
+}
+
+interface IBucketStorageV2 {
+    function bucketExtension() external view returns (address);
 }

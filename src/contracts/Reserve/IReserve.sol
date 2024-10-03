@@ -1,9 +1,9 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
-import {IBucket} from "../Bucket/IBucket.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
+import {IBucketV3} from "../Bucket/IBucket.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
 import {IReserveStorage} from "./IReserveStorage.sol";
 import {IPausable} from "../interfaces/IPausable.sol";
 
@@ -16,14 +16,14 @@ interface IReserve is IReserveStorage, IPausable {
      * @param dns The address of PrimexDNS contract
      * @param registry The address of Registry contract
      */
-    function initialize(IPrimexDNS dns, address registry) external;
+    function initialize(IPrimexDNSV3 dns, address registry) external;
 
     /**
      * @dev Burns the permanent loss amount (presented in pTokens) from the Reserve for a particular bucket
      * @param bucket The address of a bucket
      * Emits BurnAmountCalculated(burnAmount) event
      */
-    function paybackPermanentLoss(IBucket bucket) external;
+    function paybackPermanentLoss(IBucketV3 bucket) external;
 
     /**
      * @dev Transfers some bonus in pTokens to receiver from Reserve

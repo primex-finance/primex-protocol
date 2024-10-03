@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -14,7 +14,7 @@ import {HOUR} from "../Constants.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
 import {IPMXBonusNFT} from "../PMXBonusNFT/IPMXBonusNFT.sol";
 import {IReserve} from "../Reserve/IReserve.sol";
-import {IBucket} from "../Bucket/IBucket.sol";
+import {IBucketV3} from "../Bucket/IBucket.sol";
 import {IDebtToken} from "../DebtToken/IDebtToken.sol";
 import {IFeeExecutor} from "./IFeeExecutor.sol";
 
@@ -138,7 +138,7 @@ abstract contract FeeExecutor is IFeeExecutor, BonusExecutor, FeeExecutorStorage
         _require(bonus.percent != 0, Errors.TIER_IS_NOT_ACTIVE.selector);
         bonuses[_user][_bucket] = ActivatedBonus({
             nftId: _nftId,
-            bucket: IBucket(_bucket),
+            bucket: IBucketV3(_bucket),
             percent: bonus.percent,
             maxAmount: bonus.maxAmount,
             accumulatedAmount: 0,

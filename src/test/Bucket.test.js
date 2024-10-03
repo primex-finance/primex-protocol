@@ -18,10 +18,12 @@ const {
   deployments: { fixture },
 } = require("hardhat");
 const { BigNumber: BN } = require("bignumber.js");
-const { getAmountsOut, addLiquidity, checkIsDexSupported, swapExactTokensForTokens, getSingleRoute } = require("./utils/dexOperations");
+const { getAmountsOut, addLiquidity, checkIsDexSupported, swapExactTokensForTokens, getSingleMegaRoute } = require("./utils/dexOperations");
 const { parseArguments } = require("./utils/eventValidation");
 const { getAdminSigners, getImpersonateSigner } = require("./utils/hardhatUtils");
 const { addressFromEvent } = require("./utils/addressFromEvent");
+const { encodeFunctionData } = require("../tasks/utils/encodeFunctionData");
+const { getConfigByName } = require("../config/configUtils");
 
 const {
   rayMul,
@@ -32,7 +34,7 @@ const {
   calculateLinearInterest,
   calculateMaxAssetLeverage,
 } = require("./utils/math");
-const { MAX_TOKEN_DECIMALITY, WAD, BAR_CALC_PARAMS_DECODE, RAY, USD, OrderType, NATIVE_CURRENCY } = require("./utils/constants");
+const { MAX_TOKEN_DECIMALITY, WAD, FeeRateType, BAR_CALC_PARAMS_DECODE, RAY, USD_DECIMALS, USD_MULTIPLIER } = require("./utils/constants");
 const { getPoolAddressesProvider } = require("@aave/deploy-v3");
 const {
   deployMockPToken,
@@ -48,7 +50,17 @@ const {
   deployMockPtokensFactory,
   deployMockDebtTokensFactory,
 } = require("./utils/waffleMocks");
+const {
+  setupUsdOraclesForToken,
+  setupUsdOraclesForTokens,
+  getEncodedChainlinkRouteViaUsd,
+  getEncodedChainlinkRouteToUsd,
+  setOraclePrice,
+} = require("./utils/oracleUtils");
 const { barCalcParams: defaultBarCalcParams } = require("./utils/defaultBarCalcParams");
+const {
+  PrimexDNSconfig: { feeRates },
+} = getConfigByName("generalConfig.json");
 
 const feeBuffer = "1000200000000000000"; // 1.0002
 const withdrawalFeeRate = "5000000000000000"; // 0.005 - 0.5%
@@ -60,8 +72,7 @@ let maintenanceBuffer, securityBuffer, oracleTolerableLimitAB, oracleTolerableLi
 process.env.TEST = true;
 
 describe("Bucket", function () {
-  let priceFeed,
-    pTestTokenA,
+  let pTestTokenA,
     reserve,
     testTokenA,
     decimalsA,
@@ -69,6 +80,7 @@ describe("Bucket", function () {
     pairPriceDrop,
     positionManager,
     priceOracle,
+    bucketExtension,
     ErrorsLibrary,
     testTokenB,
     decimalsB,
@@ -89,10 +101,11 @@ describe("Bucket", function () {
     mockPtokensFactory,
     mockDebtTokensFactory;
   let LiquidityMiningRewardDistributor;
-  let protocolRate, PriceInETH;
+  let PriceInETH;
   let BigTimelockAdmin, MediumTimelockAdmin, SmallTimelockAdmin;
   let barCalcParams, interestRateStrategy;
-  let multiplierA;
+  let multiplierA, multiplierB;
+  // let multiplierA;
   before(async function () {
     await fixture(["Test"]);
     await run("deploy:Aave");
@@ -103,19 +116,24 @@ describe("Bucket", function () {
     testTokenB = await getContract("TestTokenB");
     decimalsB = await testTokenB.decimals();
     traderBalanceVault = await getContract("TraderBalanceVault");
-    BucketsFactory = await getContract("BucketsFactory");
+    BucketsFactory = await getContract("BucketsFactoryV2");
     PrimexDNS = await getContract("PrimexDNS");
     ErrorsLibrary = await getContract("Errors");
     LiquidityMiningRewardDistributor = await getContract("LiquidityMiningRewardDistributor");
     positionManager = await getContract("PositionManager");
     priceOracle = await getContract("PriceOracle");
     interestRateStrategy = await getContract("InterestRateStrategy");
+    bucketExtension = await getContract("BucketExtension");
 
     barCalcParams = defaultAbiCoder.encode(BAR_CALC_PARAMS_DECODE, [Object.values(defaultBarCalcParams)]);
-    multiplierA = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsA));
     ({ BigTimelockAdmin, MediumTimelockAdmin, SmallTimelockAdmin } = await getAdminSigners());
 
-    await positionManager.setMaxPositionSize(testTokenA.address, testTokenB.address, 0, MaxUint256);
+    const { payload } = await encodeFunctionData(
+      "setMaxPositionSize",
+      [testTokenA.address, testTokenB.address, 0, MaxUint256],
+      "PositionManagerExtension",
+    );
+    await positionManager.setProtocolParamsByAdmin(payload);
 
     const bucketAddress = (await PrimexDNS.buckets("bucket1")).bucketAddress;
     bucket = await getContractAt("Bucket", bucketAddress);
@@ -151,6 +169,9 @@ describe("Bucket", function () {
     testTokenY = await getContract("TestTokenY");
     testTokenZ = await getContract("TestTokenZ");
 
+    multiplierA = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsA));
+    multiplierB = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB));
+
     await testTokenA.connect(lender).approve(pTestTokenA.address, MaxUint256);
 
     dex = process.env.DEX || "uniswap";
@@ -163,31 +184,14 @@ describe("Bucket", function () {
     await testTokenA.connect(trader).approve(traderBalanceVault.address, depositAmount);
     await traderBalanceVault.connect(trader).deposit(testTokenA.address, depositAmount);
     await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
-
-    priceFeed = await getContract("PrimexAggregatorV3TestService TEST price feed");
-    await priceOracle.updatePriceFeed(testTokenA.address, testTokenB.address, priceFeed.address);
-    // a stub so that the tests do not fail.
-    // this is acceptable because in these tests the bucket is checked
-    // and it is important in it that the position has opened and not the conditions for its opening
-    await priceFeed.setAnswer(1);
-    await priceFeed.setDecimals(decimalsB);
-
-    protocolRate = await PrimexDNS.feeRates(OrderType.MARKET_ORDER, NATIVE_CURRENCY);
-
-    const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
-    const priceFeedTTAETH = await PrimexAggregatorV3TestServiceFactory.deploy("TTA_ETH", deployer.address);
-    PriceInETH = parseUnits("0.3", "18"); // 1 tta=0.3 eth
-    await priceFeedTTAETH.setDecimals("18");
-    await priceFeedTTAETH.setAnswer(PriceInETH);
-    await priceOracle.updatePriceFeed(testTokenA.address, await priceOracle.eth(), priceFeedTTAETH.address);
+    PriceInETH = parseUnits("0.3", USD_DECIMALS); // 1 tta=0.3 ETH
+    await setupUsdOraclesForTokens(testTokenA, await priceOracle.eth(), PriceInETH);
+    await setupUsdOraclesForTokens(testTokenX, await priceOracle.eth(), PriceInETH);
+    await setupUsdOraclesForTokens(testTokenY, await priceOracle.eth(), PriceInETH);
+    await setupUsdOraclesForTokens(testTokenZ, await priceOracle.eth(), PriceInETH);
+    await setupUsdOraclesForToken(testTokenB, parseUnits("1", USD_DECIMALS));
   });
-  function calculateFee(depositAmount, borrowedAmount) {
-    const feeAmountCalculateWithETHRate = wadMul(
-      borrowedAmount.add(depositAmount).mul(multiplierA).toString(),
-      protocolRate.toString(),
-    ).toString();
-    return wadMul(feeAmountCalculateWithETHRate.toString(), PriceInETH.toString()).toString();
-  }
+
   describe("Initialization", function () {
     let bucketName;
     let mockReserve;
@@ -405,36 +409,6 @@ describe("Bucket", function () {
       await expect(bucketsFactory.createBucket(bucketInitParams)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
     });
 
-    it("Should revert bucket deploy when pToken address not supported", async function () {
-      await mockPToken.mock.supportsInterface.returns(false);
-      await mockPtokensFactory.mock.createPToken.returns(mockPToken.address);
-
-      bucketsFactory = await bucketsFactoryContractFactory.deploy(
-        mockRegistry.address,
-        mockPtokensFactory.address,
-        mockDebtTokensFactory.address,
-        bucketImplementation.address,
-      );
-      await bucketsFactory.deployed();
-
-      await expect(bucketsFactory.createBucket(bucketInitParams)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
-    });
-
-    it("Should revert bucket deploy when debtToken address not supported", async function () {
-      await mockDebtToken.mock.supportsInterface.returns(false);
-      await mockDebtTokensFactory.mock.createDebtToken.returns(mockDebtToken.address);
-
-      bucketsFactory = await bucketsFactoryContractFactory.deploy(
-        mockRegistry.address,
-        mockPtokensFactory.address,
-        mockDebtTokensFactory.address,
-        bucketImplementation.address,
-      );
-      await bucketsFactory.deployed();
-
-      await expect(bucketsFactory.createBucket(bucketInitParams)).to.be.revertedWithCustomError(ErrorsLibrary, "ADDRESS_NOT_SUPPORTED");
-    });
-
     it("Should revert when positionManager address not supported", async function () {
       await mockPositionManager.mock.supportsInterface.returns(false);
       bucketInitParams.positionManager = mockPositionManager.address;
@@ -508,6 +482,26 @@ describe("Bucket", function () {
         method: "evm_revert",
         params: [snapshotId],
       });
+    });
+
+    it("Should revert if not BIG_TIMELOCK_ADMIN call setBucketExtension", async function () {
+      await expect(bucket.connect(caller).setBucketExtension(bucketExtension.address)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+
+    it("Should revert setBucketExtension when bucketExtension address not supported", async function () {
+      await expect(bucket.connect(deployer).setBucketExtension(priceOracle.address)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "ADDRESS_NOT_SUPPORTED",
+      );
+    });
+
+    it("Should set new bucketExtension", async function () {
+      await expect(bucket.connect(deployer).setBucketExtension(bucketExtension.address))
+        .to.emit(bucket, "ChangedBucketExtension")
+        .withArgs(bucketExtension.address);
     });
 
     it("Should revert if not BIG_TIMELOCK_ADMIN call setBarCalculationParams", async function () {
@@ -904,10 +898,10 @@ describe("Bucket", function () {
     });
 
     it("Should revert openPosition while bucket is not launched", async function () {
-      const assetRoutes = await getSingleRoute([testTokenA.address, testTokenB.address], dex);
+      const assetRoutes = await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex);
 
       await expect(
-        openPosition(testTokenA, traderBalanceVault, bucket, priceFeed, positionManager, dex, testTokenB, assetRoutes),
+        openPosition(testTokenA, traderBalanceVault, bucket, positionManager, dex, testTokenB, assetRoutes),
       ).to.be.revertedWithCustomError(ErrorsLibrary, "BUCKET_IS_NOT_LAUNCHED");
     });
 
@@ -922,8 +916,8 @@ describe("Bucket", function () {
       await testTokenA.connect(lender).approve(bucket.address, liquidityMiningAmount);
       await bucket.connect(lender)["deposit(address,uint256,bool)"](lender.address, liquidityMiningAmount, true);
 
-      const assetRoutes = await getSingleRoute([testTokenA.address, testTokenB.address], dex);
-      await openPosition(testTokenA, traderBalanceVault, bucket, priceFeed, positionManager, dex, testTokenB, assetRoutes);
+      const assetRoutes = await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex);
+      await openPosition(testTokenA, traderBalanceVault, bucket, positionManager, dex, testTokenB, assetRoutes);
     });
 
     it("Should emit BucketLaunched event when bucket is launched", async function () {
@@ -1631,7 +1625,7 @@ describe("Bucket", function () {
           path: [testTokenB.address, testTokenA.address],
         });
         const amountBOut = await getAmountsOut(dex, amount, [testTokenA.address, testTokenB.address]);
-        const route = await getSingleRoute([testTokenA.address, testTokenB.address], dex);
+        const route = await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex);
 
         await expect(() =>
           bucket.connect(lender).depositFromBucket(bucketOtherName, swapManager.address, route, 0),
@@ -1744,7 +1738,9 @@ describe("Bucket", function () {
       });
     });
     it("Should not return maxAssetLeverage when asset is not supported", async function () {
-      await expect(bucket.maxAssetLeverage(testTokenY.address)).to.be.revertedWithCustomError(ErrorsLibrary, "ASSET_IS_NOT_SUPPORTED");
+      await expect(
+        bucket["maxAssetLeverage(address,uint256)"](testTokenY.address, FeeRateType.SpotPositionClosedByTrader),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "ASSET_IS_NOT_SUPPORTED");
     });
 
     const pairPriceDrops = [
@@ -1769,8 +1765,11 @@ describe("Bucket", function () {
           BigNumber.from(pairPriceDrops[i]),
           oracleTolerableLimitAB,
           oracleTolerableLimitBA,
+          parseEther(feeRates.SpotPositionClosedByTrader),
         );
-        expect(await bucket.maxAssetLeverage(testTokenB.address)).to.equal(maxLeverage);
+        expect(
+          await bucket["maxAssetLeverage(address,uint256)"](testTokenB.address, parseEther(feeRates.SpotPositionClosedByTrader)),
+        ).to.equal(maxLeverage);
       }
     });
     it("Should return the correct max leverage when the asset is equal to the deposit asset or position asset", async function () {
@@ -1785,19 +1784,17 @@ describe("Bucket", function () {
           pairPriceDrops[i],
           oracleTolerableLimitAB,
           oracleTolerableLimitBA,
+          parseEther(feeRates.SpotPositionClosedByTrader),
         );
-        expect(await bucket.maxAssetLeverage(testTokenB.address)).to.equal(maxLeverage);
+        expect(
+          await bucket["maxAssetLeverage(address,uint256)"](testTokenB.address, parseEther(feeRates.SpotPositionClosedByTrader)),
+        ).to.equal(maxLeverage);
       }
     });
   });
 
   describe("allowedAssetList", function () {
     let snapshotId;
-    before(async function () {
-      await priceOracle.updatePriceFeed(testTokenX.address, USD, priceFeed.address);
-      await priceOracle.updatePriceFeed(testTokenY.address, USD, priceFeed.address);
-      await priceOracle.updatePriceFeed(testTokenZ.address, USD, priceFeed.address);
-    });
     beforeEach(async function () {
       snapshotId = await network.provider.request({
         method: "evm_snapshot",
@@ -1812,19 +1809,12 @@ describe("Bucket", function () {
       });
     });
 
-    it("Should revert if not MEDIUM_TIMELOCK_ADMIN call addAsset", async function () {
+    it("Should revert if not SMALL_TIMELOCK_ADMIN call addAsset", async function () {
       await expect(bucket.connect(caller).addAsset(testTokenB.address)).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
     });
 
     it("Should revert if not SMALL_TIMELOCK_ADMIN call removeAsset", async function () {
       await expect(bucket.connect(caller).removeAsset(testTokenB.address)).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
-    });
-
-    it("Should revert if no price feed found", async function () {
-      const pairPriceDrop = new BN(WAD).multipliedBy(0.01).toFixed();
-      await priceOracle.setPairPriceDrop(testTokenX.address, testTokenA.address, pairPriceDrop);
-      await priceOracle.updatePriceFeed(testTokenX.address, USD, AddressZero);
-      await expect(bucket.addAsset(testTokenX.address)).to.be.revertedWithCustomError(ErrorsLibrary, "NO_PRICEFEED_FOUND");
     });
 
     it("Should allow to add asset only when priceDrop of asset relative to borrowed asset > 0", async function () {
@@ -1852,9 +1842,9 @@ describe("Bucket", function () {
       await priceOracle.setPairPriceDrop(testTokenY.address, testTokenA.address, pairPriceDrop2);
       await priceOracle.setPairPriceDrop(testTokenZ.address, testTokenA.address, pairPriceDrop3);
 
-      await bucket.connect(MediumTimelockAdmin).addAsset(testTokenX.address);
-      await bucket.connect(MediumTimelockAdmin).addAsset(testTokenY.address);
-      await bucket.connect(MediumTimelockAdmin).addAsset(testTokenZ.address);
+      await bucket.connect(SmallTimelockAdmin).addAsset(testTokenX.address);
+      await bucket.connect(SmallTimelockAdmin).addAsset(testTokenY.address);
+      await bucket.connect(SmallTimelockAdmin).addAsset(testTokenZ.address);
       expect((await bucket.getAllowedAssets()).length).to.equal(4); // 3 + initially assets(now 1)
       expect((await bucket.getAllowedAssets())[1]).to.equal(testTokenX.address);
       expect((await bucket.getAllowedAssets())[2]).to.equal(testTokenY.address);
@@ -1976,27 +1966,39 @@ describe("Bucket", function () {
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
+
       const borrowIndexBefore = await bucket.variableBorrowIndex();
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "bucket1",
-            borrowedAmount: borrow,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenB.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      const swapSize = borrow.add(depositAmount);
+      const swap = swapSize.mul(multiplierA);
+      const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+      const amountB = amount0Out.mul(multiplierB);
+      const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
+
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "bucket1",
+          borrowedAmount: borrow,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: calculateFee(deposit, borrow) },
-      );
+        firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenB.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
       const BAR = await bucket.bar();
       for (let i = 0; i < 10; i++) {
         await network.provider.send("evm_mine");
@@ -2026,28 +2028,39 @@ describe("Bucket", function () {
       const deadline = new Date().getTime() + 600;
       await testTokenA.connect(trader).approve(positionManager.address, deposit);
 
+      const swapSize = borrow.add(depositAmount);
+      const swap = swapSize.mul(multiplierA);
+      const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+      const amountB = amount0Out.mul(multiplierB);
+      const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
+
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
       const borrowIndexBefore = await bucket.variableBorrowIndex();
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "bucket1",
-            borrowedAmount: borrow,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenB.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "bucket1",
+          borrowedAmount: borrow,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: calculateFee(deposit, borrow) },
-      );
+        firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenB.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
       const BAR = await bucket.bar();
       for (let i = 0; i < 10; i++) {
         await network.provider.send("evm_mine");
@@ -2078,28 +2091,39 @@ describe("Bucket", function () {
       const deadline = new Date().getTime() + 600;
       await testTokenA.connect(trader).approve(positionManager.address, deposit);
 
+      const swapSize = borrow.add(depositAmount);
+      const swap = swapSize.mul(multiplierA);
+      const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+      const amountB = amount0Out.mul(multiplierB);
+      const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+      const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
+
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
       const borrowIndexBefore = await bucket.variableBorrowIndex();
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "bucket1",
-            borrowedAmount: borrow,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenB.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "bucket1",
+          borrowedAmount: borrow,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: calculateFee(deposit, borrow) },
-      );
+        firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenB.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
       const BAR = await bucket.bar();
       for (let i = 0; i < 10; i++) {
         await network.provider.send("evm_mine");
@@ -2130,40 +2154,40 @@ describe("Bucket", function () {
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
       const swapSize = depositAmount.add(borrow);
       await testTokenA.connect(trader).approve(positionManager.address, deposit);
 
-      const amountBOut = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
       const multiplierB = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB));
-      const amountB = amountBOut.mul(multiplierB);
-
-      const multiplierA = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsA));
       const swap = swapSize.mul(multiplierA);
-
+      const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+      const amountB = amount0Out.mul(multiplierB);
       const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
-      const price = BigNumber.from(limitPrice).div(BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB)));
-      await priceFeed.setAnswer(price);
+      const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "bucket1",
-            borrowedAmount: borrow,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenB.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "bucket1",
+          borrowedAmount: borrow,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: calculateFee(deposit, borrow) },
-      );
+        firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenB.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
       // If the number of cycles increases,
       // the amount of P-tokens may exceed the availableLiquidity of the bucket.
       // This is due to the _mintToReserve function and a feature of the WadRayMath library
@@ -2183,7 +2207,16 @@ describe("Bucket", function () {
 
       await positionManager
         .connect(trader)
-        .closePosition(0, trader.address, await getSingleRoute([testTokenB.address, testTokenA.address], dex), 0);
+        .closePosition(
+          0,
+          trader.address,
+          await getSingleMegaRoute([testTokenB.address, testTokenA.address], dex),
+          0,
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenB),
+          [],
+        );
       const pTokenSum = (await pTestTokenA.balanceOf(lender.address)).add(await pTestTokenA.balanceOf(reserve.address));
       expect(pTokenSum).to.be.closeTo(await bucket.availableLiquidity(), numberOfDeposits);
     });
@@ -2195,46 +2228,54 @@ describe("Bucket", function () {
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
       await testTokenA.connect(trader).approve(positionManager.address, deposit);
 
       const swapSize = depositAmount.add(borrow);
-      const amountBOut = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
-      const multiplierB = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB));
-      const amountB = amountBOut.mul(multiplierB);
-
-      const multiplierA = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsA));
       const swap = swapSize.mul(multiplierA);
-
+      const amount0Out = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
+      const amountB = amount0Out.mul(multiplierB);
       const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
-      const price = BigNumber.from(limitPrice).div(BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB)));
-      await priceFeed.setAnswer(price);
+      const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "bucket1",
-            borrowedAmount: borrow,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
-          depositAsset: testTokenA.address,
-          depositAmount: depositAmount,
-          positionAsset: testTokenB.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "bucket1",
+          borrowedAmount: borrow,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: calculateFee(deposit, borrow) },
-      );
+        firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
+        depositAsset: testTokenA.address,
+        depositAmount: depositAmount,
+        positionAsset: testTokenB.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
       for (let i = 0; i < 10; i++) {
         await network.provider.send("evm_mine");
       }
       await positionManager
         .connect(trader)
-        .closePosition(0, trader.address, await getSingleRoute([testTokenB.address, testTokenA.address], dex), 0);
+        .closePosition(
+          0,
+          trader.address,
+          await getSingleMegaRoute([testTokenB.address, testTokenA.address], dex),
+          0,
+          getEncodedChainlinkRouteViaUsd(testTokenA),
+          getEncodedChainlinkRouteViaUsd(testTokenB),
+          getEncodedChainlinkRouteViaUsd(testTokenB),
+          [],
+        );
       const pTokenSum = (await pTestTokenA.balanceOf(lender.address)).add(await pTestTokenA.balanceOf(reserve.address));
       expect(pTokenSum.lte(await bucket.availableLiquidity())).to.equal(true);
       const denominator = Math.pow(10, Math.floor(decimalsA / 2));
@@ -2442,10 +2483,6 @@ describe("Bucket", function () {
       await mockInterestRateStrategy.mock.calculateInterestRates.returns(1, 1);
       await mockPositionManager.mock.priceOracle.returns(mockPriceOracle.address);
       await mockPriceOracle.mock.pairPriceDrops.withArgs(mockErc20.address, mockErc20.address).returns(One);
-      await mockPriceOracle.mock.getPriceFeedsPair
-        .withArgs(mockErc20.address, mockErc20.address)
-        .returns(mockErc20.address, mockErc20.address);
-
       await mockPtokensFactory.mock.createPToken.returns(mockPtoken.address);
       await mockDebtTokensFactory.mock.createDebtToken.returns(mockDebtToken.address);
 
@@ -2548,7 +2585,7 @@ describe("Bucket", function () {
     });
   });
 
-  async function openPosition(testTokenA, traderBalanceVault, bucket, priceFeed, positionManager, dex, testTokenB, assetRoutes) {
+  async function openPosition(testTokenA, traderBalanceVault, bucket, positionManager, dex, testTokenB, assetRoutes) {
     const { trader, lender } = await getNamedSigners();
     const lenderAmount = parseUnits("50", decimalsA);
     const depositAmount = parseUnits("20", decimalsA);
@@ -2560,7 +2597,6 @@ describe("Bucket", function () {
     const amountOutMin = 0;
     const deadline = new Date().getTime() + 600;
     const takeDepositFromWallet = true;
-    const payFeeFromWallet = true;
     await testTokenA.connect(trader).approve(positionManager.address, depositAmount);
 
     const swapSize = depositAmount.add(borrowedAmount);
@@ -2571,35 +2607,38 @@ describe("Bucket", function () {
     const swap = swapSize.mul(multiplierA);
 
     const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
-    const price = BigNumber.from(limitPrice).div(BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB)));
-    await priceFeed.setAnswer(price);
-    await priceFeed.setDecimals(decimalsB);
+    const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+    await setOraclePrice(testTokenA, testTokenB, price);
 
-    await positionManager.connect(trader).openPosition(
-      {
-        marginParams: {
-          bucket: await bucket.name(),
-          borrowedAmount: borrowedAmount,
-          depositInThirdAssetRoutes: [],
-        },
-        firstAssetRoutes: assetRoutes,
-        depositAsset: testTokenA.address,
-        depositAmount: depositAmount,
-        positionAsset: testTokenB.address,
-        amountOutMin: amountOutMin,
-        deadline: deadline,
-        takeDepositFromWallet: takeDepositFromWallet,
-        payFeeFromWallet: payFeeFromWallet,
-        closeConditions: [],
+    await positionManager.connect(trader).openPosition({
+      marginParams: {
+        bucket: await bucket.name(),
+        borrowedAmount: borrowedAmount,
+        depositInThirdAssetMegaRoutes: [],
       },
-      { value: calculateFee(depositAmount, borrowedAmount) },
-    );
+      firstAssetMegaRoutes: assetRoutes,
+      depositAsset: testTokenA.address,
+      depositAmount: depositAmount,
+      positionAsset: testTokenB.address,
+      amountOutMin: amountOutMin,
+      deadline: deadline,
+      takeDepositFromWallet: takeDepositFromWallet,
+      closeConditions: [],
+      firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      thirdAssetOracleData: [],
+      depositSoldAssetOracleData: [],
+      positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+      nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      pullOracleData: [],
+    });
 
     const positionsId = await positionManager.positionsId();
     return positionsId.sub(1);
   }
 
-  async function closePosition(positionId, positionManager, dex, testTokenA, testTokenB, priceFeed, assetRoutes) {
+  async function closePosition(positionId, positionManager, dex, testTokenA, testTokenB, assetRoutes) {
     const { trader } = await getNamedSigners();
     const { positionAmount } = await positionManager.getPosition(positionId);
 
@@ -2611,10 +2650,21 @@ describe("Bucket", function () {
     const posAmount = positionAmount.mul(multiplierB);
 
     const limitPrice = wadDiv(posAmount.toString(), amountA.toString()).toString();
-    const price = BigNumber.from(limitPrice).div(BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB)));
-    await priceFeed.setAnswer(price);
+    const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+    await setOraclePrice(testTokenA, testTokenB, price);
 
-    await positionManager.connect(trader).closePosition(positionId, trader.address, assetRoutes, 0);
+    await positionManager
+      .connect(trader)
+      .closePosition(
+        positionId,
+        trader.address,
+        assetRoutes,
+        0,
+        getEncodedChainlinkRouteViaUsd(testTokenA),
+        getEncodedChainlinkRouteViaUsd(testTokenB),
+        getEncodedChainlinkRouteViaUsd(testTokenB),
+        [],
+      );
   }
 
   describe("paybackPermanentLoss - integration testing", function () {
@@ -2623,7 +2673,6 @@ describe("Bucket", function () {
     let testTokenA, testTokenB;
     let traderBalanceVault;
     let dex;
-    let priceFeed, priceOracle;
     let PrimexDNS;
     let positionManager;
     let assetRoutes;
@@ -2653,31 +2702,17 @@ describe("Bucket", function () {
       }
 
       checkIsDexSupported(dex);
-      assetRoutes = await getSingleRoute([testTokenA.address, testTokenB.address], dex);
-      assetRoutesForClose = await getSingleRoute([testTokenB.address, testTokenA.address], dex);
+      assetRoutes = await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex);
+      assetRoutesForClose = await getSingleMegaRoute([testTokenB.address, testTokenA.address], dex);
 
       await addLiquidity({ dex: dex, from: "lender", tokenA: testTokenA, tokenB: testTokenB });
-
-      priceFeed = await getContract("PrimexAggregatorV3TestService TEST price feed");
-      await priceFeed.setDecimals("18");
-      priceOracle = await getContract("PriceOracle");
-      await priceOracle.updatePriceFeed(testTokenA.address, testTokenB.address, priceFeed.address);
 
       pTokenAddress = await bucket.pToken();
       pToken = await getContractAt("PToken", pTokenAddress);
     });
 
     it("Should revert if a param 'uint256 amount' > pToken.balanceOf(msg.sender)", async function () {
-      const positionId = await openPosition(
-        testTokenA,
-        traderBalanceVault,
-        bucket,
-        priceFeed,
-        positionManager,
-        dex,
-        testTokenB,
-        assetRoutes,
-      );
+      const positionId = await openPosition(testTokenA, traderBalanceVault, bucket, positionManager, dex, testTokenB, assetRoutes);
 
       await swapExactTokensForTokens({
         dex: dex,
@@ -2685,7 +2720,7 @@ describe("Bucket", function () {
         path: [testTokenB.address, testTokenA.address],
       });
 
-      await closePosition(positionId, positionManager, dex, testTokenA, testTokenB, priceFeed, assetRoutesForClose);
+      await closePosition(positionId, positionManager, dex, testTokenA, testTokenB, assetRoutesForClose);
 
       const permanentLoss = await bucket.permanentLoss();
       const balance = await pToken.balanceOf(trader.address);
@@ -2700,16 +2735,7 @@ describe("Bucket", function () {
     });
 
     it("Should emit Burn event if a param 'uint256 amount' <= pToken.balanceOf(msg.sender)", async function () {
-      const positionId = await openPosition(
-        testTokenA,
-        traderBalanceVault,
-        bucket,
-        priceFeed,
-        positionManager,
-        dex,
-        testTokenB,
-        assetRoutes,
-      );
+      const positionId = await openPosition(testTokenA, traderBalanceVault, bucket, positionManager, dex, testTokenB, assetRoutes);
 
       await swapExactTokensForTokens({
         dex: dex,
@@ -2717,7 +2743,7 @@ describe("Bucket", function () {
         path: [testTokenB.address, testTokenA.address],
       });
 
-      await closePosition(positionId, positionManager, dex, testTokenA, testTokenB, priceFeed, assetRoutesForClose);
+      await closePosition(positionId, positionManager, dex, testTokenA, testTokenB, assetRoutesForClose);
 
       const permanentLoss = await bucket.permanentLoss();
 
@@ -2732,16 +2758,7 @@ describe("Bucket", function () {
     });
 
     it("Should increase debt over time", async function () {
-      const positionId = await openPosition(
-        testTokenA,
-        traderBalanceVault,
-        bucket,
-        priceFeed,
-        positionManager,
-        dex,
-        testTokenB,
-        assetRoutes,
-      );
+      const positionId = await openPosition(testTokenA, traderBalanceVault, bucket, positionManager, dex, testTokenB, assetRoutes);
 
       await swapExactTokensForTokens({
         dex: dex,
@@ -2749,7 +2766,7 @@ describe("Bucket", function () {
         path: [testTokenB.address, testTokenA.address],
       });
 
-      await closePosition(positionId, positionManager, dex, testTokenA, testTokenB, priceFeed, assetRoutesForClose);
+      await closePosition(positionId, positionManager, dex, testTokenA, testTokenB, assetRoutesForClose);
 
       const permanentLossBefore = await bucket.permanentLoss();
       const liquidityIndexBefore = await bucket.liquidityIndex();
@@ -2790,7 +2807,6 @@ describe("Bucket", function () {
       pmxRewardAmount = parseUnits("100", await pmx.decimals());
       pairPriceDrop = "100000000000000000"; // 0.1 in wad
       await priceOracle.setPairPriceDrop(testTokenB.address, usdCoin.address, pairPriceDrop);
-      await priceOracle.updatePriceFeed(usdCoin.address, USD, priceFeed.address);
 
       const { newBucket: newBucketAddress } = await run("deploy:Bucket", {
         nameBucket: "BucketWithLiquidityMining",
@@ -3051,7 +3067,6 @@ describe("Bucket", function () {
       const amountOutMin = 0;
       const deadline = new Date().getTime() + 600;
       const takeDepositFromWallet = true;
-      const payFeeFromWallet = true;
       const swapSize = deposit.add(borrow);
 
       const amountBOut = await getAmountsOut(dex, swapSize, [testTokenA.address, testTokenB.address]);
@@ -3062,28 +3077,32 @@ describe("Bucket", function () {
       const swap = swapSize.mul(multiplierA);
 
       const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
-      const price = BigNumber.from(limitPrice).div(BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB)));
-      await priceFeed.setAnswer(price);
+      const price = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
+      await setOraclePrice(testTokenA, testTokenB, price);
 
-      await positionManager.connect(trader).openPosition(
-        {
-          marginParams: {
-            bucket: "bucket1",
-            borrowedAmount: borrow,
-            depositInThirdAssetRoutes: [],
-          },
-          firstAssetRoutes: await getSingleRoute([testTokenA.address, testTokenB.address], dex),
-          depositAsset: testTokenA.address,
-          depositAmount: deposit,
-          positionAsset: testTokenB.address,
-          amountOutMin: amountOutMin,
-          deadline: deadline,
-          takeDepositFromWallet: takeDepositFromWallet,
-          payFeeFromWallet: payFeeFromWallet,
-          closeConditions: [],
+      await positionManager.connect(trader).openPosition({
+        marginParams: {
+          bucket: "bucket1",
+          borrowedAmount: borrow,
+          depositInThirdAssetMegaRoutes: [],
         },
-        { value: calculateFee(deposit, borrow) },
-      );
+        firstAssetMegaRoutes: await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex),
+        depositAsset: testTokenA.address,
+        depositAmount: deposit,
+        positionAsset: testTokenB.address,
+        amountOutMin: amountOutMin,
+        deadline: deadline,
+        takeDepositFromWallet: takeDepositFromWallet,
+        closeConditions: [],
+        firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        thirdAssetOracleData: [],
+        depositSoldAssetOracleData: [],
+        positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+        nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+        nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+        pullOracleData: [],
+      });
       const pTestTokenAddress = await bucket.pToken();
       const pTestTokenA = await getContractAt("PToken", pTestTokenAddress);
       const pTokenBalance = await pTestTokenA.balanceOf(lender.address);

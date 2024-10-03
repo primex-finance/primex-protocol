@@ -17,6 +17,7 @@ module.exports = async function (
     deployMeshswap,
     addLiquidityMeshswap,
     deployUniswapMulticall,
+    deployMockPyth,
   },
   { run },
 ) {
@@ -26,6 +27,11 @@ module.exports = async function (
   setConfig("isETHNative", !isETHNotNative);
   await run("setup:MintTokens");
   await run("deploy:Aave");
+  await run("deploy:WETHMock");
+
+  if (deployMockPyth) {
+    await run("deploy:MockPyth");
+  }
 
   if (deployUniswap) {
     const names = ["uniswap", "sushiswap"];

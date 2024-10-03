@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
@@ -7,19 +7,6 @@ import {LimitOrderLibrary} from "../libraries/LimitOrderLibrary.sol";
 import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
 
 interface IConditionalClosingManager {
-    /**
-     * @notice Checks if a position can be closed.
-     * @param _position The position details.
-     * @param _params The encoded parameters for closing the position.
-     * @param _additionalParams Additional encoded parameters.
-     * @return A boolean indicating whether the position can be closed.
-     */
-    function canBeClosedBeforeSwap(
-        PositionLibrary.Position calldata _position,
-        bytes calldata _params,
-        bytes calldata _additionalParams
-    ) external returns (bool);
-
     /**
      * @notice Checks if a position can be closed.
      * @param _position The position details.
@@ -34,6 +21,7 @@ interface IConditionalClosingManager {
         bytes calldata _params,
         bytes calldata _additionalParams,
         uint256 _closeAmount,
-        uint256 _borowedAssetAmount
-    ) external returns (bool);
+        uint256 _borowedAssetAmount,
+        bytes memory _positionSoldAssetOracleData
+    ) external payable returns (bool);
 }

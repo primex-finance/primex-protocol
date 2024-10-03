@@ -1,6 +1,18 @@
 // SPDX-License-Identifier: BUSL-1.1
 module.exports = async function (
-  { positionManager, contractName, priceOracle, primexPricingLibrary, positionLibrary, registry, whiteBlackList, errorsLibrary },
+  {
+    positionManager,
+
+    priceOracle,
+    primexPricingLibrary,
+    positionLibrary,
+    registry,
+    gasPerPosition,
+    gasPerBatch,
+    whiteBlackList,
+    errorsLibrary,
+    notExecuteNewDeployedTasks,
+  },
   {
     getNamedAccounts,
     deployments: { deploy },
@@ -17,10 +29,20 @@ module.exports = async function (
     errorsLibrary = (await getContract("Errors")).address;
   }
 
-  const batchManager = await deploy(contractName ?? "BatchManager", {
+  const batchManager = await deploy("BatchManager", {
     from: deployer,
     log: true,
-    args: [positionManager, priceOracle, whiteBlackList, registry],
+    proxy: {
+      owner: (await getContract("PrimexProxyAdmin")).address,
+      viaAdminContract: "PrimexProxyAdmin",
+      proxyContract: "OpenZeppelinTransparentProxy",
+      execute: {
+        init: {
+          methodName: "initialize",
+          args: [positionManager, priceOracle, whiteBlackList, registry, gasPerPosition, gasPerBatch],
+        },
+      },
+    },
     libraries: {
       PrimexPricingLibrary: primexPricingLibrary,
       PositionLibrary: positionLibrary,
@@ -28,7 +50,7 @@ module.exports = async function (
     },
   });
 
-  if (batchManager.newlyDeployed) {
+  if (batchManager.newlyDeployed && !notExecuteNewDeployedTasks) {
     whiteBlackList = await getContractAt("WhiteBlackList", whiteBlackList);
     const tx = await whiteBlackList.addAddressToWhitelist(batchManager.address);
     await tx.wait();

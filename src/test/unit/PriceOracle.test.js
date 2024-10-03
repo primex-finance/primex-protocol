@@ -4,6 +4,7 @@ const {
   network,
   upgrades,
   ethers: {
+    provider,
     getSigners,
     getContract,
     getContractFactory,
@@ -13,21 +14,34 @@ const {
   },
   deployments: { fixture },
 } = require("hardhat");
-const { deployMockAccessControl, deployMockERC20, deployMockAggregatorV3Interface } = require("../utils/waffleMocks");
-const { WAD, NATIVE_CURRENCY } = require("../utils/constants.js");
-const { BIG_TIMELOCK_ADMIN, MEDIUM_TIMELOCK_ADMIN } = require("../../Constants");
+const {
+  deployMockAccessControl,
+  deployMockERC20,
+  deployMockUniswapPriceFeed,
+  deployMockAggregatorV3Interface,
+  deployMockPyth,
+} = require("../utils/waffleMocks");
+const { getEncodedRoutes } = require("../utils/oracleUtils");
+
+const { WAD, NATIVE_CURRENCY, USD } = require("../utils/constants.js");
+const { MEDIUM_TIMELOCK_ADMIN } = require("../../Constants");
 const { getAdminSigners } = require("../utils/hardhatUtils");
+const { ZERO_BYTES_32, ZERO_ADDRESS } = require("@aave/deploy-v3");
+const { wadDiv } = require("../utils/bnMath");
+
+const { OracleType } = require("../utils/constants.js");
 
 process.env.TEST = true;
 
 describe("PriceOracle_unit", function () {
   let priceOracle, priceOracleFactory;
-  let mockRegistry, mockPriceFeed, mockPriceDropFeed;
+  let mockRegistry, mockPriceFeed, mockPriceDropFeed, mockUniswapPriceFeed, mockPyth;
   let EmergencyAdmin, SmallTimelockAdmin;
   let tokenA, tokenB;
   let deployer, caller;
   let ErrorsLibrary;
   let snapshotId;
+  const NOT_ZERO_BYTES = "0x0000000000000000000000000000000000000000000000000000000000000001";
 
   before(async function () {
     await fixture(["Test"]);
@@ -40,10 +54,15 @@ describe("PriceOracle_unit", function () {
     tokenB = await deployMockERC20(deployer);
     mockPriceFeed = await deployMockAggregatorV3Interface(deployer);
     mockPriceDropFeed = await deployMockAggregatorV3Interface(deployer);
+    mockUniswapPriceFeed = await deployMockUniswapPriceFeed(deployer);
+    mockPyth = await deployMockPyth(deployer);
   });
 
   beforeEach(async function () {
     priceOracle = await getContract("PriceOracle");
+    await priceOracle.updateUniv3TypeOracle([0], [mockUniswapPriceFeed.address]);
+    await priceOracle.setPyth(mockPyth.address);
+    await priceOracle.setTimeTolerance("60");
     snapshotId = await network.provider.request({
       method: "evm_snapshot",
       params: [],
@@ -111,7 +130,97 @@ describe("PriceOracle_unit", function () {
       );
     });
   });
+  describe("setPyth", function () {
+    it("Should revert if not BIG_TIMELOCK_ADMIN call setPyth", async function () {
+      await expect(priceOracle.connect(caller).setPyth(mockPyth.address)).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
+    });
+    it("Should successfully setPyth", async function () {
+      expect(await priceOracle.setPyth(tokenA.address));
+      expect(await priceOracle.pyth()).to.be.equal(tokenA.address);
+    });
+  });
+  describe("setTimeTolerance", function () {
+    it("Should revert if not MEDIUM_TIMELOCK_ADMIN call setTimeTolerance", async function () {
+      await expect(priceOracle.connect(caller).setTimeTolerance("10")).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
+    });
+    it("Should successfully setPyth", async function () {
+      expect(await priceOracle.setTimeTolerance("10"));
+      expect(await priceOracle.timeTolerance()).to.be.equal("10");
+    });
+  });
 
+  describe("updateChainlinkPriceFeedsUsd", function () {
+    it("Should revert if not SMALL_TIMELOCK_ADMIN call updateChainlinkPriceFeedsUsd", async function () {
+      await expect(
+        priceOracle.connect(caller).updateChainlinkPriceFeedsUsd([tokenA.address], [mockPriceFeed.address]),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
+    });
+    it("Should revert if param lengths don't match", async function () {
+      await expect(priceOracle.updateChainlinkPriceFeedsUsd([tokenA.address], [])).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "PARAMS_LENGTH_MISMATCH",
+      );
+    });
+    it("Should successfully updateChainlinkPriceFeedsUsd", async function () {
+      expect(await priceOracle.updateChainlinkPriceFeedsUsd([tokenA.address], [mockPriceFeed.address]));
+      expect(await priceOracle.chainlinkPriceFeedsUsd(tokenA.address)).to.be.equal(mockPriceFeed.address);
+    });
+  });
+  describe("updatePythPairId", function () {
+    it("Should revert if not SMALL_TIMELOCK_ADMIN call updatePythPairId", async function () {
+      await expect(priceOracle.connect(caller).updatePythPairId([tokenA.address], [ZERO_BYTES_32])).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+    it("Should revert if param lengths don't match", async function () {
+      await expect(priceOracle.updatePythPairId([tokenA.address], [])).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "PARAMS_LENGTH_MISMATCH",
+      );
+    });
+    it("Should successfully updatePythPairId", async function () {
+      expect(await priceOracle.updatePythPairId([tokenA.address], [NOT_ZERO_BYTES]));
+      expect(await priceOracle.pythPairIds(tokenA.address)).to.be.equal(NOT_ZERO_BYTES);
+    });
+  });
+  describe("updateUniv3TypeOracle", function () {
+    it("Should revert if not MEDIUM_TIMELOCK_ADMIN call updateUniv3TypeOracle", async function () {
+      await expect(priceOracle.connect(caller).updateUniv3TypeOracle([1], [mockUniswapPriceFeed.address])).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+    it("Should revert if param lengths don't match", async function () {
+      await expect(priceOracle.updateUniv3TypeOracle([1], [])).to.be.revertedWithCustomError(ErrorsLibrary, "PARAMS_LENGTH_MISMATCH");
+    });
+    it("Should successfully updateUniv3TypeOracle", async function () {
+      expect(await priceOracle.updateUniv3TypeOracle([1], [mockUniswapPriceFeed.address]));
+      expect(await priceOracle.univ3TypeOracles(1)).to.be.equal(mockUniswapPriceFeed.address);
+    });
+  });
+  describe("updateUniv3TrustedPair", function () {
+    it("Should revert if not SMALL_TIMELOCK_ADMIN call updateUniv3TrustedPair", async function () {
+      const params = {
+        oracleType: 0,
+        tokenA: tokenA.address,
+        tokenB: tokenB.address,
+        isTrusted: true,
+      };
+      await expect(priceOracle.connect(caller).updateUniv3TrustedPair([params])).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
+    });
+    it("Should successfully updateUniv3TrustedPair", async function () {
+      const params = {
+        oracleType: 0,
+        tokenA: tokenA.address,
+        tokenB: tokenB.address,
+        isTrusted: true,
+      };
+      expect(await priceOracle.updateUniv3TrustedPair([params]));
+      expect(await priceOracle.univ3TrustedPairs(params.oracleType, params.tokenA, params.tokenB)).to.be.equal(true);
+      expect(await priceOracle.univ3TrustedPairs(params.oracleType, params.tokenB, params.tokenA)).to.be.equal(true);
+    });
+  });
   describe("increasePairPriceDrop", function () {
     let currentPairPriceDrop;
     before(async function () {
@@ -161,165 +270,269 @@ describe("PriceOracle_unit", function () {
     });
   });
 
-  describe("updatePriceFeed()", function () {
-    it("Should revert not BIG_TIMELOCK_ADMIN call updatePriceFeed", async function () {
-      await mockRegistry.mock.hasRole.withArgs(BIG_TIMELOCK_ADMIN, deployer.address).returns(false);
-      priceOracle = await upgrades.deployProxy(priceOracleFactory, [mockRegistry.address, NATIVE_CURRENCY], {
-        unsafeAllow: ["constructor", "delegatecall"],
-      });
-
-      await expect(priceOracle.updatePriceFeed(tokenA.address, tokenB.address, mockPriceFeed.address)).to.be.revertedWithCustomError(
+  describe("getExchangeRate", function () {
+    it("Should revert if the length of oracleRoutes is 0", async function () {
+      const oracleData = getEncodedRoutes([]);
+      await expect(priceOracle.getExchangeRate(tokenA.address, tokenB.address, oracleData)).to.be.revertedWithCustomError(
         ErrorsLibrary,
-        "FORBIDDEN",
+        "WRONG_ORACLE_ROUTES_LENGTH",
       );
     });
-
-    it("Should revert if token addresses in pair to add are identical", async function () {
-      priceOracle = await upgrades.deployProxy(priceOracleFactory, [mockRegistry.address, NATIVE_CURRENCY], {
-        unsafeAllow: ["constructor", "delegatecall"],
-      });
-      await expect(priceOracle.updatePriceFeed(tokenA.address, tokenA.address, mockPriceFeed.address)).to.be.revertedWithCustomError(
+    it("Should revert if the tokenTo is incorrect", async function () {
+      const oracleData = getEncodedRoutes([[tokenA.address, OracleType.Pyth, "0x"]]);
+      await expect(priceOracle.getExchangeRate(tokenA.address, tokenB.address, oracleData)).to.be.revertedWithCustomError(
         ErrorsLibrary,
-        "IDENTICAL_TOKEN_ADDRESSES",
+        "INCORRECT_TOKEN_TO",
       );
     });
-
-    it("Should add a price feed if token addresses in pair are different", async function () {
-      priceOracle = await upgrades.deployProxy(priceOracleFactory, [mockRegistry.address, NATIVE_CURRENCY], {
-        unsafeAllow: ["constructor", "delegatecall"],
-      });
-
-      expect(await priceOracle.updatePriceFeed(tokenA.address, tokenB.address, mockPriceFeed.address));
-      expect(tokenA.address).not.equal(tokenB.address);
-    });
-
-    it("Should emit PriceFeedUpdated when update is successful", async function () {
-      await expect(priceOracle.updatePriceFeed(tokenA.address, tokenB.address, mockPriceFeed.address))
-        .to.emit(priceOracle, "PriceFeedUpdated")
-        .withArgs(tokenA.address, tokenB.address, mockPriceFeed.address);
-    });
-  });
-
-  describe("getDirectPriceFeed()", function () {
-    before(async function () {
-      mockPriceFeed = await deployMockAggregatorV3Interface(deployer);
-    });
-    it("Should revert if token addresses in pair are identical", async function () {
-      await expect(priceOracle.getDirectPriceFeed(tokenA.address, tokenA.address)).to.be.revertedWithCustomError(
+    it("Should revert if the length of oracleRoutes is more than 4", async function () {
+      const oracleData = getEncodedRoutes(Array(5).fill([tokenB.address, OracleType.Pyth, "0x"]));
+      await expect(priceOracle.getExchangeRate(tokenA.address, tokenB.address, oracleData)).to.be.revertedWithCustomError(
         ErrorsLibrary,
-        "IDENTICAL_TOKEN_ADDRESSES",
+        "WRONG_ORACLE_ROUTES_LENGTH",
       );
     });
-
-    it("Should revert if no price feed found", async function () {
-      await expect(priceOracle.getDirectPriceFeed(tokenA.address, tokenB.address)).to.be.revertedWithCustomError(
+    it("Should revert if the routes sequence is incorrect when length is 3", async function () {
+      let oracleData = Array(3).fill([tokenB.address, OracleType.Pyth, "0x"]);
+      // second route is uniswapv3
+      oracleData[1] = [tokenA.address, OracleType.Uniswapv3, "0x"];
+      oracleData = getEncodedRoutes(oracleData);
+      await expect(priceOracle.getExchangeRate(tokenA.address, tokenB.address, oracleData)).to.be.revertedWithCustomError(
         ErrorsLibrary,
-        "NO_PRICEFEED_FOUND",
+        "INCORRECT_ROUTE_SEQUENCE",
       );
     });
-
-    it("Should get a price feed if token addresses in pair are different and the price feed exists", async function () {
-      await priceOracle.updatePriceFeed(tokenA.address, tokenB.address, mockPriceFeed.address);
-
-      const actualPriceFeed = await priceOracle.getDirectPriceFeed(tokenA.address, tokenB.address);
-      expect(mockPriceFeed.address).to.equal(actualPriceFeed);
-    });
-  });
-
-  describe("getExchangeRate()", function () {
-    it("tokenA/tokenB - price feed exists, direction = isForward, returns rate in 10**18 decimals", async function () {
-      // setup aggregatorInterface
-      const aggregatorInterface = await deployMockAggregatorV3Interface(deployer);
-      const price = 200;
-      await aggregatorInterface.mock.latestRoundData.returns([0], [price], [0], [0], [0]);
-      await aggregatorInterface.mock.decimals.returns(0);
-
-      // update price feed
-      await priceOracle.updatePriceFeed(tokenA.address, tokenB.address, aggregatorInterface.address);
-
-      // retrieve price and direction
-      const [exchangeRate, direction] = await priceOracle.getExchangeRate(tokenA.address, tokenB.address);
-
-      expect(exchangeRate).to.equal((price * Math.pow(10, 18)).toString());
-      expect(direction).to.equal(true);
-    });
-
-    it("tokenB/tokenA - price feed exists, direction = !isForward, returns rate in 10**18 decimals", async function () {
-      // setup aggregatorInterface
-      const aggregatorInterface = await deployMockAggregatorV3Interface(deployer);
-      const price = 200;
-      await aggregatorInterface.mock.latestRoundData.returns([0], [price], [0], [0], [0]);
-      await aggregatorInterface.mock.decimals.returns(0);
-
-      // update price feed
-      await priceOracle.updatePriceFeed(tokenB.address, tokenA.address, aggregatorInterface.address);
-
-      // retrieve price and direction
-      const [exchangeRate, direction] = await priceOracle.getExchangeRate(tokenA.address, tokenB.address);
-
-      expect(exchangeRate).to.equal((price * Math.pow(10, 18)).toString());
-      expect(direction).to.equal(false);
-    });
-
-    it("tokenA/tokenB - price feed does not exist, tokenA/eth - price feed exists, tokenB/eth - price feed exists, direction = isForward, returns rate in 10**18 decimals", async function () {
-      const aggregatorInterfaceBaseTokenToEth = await deployMockAggregatorV3Interface(deployer);
-      const price1 = 2;
-      await aggregatorInterfaceBaseTokenToEth.mock.latestRoundData.returns([0], [price1], [0], [0], [0]);
-
-      const aggregatorInterfaceQuoteTokenToEth = await deployMockAggregatorV3Interface(deployer);
-      const price2 = 5;
-      await aggregatorInterfaceQuoteTokenToEth.mock.latestRoundData.returns([0], [price2], [0], [0], [0]);
-
-      await priceOracle.updatePriceFeed(tokenA.address, NATIVE_CURRENCY, aggregatorInterfaceBaseTokenToEth.address);
-      await priceOracle.updatePriceFeed(tokenB.address, NATIVE_CURRENCY, aggregatorInterfaceQuoteTokenToEth.address);
-
-      const [exchangeRate, direction] = await priceOracle.getExchangeRate(tokenA.address, tokenB.address);
-
-      expect(exchangeRate).to.equal(((price1 / price2) * Math.pow(10, 18)).toString());
-      expect(direction).to.equal(true);
-    });
-
-    it("should revert if basePrice from oracle is negative", async function () {
-      const aggregatorInterfaceBaseTokenToEth = await deployMockAggregatorV3Interface(deployer);
-      const price1 = -2;
-      await aggregatorInterfaceBaseTokenToEth.mock.latestRoundData.returns([0], price1, [0], [0], [0]);
-
-      const aggregatorInterfaceQuoteTokenToEth = await deployMockAggregatorV3Interface(deployer);
-      const price2 = 5;
-      await aggregatorInterfaceQuoteTokenToEth.mock.latestRoundData.returns([0], price2, [0], [0], [0]);
-
-      await priceOracle.updatePriceFeed(tokenA.address, NATIVE_CURRENCY, aggregatorInterfaceBaseTokenToEth.address);
-      await priceOracle.updatePriceFeed(tokenB.address, NATIVE_CURRENCY, aggregatorInterfaceQuoteTokenToEth.address);
-
-      await expect(priceOracle.getExchangeRate(tokenA.address, tokenB.address)).to.be.revertedWithCustomError(
+    it("Should revert if the routes sequence is incorrect when length is 4", async function () {
+      const oracleData = [
+        [tokenB.address, OracleType.Uniswapv3, "0x"],
+        [tokenB.address, OracleType.Pyth, "0x"],
+        [tokenB.address, OracleType.Chainlink, "0x"],
+        [tokenB.address, OracleType.Chainlink, "0x"],
+      ];
+      oracleData[0] = [tokenB.address, OracleType.Pyth, "0x"];
+      // first route is the Pyth
+      await expect(priceOracle.getExchangeRate(tokenA.address, tokenB.address, getEncodedRoutes(oracleData))).to.be.revertedWithCustomError(
         ErrorsLibrary,
-        "ZERO_EXCHANGE_RATE",
+        "INCORRECT_ROUTE_SEQUENCE",
+      );
+      oracleData[0] = [tokenB.address, OracleType.Chainlink, "0x"];
+      // first route is the Chainlink
+      await expect(priceOracle.getExchangeRate(tokenA.address, tokenB.address, getEncodedRoutes(oracleData))).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "INCORRECT_ROUTE_SEQUENCE",
+      );
+      oracleData[0] = [tokenB.address, OracleType.Uniswapv3, "0x"];
+      // second route is the Uniswapv3
+      oracleData[1] = [tokenB.address, OracleType.Uniswapv3, "0x"];
+      await expect(priceOracle.getExchangeRate(tokenB.address, tokenB.address, getEncodedRoutes(oracleData))).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "INCORRECT_ROUTE_SEQUENCE",
       );
     });
-
-    it("should revert if quotePrice from oracle is negative", async function () {
-      const aggregatorInterfaceBaseTokenToEth = await deployMockAggregatorV3Interface(deployer);
-      const price1 = 2;
-      await aggregatorInterfaceBaseTokenToEth.mock.latestRoundData.returns(0, price1, 0, 0, 0);
-
-      const aggregatorInterfaceQuoteTokenToEth = await deployMockAggregatorV3Interface(deployer);
-      const price2 = -5;
-      await aggregatorInterfaceQuoteTokenToEth.mock.latestRoundData.returns(0, price2, 0, 0, 0);
-
-      await priceOracle.updatePriceFeed(tokenA.address, NATIVE_CURRENCY, aggregatorInterfaceBaseTokenToEth.address);
-      await priceOracle.updatePriceFeed(tokenB.address, NATIVE_CURRENCY, aggregatorInterfaceQuoteTokenToEth.address);
-
-      await expect(priceOracle.getExchangeRate(tokenA.address, tokenB.address)).to.be.revertedWithCustomError(
-        ErrorsLibrary,
-        "ZERO_EXCHANGE_RATE",
-      );
-    });
-
-    it("Should revert if no price feed found", async function () {
-      await expect(priceOracle.getExchangeRate(tokenA.address, tokenB.address)).to.be.revertedWithCustomError(
+    it("Should revert when the oracle route is the Pyth and there is no a price feed for the token", async function () {
+      const oracleData = getEncodedRoutes([[USD, OracleType.Pyth, "0x"]]);
+      await expect(priceOracle.getExchangeRate(tokenA.address, USD, oracleData)).to.be.revertedWithCustomError(
         ErrorsLibrary,
         "NO_PRICEFEED_FOUND",
       );
+    });
+    it("Should revert when the tokenTo in the Pyth route is incorrect", async function () {
+      await priceOracle.updatePythPairId([tokenA.address], [NOT_ZERO_BYTES]);
+      const oracleData = getEncodedRoutes([[tokenB.address, OracleType.Pyth, "0x"]]);
+      await expect(priceOracle.getExchangeRate(tokenA.address, tokenB.address, oracleData)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "INCORRECT_PYTH_ROUTE",
+      );
+    });
+    it("Should revert when the oracle route is the Pyth and the return price is incorrect", async function () {
+      const oracleData = getEncodedRoutes([[USD, OracleType.Pyth, "0x"]]);
+      await priceOracle.updatePythPairId([tokenA.address], [NOT_ZERO_BYTES]);
+      // price is negative
+      await mockPyth.mock.getPrice.returns({ price: -1, conf: 0, expo: -8, publishTime: (await provider.getBlock("latest")).timestamp });
+      await expect(priceOracle.getExchangeRate(tokenA.address, USD, oracleData)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "INCORRECT_PYTH_PRICE",
+      );
+      // expo is positiive
+      await mockPyth.mock.getPrice.returns({ price: 1, conf: 0, expo: 8, publishTime: (await provider.getBlock("latest")).timestamp });
+      await expect(priceOracle.getExchangeRate(tokenA.address, USD, oracleData)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "INCORRECT_PYTH_PRICE",
+      );
+      // expo is very negative
+      await mockPyth.mock.getPrice.returns({ price: 1, conf: 0, expo: -266, publishTime: (await provider.getBlock("latest")).timestamp });
+      await expect(priceOracle.getExchangeRate(tokenA.address, USD, oracleData)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "INCORRECT_PYTH_PRICE",
+      );
+    });
+    it("Should revert when the publishTime exceeds the time tolerance", async function () {
+      const oracleData = getEncodedRoutes([[USD, OracleType.Pyth, "0x"]]);
+      await priceOracle.updatePythPairId([tokenA.address], [NOT_ZERO_BYTES]);
+      const price = BigNumber.from("2500");
+      const expo = -8;
+      const expoPrice = price.mul(BigNumber.from("10").pow(expo * -1));
+      // price is negative
+      await mockPyth.mock.getPrice.returns({
+        price: expoPrice,
+        conf: 0,
+        expo: expo,
+        publishTime: (await provider.getBlock("latest")).timestamp - 70,
+      });
+      await expect(priceOracle.callStatic.getExchangeRate(tokenA.address, USD, oracleData)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "PUBLISH_TIME_EXCEEDS_THRESHOLD_TIME",
+      );
+    });
+    it("Should return correct amount when the price struct is empty", async function () {
+      const oracleData = getEncodedRoutes([[USD, OracleType.Pyth, "0x"]]);
+      await priceOracle.updatePythPairId([tokenA.address], [NOT_ZERO_BYTES]);
+      // price is negative
+      await mockPyth.mock.getPrice.returns({ price: 0, conf: 0, expo: 0, publishTime: (await provider.getBlock("latest")).timestamp });
+      // expo is positiive
+      const amount = await priceOracle.callStatic.getExchangeRate(tokenA.address, USD, oracleData);
+      expect(amount).to.be.equal(0);
+    });
+    it("Should return correct amount when tokenA is not the usd", async function () {
+      const oracleData = getEncodedRoutes([[USD, OracleType.Pyth, "0x"]]);
+      await priceOracle.updatePythPairId([tokenA.address], [NOT_ZERO_BYTES]);
+      const price = BigNumber.from("2500");
+      const expo = -8;
+      const expoPrice = price.mul(BigNumber.from("10").pow(expo * -1));
+      // price is negative
+      await mockPyth.mock.getPrice.returns({
+        price: expoPrice,
+        conf: 0,
+        expo: expo,
+        publishTime: (await provider.getBlock("latest")).timestamp,
+      });
+      const amount = await priceOracle.callStatic.getExchangeRate(tokenA.address, USD, oracleData);
+      // price in wad
+      expect(amount).to.be.equal(price.mul(BigNumber.from("10").pow("18")));
+    });
+
+    describe("getExchangeRate when oracle is Uniswap", function () {
+      it("Should revert when there is no a uni oracle for the oracle type", async function () {
+        await priceOracle.updateUniv3TypeOracle([0], [ZERO_ADDRESS]);
+        const oracleData = getEncodedRoutes([[tokenB.address, OracleType.Uniswapv3, "0x"]]);
+        await expect(priceOracle.getExchangeRate(tokenA.address, tokenB.address, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "NO_PRICEFEED_FOUND",
+        );
+      });
+      it("Should revert when tokenA/TokenB is not a trusted pair", async function () {
+        const oracleData = getEncodedRoutes([[tokenB.address, OracleType.Uniswapv3, "0x"]]);
+        await priceOracle.updateUniv3TypeOracle([0], [mockUniswapPriceFeed.address]);
+        await expect(priceOracle.getExchangeRate(tokenA.address, tokenB.address, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "TOKEN_PAIR_IS_NOT_TRUSTED",
+        );
+      });
+      it("Should return correct price tokenA/tokenB", async function () {
+        // setup UniswapPriceFeed
+        await mockUniswapPriceFeed.mock.getExchangeRate.returns(WAD);
+        await priceOracle.updateUniv3TypeOracle([0], [mockUniswapPriceFeed.address]);
+        await priceOracle.updateUniv3TrustedPair([
+          {
+            oracleType: 0,
+            tokenA: tokenA.address,
+            tokenB: tokenB.address,
+            isTrusted: true,
+          },
+        ]);
+        const oracleData = getEncodedRoutes([[tokenB.address, OracleType.Uniswapv3, "0x"]]);
+
+        // retrieve price and direction
+        const amount = await priceOracle.callStatic.getExchangeRate(tokenA.address, tokenB.address, oracleData);
+        expect(amount).to.equal(WAD);
+      });
+      it("Should return correct price tokenB/tokenA", async function () {
+        // setup UniswapPriceFeed
+        await mockUniswapPriceFeed.mock.getExchangeRate.returns(WAD);
+        await priceOracle.updateUniv3TypeOracle([0], [mockUniswapPriceFeed.address]);
+        await priceOracle.updateUniv3TrustedPair([
+          {
+            oracleType: 0,
+            tokenA: tokenA.address,
+            tokenB: tokenB.address,
+            isTrusted: true,
+          },
+        ]);
+        const oracleRoutes = getEncodedRoutes([[tokenA.address, OracleType.Uniswapv3, "0x"]]);
+
+        // retrieve price and direction
+        const amount = await priceOracle.callStatic.getExchangeRate(tokenB.address, tokenA.address, oracleRoutes);
+        expect(amount).to.equal(WAD);
+      });
+    });
+    describe("getExchangeRate when oracle is ChainLink", function () {
+      it("Should return correct price tokenA/USD", async function () {
+        // setup aggregatorInterface
+        const aggregatorInterface = await deployMockAggregatorV3Interface(deployer);
+        const price = 200;
+        await aggregatorInterface.mock.latestRoundData.returns([0], [price], [0], [0], [0]);
+        await aggregatorInterface.mock.decimals.returns(0);
+
+        // update price feed
+        await priceOracle.updateChainlinkPriceFeedsUsd([tokenA.address], [aggregatorInterface.address]);
+
+        const oracleData = getEncodedRoutes([[USD, OracleType.Chainlink, "0x"]]);
+
+        // retrieve price and direction
+        const amount = await priceOracle.callStatic.getExchangeRate(tokenA.address, USD, oracleData);
+        expect(amount).to.equal((price * Math.pow(10, 18)).toString());
+      });
+      it("Should return correct invert price when tokenA is the USD", async function () {
+        // setup aggregatorInterface
+        const aggregatorInterface = await deployMockAggregatorV3Interface(deployer);
+        const price = 200;
+        await aggregatorInterface.mock.latestRoundData.returns([0], [price], [0], [0], [0]);
+        await aggregatorInterface.mock.decimals.returns(0);
+
+        // update price feed
+        await priceOracle.updateChainlinkPriceFeedsUsd([tokenA.address], [aggregatorInterface.address]);
+
+        const oracleData = getEncodedRoutes([[tokenA.address, OracleType.Chainlink, "0x"]]);
+
+        // retrieve price and direction
+        const amount = await priceOracle.callStatic.getExchangeRate(USD, tokenA.address, oracleData);
+        expect(amount).to.equal(wadDiv(WAD, (price * Math.pow(10, 18)).toString()));
+      });
+      it("Should revert if the price from oracle is zero", async function () {
+        // setup aggregatorInterface
+        const aggregatorInterface = await deployMockAggregatorV3Interface(deployer);
+        const price = 0;
+        await aggregatorInterface.mock.latestRoundData.returns([0], [price], [0], [0], [0]);
+        await aggregatorInterface.mock.decimals.returns(0);
+
+        // update price feed
+        await priceOracle.updateChainlinkPriceFeedsUsd([tokenA.address], [aggregatorInterface.address]);
+
+        const oracleData = getEncodedRoutes([[USD, OracleType.Chainlink, "0x"]]);
+
+        // retrieve price and direction
+        await expect(priceOracle.callStatic.getExchangeRate(tokenA.address, USD, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "ZERO_EXCHANGE_RATE",
+        );
+      });
+      it("Should revert if there is no price feed for the tokenA", async function () {
+        const oracleData = getEncodedRoutes([[USD, OracleType.Chainlink, "0x"]]);
+
+        // retrieve price and direction
+        await expect(priceOracle.callStatic.getExchangeRate(tokenA.address, USD, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "NO_PRICEFEED_FOUND",
+        );
+      });
+      it("Should revert if the tokenTo in the Chainlink route is incorrect", async function () {
+        const oracleData = getEncodedRoutes([[tokenB.address, OracleType.Chainlink, "0x"]]);
+        // retrieve price and direction
+        await expect(priceOracle.callStatic.getExchangeRate(tokenA.address, tokenB.address, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "INCORRECT_CHAINLINK_ROUTE",
+        );
+      });
     });
   });
 
@@ -347,6 +560,35 @@ describe("PriceOracle_unit", function () {
 
     it("Should emit PriceDropFeedUpdated when update is successful ", async function () {
       await expect(priceOracle.updatePriceDropFeed(tokenA.address, tokenB.address, mockPriceDropFeed.address))
+        .to.emit(priceOracle, "PriceDropFeedUpdated")
+        .withArgs(tokenA.address, tokenB.address, mockPriceDropFeed.address);
+    });
+  });
+
+  describe("updatePriceDropFeeds()", function () {
+    it("Should revert if msg.sender is not granted with a role MEDIUM_TIMELOCK_ADMIN", async function () {
+      await mockRegistry.mock.hasRole.withArgs(MEDIUM_TIMELOCK_ADMIN, deployer.address).returns(false);
+      priceOracle = await upgrades.deployProxy(priceOracleFactory, [mockRegistry.address, NATIVE_CURRENCY], {
+        unsafeAllow: ["constructor", "delegatecall"],
+      });
+      await expect(
+        priceOracle.updatePriceDropFeeds([[tokenA.address, tokenB.address, mockPriceDropFeed.address]]),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
+    });
+
+    it("Should revert if token addresses in pair to add are identical", async function () {
+      await expect(
+        priceOracle.updatePriceDropFeeds([[tokenA.address, tokenA.address, mockPriceDropFeed.address]]),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "IDENTICAL_TOKEN_ADDRESSES");
+    });
+
+    it("Should add a priceDrop feed if token addresses in pair are different", async function () {
+      expect(await priceOracle.updatePriceDropFeeds([[tokenA.address, tokenB.address, mockPriceDropFeed.address]]));
+      expect(tokenA.address).not.equal(tokenB.address);
+    });
+
+    it("Should emit PriceDropFeedUpdated when update is successful ", async function () {
+      await expect(priceOracle.updatePriceDropFeeds([[tokenA.address, tokenB.address, mockPriceDropFeed.address]]))
         .to.emit(priceOracle, "PriceDropFeedUpdated")
         .withArgs(tokenA.address, tokenB.address, mockPriceDropFeed.address);
     });

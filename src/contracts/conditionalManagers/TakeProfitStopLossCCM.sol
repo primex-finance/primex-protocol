@@ -1,10 +1,12 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
 
 import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
@@ -12,45 +14,53 @@ import {PositionLibrary} from "../libraries/PositionLibrary.sol";
 import {LimitOrderLibrary} from "../libraries/LimitOrderLibrary.sol";
 import "./../libraries/Errors.sol";
 
-import {IPositionManager} from "../PositionManager/IPositionManager.sol";
-import {IPrimexDNS} from "../PrimexDNS/IPrimexDNS.sol";
-import {IPriceOracle} from "../PriceOracle/IPriceOracle.sol";
+import {IPrimexDNSV3} from "../PrimexDNS/IPrimexDNS.sol";
+import {IPriceOracleV2} from "../PriceOracle/IPriceOracle.sol";
 import {IConditionalClosingManager} from "../interfaces/IConditionalClosingManager.sol";
 import {ITakeProfitStopLossCCM} from "../interfaces/ITakeProfitStopLossCCM.sol";
+import {IDexAdapter} from "../interfaces/IDexAdapter.sol";
+import {BIG_TIMELOCK_ADMIN} from "../Constants.sol";
 
-contract TakeProfitStopLossCCM is IConditionalClosingManager, ITakeProfitStopLossCCM, IERC165 {
+contract TakeProfitStopLossCCM is IConditionalClosingManager, ITakeProfitStopLossCCM, IERC165, Initializable {
     using WadRayMath for uint256;
 
     uint256 private constant CM_TYPE = 2;
+    address public immutable registry;
 
-    address public immutable primexDNS;
-    address public immutable priceOracle;
+    address public primexDNS;
+    address public priceOracle;
 
-    constructor(address _primexDNS, address _priceOracle) {
+    constructor(address _registry) {
         _require(
-            IERC165(address(_primexDNS)).supportsInterface(type(IPrimexDNS).interfaceId) &&
-                IERC165(_priceOracle).supportsInterface(type(IPriceOracle).interfaceId),
+            IERC165(_registry).supportsInterface(type(IAccessControl).interfaceId),
+            Errors.ADDRESS_NOT_SUPPORTED.selector
+        );
+        registry = _registry;
+    }
+
+    /**
+     * @dev Modifier that checks if the caller has a specific role.
+     * @param _role The role identifier to check.
+     */
+    modifier onlyRole(bytes32 _role) {
+        _require(IAccessControl(registry).hasRole(_role, msg.sender), Errors.FORBIDDEN.selector);
+        _;
+    }
+
+    /**
+     * @inheritdoc ITakeProfitStopLossCCM
+     */
+    function initialize(
+        address _primexDNS,
+        address _priceOracle
+    ) external override initializer onlyRole(BIG_TIMELOCK_ADMIN) {
+        _require(
+            IERC165(_primexDNS).supportsInterface(type(IPrimexDNSV3).interfaceId) &&
+                IERC165(_priceOracle).supportsInterface(type(IPriceOracleV2).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
         primexDNS = _primexDNS;
         priceOracle = _priceOracle;
-    }
-
-    /**
-     * @inheritdoc IConditionalClosingManager
-     */
-    function canBeClosedBeforeSwap(
-        PositionLibrary.Position calldata _position,
-        bytes calldata _params,
-        bytes calldata _additionalParams
-    ) external override returns (bool) {
-        if (_params.length == 0) return false;
-        CanBeClosedParams memory params = abi.decode(_params, (CanBeClosedParams));
-        if (_additionalParams.length > 0) {
-            AdditionalParams memory additionalParams = abi.decode(_additionalParams, (AdditionalParams));
-            return isTakeProfitReached(_position, params.takeProfitPrice, additionalParams.routes);
-        }
-        return isStopLossReached(_position, params.stopLossPrice);
     }
 
     /**
@@ -61,49 +71,18 @@ contract TakeProfitStopLossCCM is IConditionalClosingManager, ITakeProfitStopLos
         bytes calldata _params,
         bytes calldata,
         uint256 _closeAmount,
-        uint256 _borowedAssetAmount
-    ) external view override returns (bool) {
+        uint256 _borowedAssetAmount,
+        bytes memory _positionSoldAssetOracleData
+    ) external payable override returns (bool) {
         if (_params.length == 0) return false;
         uint256 multiplierAssetOut = 10 ** (18 - IERC20Metadata(_position.soldAsset).decimals());
         uint256 multiplierAssetIn = 10 ** (18 - IERC20Metadata(_position.positionAsset).decimals());
         uint256 exchangeRate = (_borowedAssetAmount * multiplierAssetOut).wdiv(_closeAmount * multiplierAssetIn) /
             multiplierAssetOut;
         CanBeClosedParams memory params = abi.decode(_params, (CanBeClosedParams));
-        return ((params.takeProfitPrice > 0 && exchangeRate >= params.takeProfitPrice) ||
-            isStopLossReached(_position, params.stopLossPrice));
-    }
-
-    /**
-     * @inheritdoc ITakeProfitStopLossCCM
-     */
-    function isTakeProfitReached(
-        PositionLibrary.Position calldata _position,
-        uint256 takeProfitPrice,
-        PrimexPricingLibrary.Route[] memory routes
-    ) public override returns (bool) {
-        (, uint256 takeProfitAmount) = _calcTakeProfitStopLossAmounts(
-            _position.positionAsset,
-            _position.soldAsset,
-            _position.positionAmount,
-            0,
-            takeProfitPrice
-        );
-
-        if (takeProfitAmount > 0) {
-            return
-                takeProfitAmount <=
-                PrimexPricingLibrary.getAmountOut(
-                    PrimexPricingLibrary.AmountParams({
-                        tokenA: _position.positionAsset,
-                        tokenB: _position.soldAsset,
-                        amount: _position.positionAmount,
-                        routes: routes,
-                        dexAdapter: IPrimexDNS(primexDNS).dexAdapter(),
-                        primexDNS: primexDNS
-                    })
-                );
-        }
-        return false;
+        return
+            (params.takeProfitPrice > 0 && exchangeRate >= params.takeProfitPrice) ||
+            isStopLossReached(_position, params.stopLossPrice, _positionSoldAssetOracleData);
     }
 
     /**
@@ -111,14 +90,16 @@ contract TakeProfitStopLossCCM is IConditionalClosingManager, ITakeProfitStopLos
      */
     function isStopLossReached(
         PositionLibrary.Position calldata _position,
-        uint256 stopLossPrice
-    ) public view override returns (bool) {
-        if (stopLossPrice == 0) return false;
-        (uint256 exchangeRate, bool isForward) = IPriceOracle(priceOracle).getExchangeRate(
+        uint256 _stopLossPrice,
+        bytes memory _positionSoldAssetOracleData
+    ) public override returns (bool) {
+        if (_stopLossPrice == 0) return false;
+        uint256 exchangeRate = IPriceOracleV2(priceOracle).getExchangeRate(
             _position.positionAsset,
-            _position.soldAsset
+            _position.soldAsset,
+            _positionSoldAssetOracleData
         );
-        return isForward ? stopLossPrice >= exchangeRate : stopLossPrice >= WadRayMath.WAD.wdiv(exchangeRate);
+        return _stopLossPrice >= exchangeRate;
     }
 
     /**

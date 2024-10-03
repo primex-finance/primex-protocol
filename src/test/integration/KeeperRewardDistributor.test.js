@@ -9,7 +9,7 @@ const {
     getContractFactory,
     getNamedSigners,
     utils: { parseEther, parseUnits, keccak256, toUtf8Bytes },
-    constants: { MaxUint256, AddressZero },
+    constants: { MaxUint256 },
     BigNumber,
     provider,
   },
@@ -20,20 +20,30 @@ const {
   CloseReason,
   LIMIT_PRICE_CM_TYPE,
   TAKE_PROFIT_STOP_LOSS_CM_TYPE,
-  TRAILING_STOP_CM_TYPE,
-  USD,
+  USD_DECIMALS,
+  USD_MULTIPLIER,
   PaymentModel,
 } = require("../utils/constants");
-const {
-  getTrailingStopParams,
-  getTrailingStopAdditionalParams,
-  getLimitPriceAdditionalParams,
-  getLimitPriceParams,
-} = require("../utils/conditionParams");
+const { getLimitPriceAdditionalParams, getLimitPriceParams } = require("../utils/conditionParams");
 const { wadMul, wadDiv, MAX_TOKEN_DECIMALITY } = require("../utils/bnMath");
-const { getAmountsOut, addLiquidity, checkIsDexSupported, getSingleRoute, swapExactTokensForTokens } = require("../utils/dexOperations");
+const {
+  getAmountsOut,
+  addLiquidity,
+  checkIsDexSupported,
+  getSingleMegaRoute,
+  swapExactTokensForTokens,
+} = require("../utils/dexOperations");
 const { getTakeProfitStopLossParams, getCondition } = require("../utils/conditionParams");
-const { NATIVE_CURRENCY, OrderType, WAD, ArbGasInfo, KeeperActionType } = require("../utils/constants");
+const { NATIVE_CURRENCY, WAD, ArbGasInfo, KeeperActionType } = require("../utils/constants");
+const { encodeFunctionData } = require("../../tasks/utils/encodeFunctionData");
+const {
+  setupUsdOraclesForToken,
+  setupUsdOraclesForTokens,
+  getEncodedChainlinkRouteViaUsd,
+  getEncodedChainlinkRouteToUsd,
+  setOraclePrice,
+  reversePrice,
+} = require("../utils/oracleUtils");
 
 process.env.TEST = true;
 
@@ -43,7 +53,6 @@ describe("KeeperRewardDistributor_integration", function () {
     testTokenA,
     testTokenB,
     bucket,
-    tokenUSD,
     PrimexDNS,
     bucketAddress,
     primexPricingLibrary,
@@ -51,17 +60,17 @@ describe("KeeperRewardDistributor_integration", function () {
     routesForClose,
     treasury,
     dexAdapter;
-  let priceFeed, priceOracle, registry, priceFeedTTBETH, priceFeedTTAETH, feeAmountInEth, feeAmountInEthForLimitOrders;
+  let priceOracle, registry;
   let deployer, trader, lender, liquidator;
   let snapshotId;
-  let decimalsA, decimalsB, decimalsUSD;
+  let decimalsA, decimalsB;
   let multiplierA, multiplierB;
   let OpenPositionParams;
-  let positionAmount, price, depositAmount, borrowedAmount, swapSize;
+  let positionAmount, price, priceBA, depositAmount, borrowedAmount, swapSize;
   let PMXToken;
   let KeeperRewardDistributor, primexPricingLibraryMock;
   let limitOrderManager;
-  let additionalGas, positionSizeCoefficientA, positionSizeCoefficientB, nativePartInReward, pmxPartInReward, oracleGasPriceTolerance;
+  let additionalGas, positionSizeCoefficient, nativePartInReward, pmxPartInReward, oracleGasPriceTolerance;
 
   before(async function () {
     await fixture(["Test"]);
@@ -76,8 +85,14 @@ describe("KeeperRewardDistributor_integration", function () {
     PMXToken = await getContract("EPMXToken");
     KeeperRewardDistributor = await getContract("KeeperRewardDistributor");
     positionManager = await getContract("PositionManager");
+    priceOracle = await getContract("PriceOracle");
 
-    await positionManager.setMaxPositionSize(testTokenA.address, testTokenB.address, 0, MaxUint256);
+    const { payload } = await encodeFunctionData(
+      "setMaxPositionSize",
+      [testTokenA.address, testTokenB.address, 0, MaxUint256],
+      "PositionManagerExtension",
+    );
+    await positionManager.setProtocolParamsByAdmin(payload);
 
     bucketAddress = (await PrimexDNS.buckets("bucket1")).bucketAddress;
     bucket = await getContractAt("Bucket", bucketAddress);
@@ -94,68 +109,21 @@ describe("KeeperRewardDistributor_integration", function () {
     dex = process.env.DEX ? process.env.DEX : "uniswap";
     checkIsDexSupported(dex);
 
-    firstAssetRoutes = await getSingleRoute([testTokenA.address, testTokenB.address], dex);
-    routesForClose = await getSingleRoute([testTokenB.address, testTokenA.address], dex);
+    firstAssetRoutes = await getSingleMegaRoute([testTokenA.address, testTokenB.address], dex);
+    routesForClose = await getSingleMegaRoute([testTokenB.address, testTokenA.address], dex);
 
     await addLiquidity({ dex: dex, from: "lender", tokenA: testTokenA, tokenB: testTokenB });
-    tokenUSD = await getContract("USD Coin");
-    decimalsUSD = await tokenUSD.decimals();
-    const PrimexAggregatorV3TestServiceFactory = await getContractFactory("PrimexAggregatorV3TestService");
-    const priceFeedTTAPMX = await PrimexAggregatorV3TestServiceFactory.deploy("TTA_PMX", deployer.address);
-    priceFeedTTBETH = await PrimexAggregatorV3TestServiceFactory.deploy("TTB_ETH", deployer.address);
-    priceFeedTTAETH = await PrimexAggregatorV3TestServiceFactory.deploy("TTA_ETH", deployer.address);
-    const ttaPriceInETH = parseUnits("0.3", "18"); // 1 tta=0.3 eth
-    await priceFeedTTAETH.setDecimals("18");
-    await priceFeedTTAETH.setAnswer(ttaPriceInETH);
 
-    const priceFeedUSDETH = await PrimexAggregatorV3TestServiceFactory.deploy("USD_ETH", deployer.address);
-    const usdPriceInETH = parseUnits("0.0005", "18"); // 1 usd=0.0005 eth
-    await priceFeedUSDETH.setDecimals("18");
-    await priceFeedUSDETH.setAnswer(usdPriceInETH);
+    const ttaPriceInETH = parseUnits("0.3", USD_DECIMALS); // 1 tta=0.3 ETH
 
-    const priceFeedPMXETH = await PrimexAggregatorV3TestServiceFactory.deploy("USD_PMX", deployer.address);
-    const usdPriceInPMX = parseUnits("0.01", "18"); // 1 eth=100 pmx
-    await priceFeedPMXETH.setDecimals("18");
-    await priceFeedPMXETH.setAnswer(usdPriceInPMX);
-
-    const decimalsPMX = await PMXToken.decimals();
-    await priceFeedTTAPMX.setDecimals(decimalsPMX);
-    const ttaPriceInPMX = parseUnits("0.2", decimalsPMX); // 1 tta=0.2 pmx
-    await priceFeedTTAPMX.setAnswer(ttaPriceInPMX);
-
-    await priceFeedTTBETH.setAnswer(parseUnits("10000", decimalsUSD));
-    await priceFeedTTBETH.setDecimals(decimalsUSD);
-
-    priceFeed = await getContract("PrimexAggregatorV3TestService TEST price feed");
-    await priceFeed.setDecimals(decimalsA);
-
-    priceOracle = await getContract("PriceOracle");
-    await priceOracle.updatePriceFeed(testTokenA.address, USD, AddressZero);
-    await priceOracle.updatePriceFeed(testTokenB.address, testTokenA.address, priceFeed.address);
-    await priceOracle.updatePriceFeed(testTokenA.address, PMXToken.address, priceFeedTTAPMX.address);
-    await priceOracle.updatePriceFeed(testTokenA.address, NATIVE_CURRENCY, priceFeedTTAETH.address);
-    await priceOracle.updatePriceFeed(testTokenB.address, NATIVE_CURRENCY, priceFeedTTBETH.address);
-    await priceOracle.updatePriceFeed(tokenUSD.address, NATIVE_CURRENCY, priceFeedUSDETH.address);
-    await priceOracle.updatePriceFeed(PMXToken.address, NATIVE_CURRENCY, priceFeedPMXETH.address);
-
+    await setupUsdOraclesForTokens(testTokenA, await priceOracle.eth(), ttaPriceInETH);
+    await setupUsdOraclesForToken(testTokenB, parseUnits("10", USD_DECIMALS));
     multiplierA = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsA));
     multiplierB = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB));
 
     depositAmount = parseUnits("15", decimalsA);
     borrowedAmount = parseUnits("25", decimalsA);
     swapSize = depositAmount.add(borrowedAmount);
-
-    const feeAmountCalculateWithETHRate = wadMul(
-      swapSize.toString(),
-      (await PrimexDNS.feeRates(OrderType.MARKET_ORDER, NATIVE_CURRENCY)).toString(),
-    ).toString();
-    feeAmountInEth = wadMul(BigNumber.from(feeAmountCalculateWithETHRate).mul(multiplierA).toString(), ttaPriceInETH.toString()).toString();
-
-    const feeAmountCalculateWithETHRateForLimitOrders = wadMul(
-      swapSize.toString(),
-      (await PrimexDNS.feeRates(OrderType.LIMIT_ORDER, NATIVE_CURRENCY)).toString(),
-    ).toString();
-    feeAmountInEthForLimitOrders = wadMul(feeAmountCalculateWithETHRateForLimitOrders.toString(), ttaPriceInETH.toString()).toString();
 
     const lenderAmount = parseUnits("50", decimalsA);
     await testTokenA.connect(lender).approve(bucket.address, MaxUint256);
@@ -167,9 +135,9 @@ describe("KeeperRewardDistributor_integration", function () {
       marginParams: {
         bucket: "bucket1",
         borrowedAmount: borrowedAmount,
-        depositInThirdAssetRoutes: [],
+        depositInThirdAssetMegaRoutes: [],
       },
-      firstAssetRoutes: firstAssetRoutes.concat(),
+      firstAssetMegaRoutes: firstAssetRoutes.concat(),
       depositAsset: testTokenA.address,
       depositAmount: depositAmount,
       isProtocolFeeInPmx: false,
@@ -177,8 +145,15 @@ describe("KeeperRewardDistributor_integration", function () {
       amountOutMin: 0,
       deadline: deadline,
       takeDepositFromWallet: true,
-      payFeeFromWallet: true,
       closeConditions: [],
+      firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      thirdAssetOracleData: [],
+      depositSoldAssetOracleData: [],
+      positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+      nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      pullOracleData: [],
     };
 
     const swap = swapSize.mul(multiplierA);
@@ -186,7 +161,9 @@ describe("KeeperRewardDistributor_integration", function () {
     const amountB = positionAmount.mul(multiplierB);
     const price0 = wadDiv(swap, amountB);
     price = price0.div(multiplierA);
-    await priceFeed.setAnswer(price);
+
+    const limitPrice = wadDiv(amountB.toString(), swap.toString()).toString();
+    priceBA = BigNumber.from(limitPrice).div(USD_MULTIPLIER);
 
     primexPricingLibrary = await getContract("PrimexPricingLibrary");
     const PrimexPricingLibraryMockFactory = await getContractFactory("PrimexPricingLibraryMock", {
@@ -198,8 +175,7 @@ describe("KeeperRewardDistributor_integration", function () {
     await primexPricingLibraryMock.deployed();
 
     additionalGas = await KeeperRewardDistributor.additionalGas();
-    positionSizeCoefficientA = await KeeperRewardDistributor.positionSizeCoefficientA();
-    positionSizeCoefficientB = await KeeperRewardDistributor.positionSizeCoefficientB();
+    positionSizeCoefficient = await KeeperRewardDistributor.positionSizeCoefficient();
     nativePartInReward = await KeeperRewardDistributor.nativePartInReward();
     pmxPartInReward = await KeeperRewardDistributor.pmxPartInReward();
     oracleGasPriceTolerance = await KeeperRewardDistributor.oracleGasPriceTolerance();
@@ -221,9 +197,9 @@ describe("KeeperRewardDistributor_integration", function () {
       marginParams: {
         bucket: "bucket1",
         borrowedAmount: borrowedAmount,
-        depositInThirdAssetRoutes: [],
+        depositInThirdAssetMegaRoutes: [],
       },
-      firstAssetRoutes: firstAssetRoutes.concat(),
+      firstAssetMegaRoutes: firstAssetRoutes.concat(),
       depositAsset: testTokenA.address,
       depositAmount: depositAmount,
       isProtocolFeeInPmx: false,
@@ -231,8 +207,15 @@ describe("KeeperRewardDistributor_integration", function () {
       amountOutMin: 0,
       deadline: new Date().getTime() + 600,
       takeDepositFromWallet: true,
-      payFeeFromWallet: true,
       closeConditions: [],
+      firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      thirdAssetOracleData: [],
+      depositSoldAssetOracleData: [],
+      positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+      nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      pullOracleData: [],
     };
   });
 
@@ -240,29 +223,37 @@ describe("KeeperRewardDistributor_integration", function () {
     const updateRewardParams = {
       keeper: liquidator.address,
       positionAsset: testTokenB.address,
-      positionSize: parseUnits("5", decimalsB),
+      positionSize: parseUnits("500", decimalsB),
       action: KeeperActionType.Liquidation,
       numberOfActions: 1,
       gasSpent: BigNumber.from("10000"),
       decreasingCounter: [],
       routesLength: 0,
+      nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+      positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
     };
     const ethAmount = await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
       testTokenB.address,
       NATIVE_CURRENCY,
       updateRewardParams.positionSize,
       priceOracle.address,
+      getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
     );
-
     const tx = await KeeperRewardDistributor.connect(liquidator).updateReward(updateRewardParams);
 
     const receipt = await tx.wait();
     const gasCost = updateRewardParams.gasSpent.add(additionalGas).mul(receipt.effectiveGasPrice);
-    const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficientA).add(positionSizeCoefficientB);
-    const reward = wadMul(gasCost, positionSizeMultiplier);
+    const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
+    const reward = gasCost.add(positionSizeMultiplier);
     const rewardInEth = wadMul(reward, nativePartInReward);
     const rewardInPmx = wadMul(
-      await primexPricingLibraryMock.callStatic.getOracleAmountsOut(NATIVE_CURRENCY, PMXToken.address, reward, priceOracle.address),
+      await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+        NATIVE_CURRENCY,
+        PMXToken.address,
+        reward,
+        priceOracle.address,
+        getEncodedChainlinkRouteViaUsd(PMXToken),
+      ),
       pmxPartInReward,
     );
 
@@ -296,8 +287,7 @@ describe("KeeperRewardDistributor_integration", function () {
         pmx: pmx.address,
         pmxPartInReward: pmxPartInReward,
         nativePartInReward: nativePartInReward,
-        positionSizeCoefficientA: positionSizeCoefficientA,
-        positionSizeCoefficientB: positionSizeCoefficientB,
+        positionSizeCoefficient: positionSizeCoefficient,
         additionalGas: additionalGas,
         oracleGasPriceTolerance: parseUnits("1", 17),
         paymentModel: PaymentModel.ARBITRUM,
@@ -367,6 +357,8 @@ describe("KeeperRewardDistributor_integration", function () {
         gasSpent: gasSpent,
         decreasingCounter: [],
         routesLength: routesLength,
+        nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+        positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
       });
       const receipt = await tx.wait();
       const ethAmount = await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
@@ -374,14 +366,21 @@ describe("KeeperRewardDistributor_integration", function () {
         NATIVE_CURRENCY,
         positionAmount,
         priceOracle.address,
+        getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
       );
       const l1CostWei = l1GasPrice * 16 * (routesLength + baseLength + 140);
       const gasCost = gasSpent.add(additionalGas).mul(receipt.effectiveGasPrice).add(l1CostWei);
-      const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficientA).add(positionSizeCoefficientB);
-      const reward = wadMul(gasCost, positionSizeMultiplier);
+      const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
+      const reward = gasCost.add(positionSizeMultiplier);
       const rewardInEth = wadMul(reward, nativePartInReward);
       const rewardInPmx = wadMul(
-        await primexPricingLibraryMock.callStatic.getOracleAmountsOut(NATIVE_CURRENCY, PMXToken.address, reward, priceOracle.address),
+        await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+          NATIVE_CURRENCY,
+          PMXToken.address,
+          reward,
+          priceOracle.address,
+          getEncodedChainlinkRouteViaUsd(PMXToken),
+        ),
         pmxPartInReward,
       );
 
@@ -412,6 +411,8 @@ describe("KeeperRewardDistributor_integration", function () {
         gasSpent: gasSpent,
         decreasingCounter: [],
         routesLength: routesLength,
+        nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+        positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
       });
       const receipt = await tx.wait();
 
@@ -420,14 +421,21 @@ describe("KeeperRewardDistributor_integration", function () {
         NATIVE_CURRENCY,
         positionAmount,
         priceOracle.address,
+        getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
       );
       const l1CostWei = l1GasPrice * 16 * (routesLength + baseLength + 140);
       const gasCost = gasSpent.add(additionalGas).mul(receipt.effectiveGasPrice).add(l1CostWei);
-      const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficientA).add(positionSizeCoefficientB);
-      const reward = wadMul(gasCost, positionSizeMultiplier);
+      const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
+      const reward = gasCost.add(positionSizeMultiplier);
       const rewardInEth = wadMul(reward, nativePartInReward);
       const rewardInPmx = wadMul(
-        await primexPricingLibraryMock.callStatic.getOracleAmountsOut(NATIVE_CURRENCY, PMXToken.address, reward, priceOracle.address),
+        await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+          NATIVE_CURRENCY,
+          PMXToken.address,
+          reward,
+          priceOracle.address,
+          getEncodedChainlinkRouteViaUsd(PMXToken),
+        ),
         pmxPartInReward,
       );
 
@@ -460,6 +468,8 @@ describe("KeeperRewardDistributor_integration", function () {
         gasSpent: gasSpent,
         decreasingCounter: [],
         routesLength: routesLength,
+        nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+        positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
       });
       const receipt = await tx.wait();
 
@@ -468,14 +478,21 @@ describe("KeeperRewardDistributor_integration", function () {
         NATIVE_CURRENCY,
         positionAmount,
         priceOracle.address,
+        getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
       );
       const l1CostWei = l1GasPrice * 16 * (variableLength + baseLength + 140);
       const gasCost = gasSpent.add(additionalGas).mul(receipt.effectiveGasPrice).add(l1CostWei);
-      const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficientA).add(positionSizeCoefficientB);
-      const reward = wadMul(gasCost, positionSizeMultiplier);
+      const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
+      const reward = gasCost.add(positionSizeMultiplier);
       const rewardInEth = wadMul(reward, nativePartInReward);
       const rewardInPmx = wadMul(
-        await primexPricingLibraryMock.callStatic.getOracleAmountsOut(NATIVE_CURRENCY, PMXToken.address, reward, priceOracle.address),
+        await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+          NATIVE_CURRENCY,
+          PMXToken.address,
+          reward,
+          priceOracle.address,
+          getEncodedChainlinkRouteViaUsd(PMXToken),
+        ),
         pmxPartInReward,
       );
 
@@ -506,6 +523,8 @@ describe("KeeperRewardDistributor_integration", function () {
         gasSpent: gasSpent,
         decreasingCounter: [],
         routesLength: routesLength,
+        nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+        positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
       });
       const receipt = await tx.wait();
 
@@ -514,14 +533,21 @@ describe("KeeperRewardDistributor_integration", function () {
         NATIVE_CURRENCY,
         positionAmount,
         priceOracle.address,
+        getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
       );
       const l1CostWei = l1GasPrice * 16 * (maxRoutesLength + baseLength + batchValidPositionsLength + 140);
       const gasCost = gasSpent.add(additionalGas).mul(receipt.effectiveGasPrice).add(l1CostWei);
-      const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficientA).add(positionSizeCoefficientB);
-      const reward = wadMul(gasCost, positionSizeMultiplier);
+      const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
+      const reward = gasCost.add(positionSizeMultiplier);
       const rewardInEth = wadMul(reward, nativePartInReward);
       const rewardInPmx = wadMul(
-        await primexPricingLibraryMock.callStatic.getOracleAmountsOut(NATIVE_CURRENCY, PMXToken.address, reward, priceOracle.address),
+        await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+          NATIVE_CURRENCY,
+          PMXToken.address,
+          reward,
+          priceOracle.address,
+          getEncodedChainlinkRouteViaUsd(PMXToken),
+        ),
         pmxPartInReward,
       );
 
@@ -539,12 +565,14 @@ describe("KeeperRewardDistributor_integration", function () {
     const updateRewardParams = {
       keeper: liquidator.address,
       positionAsset: testTokenB.address,
-      positionSize: parseUnits("5", decimalsB),
+      positionSize: parseUnits("500", decimalsB),
       action: KeeperActionType.Liquidation,
       numberOfActions: 1,
       gasSpent: BigNumber.from("10000"),
       decreasingCounter: [],
       routesLength: 0,
+      nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+      positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
     };
     const { multiplier1, baseMaxGas1 } = await KeeperRewardDistributor.maxGasPerPosition(updateRewardParams.action);
     const maxGasAmount = multiplier1.mul(updateRewardParams.numberOfActions).add(baseMaxGas1);
@@ -554,17 +582,24 @@ describe("KeeperRewardDistributor_integration", function () {
       NATIVE_CURRENCY,
       updateRewardParams.positionSize,
       priceOracle.address,
+      getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
     );
 
     const tx = await KeeperRewardDistributor.connect(liquidator).updateReward(updateRewardParams);
 
     const receipt = await tx.wait();
     const gasCost = maxGasAmount.mul(receipt.effectiveGasPrice);
-    const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficientA).add(positionSizeCoefficientB);
-    const reward = wadMul(gasCost, positionSizeMultiplier);
+    const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
+    const reward = gasCost.add(positionSizeMultiplier);
     const rewardInEth = wadMul(reward, nativePartInReward);
     const rewardInPmx = wadMul(
-      await primexPricingLibraryMock.callStatic.getOracleAmountsOut(NATIVE_CURRENCY, PMXToken.address, reward, priceOracle.address),
+      await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+        NATIVE_CURRENCY,
+        PMXToken.address,
+        reward,
+        priceOracle.address,
+        getEncodedChainlinkRouteViaUsd(PMXToken),
+      ),
       pmxPartInReward,
     );
 
@@ -583,12 +618,14 @@ describe("KeeperRewardDistributor_integration", function () {
     const updateRewardParams = {
       keeper: liquidator.address,
       positionAsset: testTokenB.address,
-      positionSize: parseUnits("5", decimalsB),
+      positionSize: parseUnits("500", decimalsB),
       action: KeeperActionType.Liquidation,
       numberOfActions: 1,
       gasSpent: BigNumber.from("10000"),
       decreasingCounter: [],
       routesLength: 0,
+      nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+      positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
     };
 
     const mockPriceFeed = await getContract("PrimexAggregatorV3TestService TEST price feed");
@@ -600,6 +637,7 @@ describe("KeeperRewardDistributor_integration", function () {
       NATIVE_CURRENCY,
       updateRewardParams.positionSize,
       priceOracle.address,
+      getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
     );
 
     await KeeperRewardDistributor.connect(liquidator).updateReward(updateRewardParams);
@@ -607,11 +645,17 @@ describe("KeeperRewardDistributor_integration", function () {
     const oracleGasPrice = (await priceOracle.getGasPrice()).toString();
     const maxGasPricePlusTolerance = wadMul(oracleGasPrice, BigNumber.from(WAD).add(oracleGasPriceTolerance).toString());
     const gasCost = updateRewardParams.gasSpent.add(additionalGas).mul(maxGasPricePlusTolerance);
-    const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficientA).add(positionSizeCoefficientB);
-    const reward = wadMul(gasCost, positionSizeMultiplier);
+    const positionSizeMultiplier = wadMul(ethAmount, positionSizeCoefficient);
+    const reward = gasCost.add(positionSizeMultiplier);
     const rewardInEth = wadMul(reward, nativePartInReward);
     const rewardInPmx = wadMul(
-      await primexPricingLibraryMock.callStatic.getOracleAmountsOut(NATIVE_CURRENCY, PMXToken.address, reward, priceOracle.address),
+      await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+        NATIVE_CURRENCY,
+        PMXToken.address,
+        reward,
+        priceOracle.address,
+        getEncodedChainlinkRouteViaUsd(PMXToken),
+      ),
       pmxPartInReward,
     );
 
@@ -626,65 +670,38 @@ describe("KeeperRewardDistributor_integration", function () {
 
   it("Should close position by stop loss condition and update keeper balance", async function () {
     const conditionIndex = 0;
-
     const stopLossPrice = BigNumber.from(price).mul(multiplierA).sub("1").toString();
     const takeProfitPrice = BigNumber.from(price).mul(multiplierA).add("1").toString();
 
     OpenPositionParams.closeConditions = [
       getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice)),
     ];
-    await positionManager.connect(trader).openPosition(OpenPositionParams, { value: feeAmountInEth });
+    await setOraclePrice(testTokenA, testTokenB, priceBA);
 
-    const SLPrice = BigNumber.from(price).sub(2);
+    await positionManager.connect(trader).openPosition(OpenPositionParams);
+
+    const SLPrice = BigNumber.from(priceBA).add(2);
 
     const { pmxBalance: pmxRewardBefore, nativeBalance: nativeRewardBefore } = await KeeperRewardDistributor.keeperBalance(
       liquidator.address,
     );
-
-    await priceFeed.setAnswer(SLPrice);
+    await setOraclePrice(testTokenA, testTokenB, SLPrice);
     await network.provider.send("evm_increaseTime", [10]);
-    await positionManager
-      .connect(liquidator)
-      .closePositionByCondition(0, liquidator.address, routesForClose, conditionIndex, "0x", CloseReason.LIMIT_CONDITION);
 
-    const { pmxBalance: pmxRewardAfter, nativeBalance: nativeRewardAfter } = await KeeperRewardDistributor.keeperBalance(
-      liquidator.address,
-    );
-
-    expect(pmxRewardAfter.sub(pmxRewardBefore)).to.be.gt(0);
-    expect(nativeRewardAfter.sub(nativeRewardBefore)).to.be.gt(0);
-  });
-
-  it("Should close position by trailing stop condition and update keeper balance", async function () {
-    const activationPrice = price.sub(1);
-    const trailingDelta = parseEther("1").div(100); // 1
-
-    await positionManager.connect(trader).openPosition(
-      {
-        ...OpenPositionParams,
-        closeConditions: [getCondition(TRAILING_STOP_CM_TYPE, getTrailingStopParams(activationPrice, trailingDelta))],
-      },
-      { value: feeAmountInEth },
-    );
-    const closeRoute = await getSingleRoute([testTokenB.address, testTokenA.address], dex);
-
-    // create round #1
-    await priceFeedTTAETH.setAnswer(parseEther("1"));
-    await priceFeedTTBETH.setAnswer(parseEther("10"));
-    // create round #2
-    await priceFeedTTAETH.setAnswer(parseEther("1"));
-    await priceFeedTTBETH.setAnswer(parseEther("10").div(2));
-    await network.provider.send("evm_mine");
-
-    const additionalParams = getTrailingStopAdditionalParams([1, 1], [2, 2]);
-
-    const { pmxBalance: pmxRewardBefore, nativeBalance: nativeRewardBefore } = await KeeperRewardDistributor.keeperBalance(
-      liquidator.address,
-    );
-    expect(await positionManager.connect(liquidator).callStatic.canBeClosed(0, 0, additionalParams)).to.equal(true);
-    await positionManager
-      .connect(liquidator)
-      .closePositionByCondition(0, liquidator.address, closeRoute, 0, additionalParams, CloseReason.LIMIT_CONDITION);
+    await positionManager.connect(liquidator).closePositionByCondition({
+      id: 0,
+      keeper: liquidator.address,
+      megaRoutes: routesForClose,
+      conditionIndex: conditionIndex,
+      ccmAdditionalParams: "0x",
+      closeReason: CloseReason.LIMIT_CONDITION,
+      positionSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+      positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
+      pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      pullOracleData: [],
+    });
 
     const { pmxBalance: pmxRewardAfter, nativeBalance: nativeRewardAfter } = await KeeperRewardDistributor.keeperBalance(
       liquidator.address,
@@ -694,21 +711,31 @@ describe("KeeperRewardDistributor_integration", function () {
   });
 
   it("Should close risky position and update keeper balance", async function () {
-    await positionManager.connect(trader).openPosition(OpenPositionParams, { value: feeAmountInEth });
-    const closeRoute = await getSingleRoute([testTokenB.address, testTokenA.address], dex);
-
-    const badPrice = BigNumber.from(price).div(2);
-
-    // set a bad price
-    await priceFeed.setAnswer(badPrice);
+    await positionManager.connect(trader).openPosition(OpenPositionParams);
+    const closeRoute = await getSingleMegaRoute([testTokenB.address, testTokenA.address], dex);
+    const badPrice = BigNumber.from(priceBA).mul(2);
 
     const { pmxBalance: pmxRewardBefore, nativeBalance: nativeRewardBefore } = await KeeperRewardDistributor.keeperBalance(
       liquidator.address,
     );
     await network.provider.send("evm_increaseTime", [10]);
-    await positionManager
-      .connect(liquidator)
-      .closePositionByCondition(0, liquidator.address, closeRoute, 0, [], CloseReason.RISKY_POSITION, []);
+    // set a bad price
+    await setOraclePrice(testTokenA, testTokenB, badPrice);
+
+    await positionManager.connect(liquidator).closePositionByCondition({
+      id: 0,
+      keeper: liquidator.address,
+      megaRoutes: closeRoute,
+      conditionIndex: 0,
+      ccmAdditionalParams: "0x",
+      closeReason: CloseReason.RISKY_POSITION,
+      positionSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+      positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
+      pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      pullOracleData: [],
+    });
 
     const { pmxBalance: pmxRewardAfter, nativeBalance: nativeRewardAfter } = await KeeperRewardDistributor.keeperBalance(
       liquidator.address,
@@ -721,14 +748,14 @@ describe("KeeperRewardDistributor_integration", function () {
     const batchManager = await getContract("BatchManager");
     OpenPositionParams.marginParams.borrowedAmount = parseUnits("1", decimalsA);
     OpenPositionParams.depositAmount = parseUnits("1", decimalsA);
-    await positionManager.connect(trader).openPosition(OpenPositionParams, { value: feeAmountInEth });
-    await positionManager.connect(trader).openPosition(OpenPositionParams, { value: feeAmountInEth });
-    const closeRoute = await getSingleRoute([testTokenB.address, testTokenA.address], dex);
+    await positionManager.connect(trader).openPosition(OpenPositionParams);
+    await positionManager.connect(trader).openPosition(OpenPositionParams);
+    const closeRoute = await getSingleMegaRoute([testTokenB.address, testTokenA.address], dex);
 
-    const badPrice = BigNumber.from(price).div(10);
+    const badPrice = BigNumber.from(priceBA).mul(10);
 
     // set a bad price
-    await priceFeed.setAnswer(badPrice);
+    await setOraclePrice(testTokenA, testTokenB, badPrice);
 
     const { pmxBalance: pmxRewardBefore, nativeBalance: nativeRewardBefore } = await KeeperRewardDistributor.keeperBalance(
       liquidator.address,
@@ -743,6 +770,12 @@ describe("KeeperRewardDistributor_integration", function () {
         bucketAddress,
         [0, 0],
         CloseReason.BATCH_LIQUIDATION,
+        getEncodedChainlinkRouteViaUsd(testTokenA),
+        getEncodedChainlinkRouteViaUsd(PMXToken),
+        getEncodedChainlinkRouteViaUsd(testTokenB),
+        getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
+        getEncodedChainlinkRouteViaUsd(testTokenB),
+        [],
       );
 
     const { pmxBalance: pmxRewardAfter, nativeBalance: nativeRewardAfter } = await KeeperRewardDistributor.keeperBalance(
@@ -754,35 +787,53 @@ describe("KeeperRewardDistributor_integration", function () {
   it("Should close batch positions by SL and update keeper balance", async function () {
     const batchManager = await getContract("BatchManager");
 
-    const stopLossPrice = BigNumber.from(price).mul(multiplierA).sub("1").toString();
-    const takeProfitPrice = BigNumber.from(price).mul(multiplierA).add("1").toString();
+    const stopLossPrice = reversePrice(priceBA.toString()).mul(USD_MULTIPLIER).sub("1").toString();
+    const takeProfitPrice = reversePrice(priceBA.toString()).mul(USD_MULTIPLIER).add("1").toString();
 
     OpenPositionParams.closeConditions = [
       getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice)),
     ];
-
-    await positionManager.connect(trader).openPosition(OpenPositionParams, { value: feeAmountInEth });
+    await setupUsdOraclesForToken(testTokenB, parseUnits("1", USD_DECIMALS));
+    await setOraclePrice(testTokenA, testTokenB, priceBA);
+    await positionManager.connect(trader).openPosition(OpenPositionParams);
     await swapExactTokensForTokens({
       dex: dex,
       amountIn: positionAmount,
       path: [testTokenB.address, testTokenA.address],
     });
 
-    await positionManager.connect(trader).openPosition(OpenPositionParams, { value: feeAmountInEth });
-    const closeRoute = await getSingleRoute([testTokenB.address, testTokenA.address], dex);
+    await positionManager.connect(trader).openPosition(OpenPositionParams);
+    const closeRoute = await getSingleMegaRoute([testTokenB.address, testTokenA.address], dex);
 
-    const SLPrice = BigNumber.from(price).sub(2);
-
-    await priceFeed.setAnswer(SLPrice);
+    const SLPrice = priceBA.add("2");
+    await setOraclePrice(testTokenA, testTokenB, SLPrice);
 
     const { pmxBalance: pmxRewardBefore, nativeBalance: nativeRewardBefore } = await KeeperRewardDistributor.keeperBalance(
       liquidator.address,
     );
-    await positionManager.setOracleTolerableLimit(testTokenA.address, testTokenB.address, BigNumber.from(WAD.toString()).div("2"));
+    const { payload } = await encodeFunctionData(
+      "setOracleTolerableLimit",
+      [testTokenA.address, testTokenB.address, BigNumber.from(WAD.toString()).div("2")],
+      "PositionManagerExtension",
+    );
+    await positionManager.setProtocolParamsByAdmin(payload);
     await batchManager
       .connect(liquidator)
-      .closeBatchPositions([0, 1], closeRoute, testTokenB.address, testTokenA.address, bucketAddress, [0, 0], CloseReason.BATCH_STOP_LOSS);
-
+      .closeBatchPositions(
+        [0, 1],
+        closeRoute,
+        testTokenB.address,
+        testTokenA.address,
+        bucketAddress,
+        [0, 0],
+        CloseReason.BATCH_STOP_LOSS,
+        getEncodedChainlinkRouteViaUsd(testTokenA),
+        getEncodedChainlinkRouteViaUsd(PMXToken),
+        getEncodedChainlinkRouteViaUsd(testTokenB),
+        getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
+        getEncodedChainlinkRouteViaUsd(testTokenB),
+        [],
+      );
     const { pmxBalance: pmxRewardAfter, nativeBalance: nativeRewardAfter } = await KeeperRewardDistributor.keeperBalance(
       liquidator.address,
     );
@@ -796,20 +847,25 @@ describe("KeeperRewardDistributor_integration", function () {
 
     OpenPositionParams.closeConditions = [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(1, stopLossPrice))];
 
-    await positionManager.connect(trader).openPosition(OpenPositionParams, { value: feeAmountInEth });
+    await positionManager.connect(trader).openPosition(OpenPositionParams);
     await swapExactTokensForTokens({
       dex: dex,
       amountIn: positionAmount,
       path: [testTokenB.address, testTokenA.address],
     });
 
-    await positionManager.connect(trader).openPosition(OpenPositionParams, { value: feeAmountInEth });
-    const closeRoute = await getSingleRoute([testTokenB.address, testTokenA.address], dex);
+    await positionManager.connect(trader).openPosition(OpenPositionParams);
+    const closeRoute = await getSingleMegaRoute([testTokenB.address, testTokenA.address], dex);
 
     const { pmxBalance: pmxRewardBefore, nativeBalance: nativeRewardBefore } = await KeeperRewardDistributor.keeperBalance(
       liquidator.address,
     );
-    await positionManager.setOracleTolerableLimit(testTokenA.address, testTokenB.address, BigNumber.from(WAD.toString()));
+    const { payload } = await encodeFunctionData(
+      "setOracleTolerableLimit",
+      [testTokenA.address, testTokenB.address, BigNumber.from(WAD.toString())],
+      "PositionManagerExtension",
+    );
+    await positionManager.setProtocolParamsByAdmin(payload);
     await batchManager
       .connect(liquidator)
       .closeBatchPositions(
@@ -820,6 +876,12 @@ describe("KeeperRewardDistributor_integration", function () {
         bucketAddress,
         [0, 0],
         CloseReason.BATCH_TAKE_PROFIT,
+        getEncodedChainlinkRouteViaUsd(testTokenA),
+        getEncodedChainlinkRouteViaUsd(PMXToken),
+        getEncodedChainlinkRouteViaUsd(testTokenB),
+        getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
+        getEncodedChainlinkRouteViaUsd(testTokenB),
+        [],
       );
 
     const { pmxBalance: pmxRewardAfter, nativeBalance: nativeRewardAfter } = await KeeperRewardDistributor.keeperBalance(
@@ -832,7 +894,6 @@ describe("KeeperRewardDistributor_integration", function () {
   it("Should open position by order and update keeper activity", async function () {
     const deadline = new Date().getTime() + 600;
     const takeDepositFromWallet = true;
-    const payFeeFromWallet = true;
     await testTokenA.mint(trader.address, depositAmount);
     await testTokenA.connect(trader).approve(limitOrderManager.address, MaxUint256);
     const slPrice = 0;
@@ -841,25 +902,20 @@ describe("KeeperRewardDistributor_integration", function () {
     const positionAsset = testTokenB.address;
     const leverage = parseEther("2");
 
-    await limitOrderManager.connect(trader).createLimitOrder(
-      {
-        bucket: "bucket1",
-        depositAsset: testTokenA.address,
-        depositAmount: depositAmount,
-        positionAsset: positionAsset,
-        deadline: deadline,
-        takeDepositFromWallet: takeDepositFromWallet,
-        payFeeFromWallet: payFeeFromWallet,
-        leverage: leverage,
-        shouldOpenPosition: true,
-        openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
-        closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(tpPrice, slPrice))],
-      },
-      { value: feeAmountInEthForLimitOrders },
-    );
+    await limitOrderManager.connect(trader).createLimitOrder({
+      bucket: "bucket1",
+      depositAsset: testTokenA.address,
+      depositAmount: depositAmount,
+      positionAsset: positionAsset,
+      deadline: deadline,
+      takeDepositFromWallet: takeDepositFromWallet,
+      leverage: leverage,
+      shouldOpenPosition: true,
+      openConditions: [getCondition(LIMIT_PRICE_CM_TYPE, getLimitPriceParams(limitPrice))],
+      closeConditions: [getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(tpPrice, slPrice))],
+      nativeDepositAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+    });
     const orderId = await limitOrderManager.ordersId();
-
-    await priceFeed.setAnswer(limitPrice);
 
     const { pmxBalance: pmxRewardBefore, nativeBalance: nativeRewardBefore } = await KeeperRewardDistributor.keeperBalance(
       liquidator.address,
@@ -871,9 +927,19 @@ describe("KeeperRewardDistributor_integration", function () {
       orderId: orderId,
       conditionIndex: 0,
       comAdditionalParams: defaultAdditionalParams,
-      firstAssetRoutes: firstAssetRoutes,
-      depositInThirdAssetRoutes: [],
+      firstAssetMegaRoutes: firstAssetRoutes,
+      depositInThirdAssetMegaRoutes: [],
       keeper: liquidator.address,
+      firstAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      thirdAssetOracleData: [],
+      depositSoldAssetOracleData: [],
+      nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+      positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
+      nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      positionUsdOracleData: getEncodedChainlinkRouteToUsd(),
+      nativeSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      pullOracleData: [],
     });
 
     const { pmxBalance: pmxRewardAfter, nativeBalance: nativeRewardAfter } = await KeeperRewardDistributor.keeperBalance(
@@ -884,13 +950,25 @@ describe("KeeperRewardDistributor_integration", function () {
   });
 
   it("Should not update keeper balance when position closed by trader", async function () {
-    await positionManager.connect(trader).openPosition(OpenPositionParams, { value: feeAmountInEth });
+    await setOraclePrice(testTokenA, testTokenB, priceBA);
+    await positionManager.connect(trader).openPosition(OpenPositionParams);
 
     const { pmxBalance: pmxRewardBefore, nativeBalance: nativeRewardBefore } = await KeeperRewardDistributor.keeperBalance(
       liquidator.address,
     );
 
-    await positionManager.connect(trader).closePosition(0, trader.address, routesForClose, 0);
+    await positionManager
+      .connect(trader)
+      .closePosition(
+        0,
+        trader.address,
+        routesForClose,
+        0,
+        getEncodedChainlinkRouteViaUsd(testTokenA),
+        getEncodedChainlinkRouteViaUsd(testTokenB),
+        getEncodedChainlinkRouteViaUsd(testTokenB),
+        [],
+      );
 
     const { pmxBalance: pmxRewardAfter, nativeBalance: nativeRewardAfter } = await KeeperRewardDistributor.keeperBalance(
       liquidator.address,
@@ -909,7 +987,7 @@ describe("KeeperRewardDistributor_integration", function () {
     OpenPositionParams.closeConditions = [
       getCondition(TAKE_PROFIT_STOP_LOSS_CM_TYPE, getTakeProfitStopLossParams(takeProfitPrice, stopLossPrice)),
     ];
-    await positionManager.connect(trader).openPosition(OpenPositionParams, { value: feeAmountInEth });
+    await positionManager.connect(trader).openPosition(OpenPositionParams);
 
     const spendingLimits = {
       maxTotalAmount: MaxUint256,
@@ -928,12 +1006,23 @@ describe("KeeperRewardDistributor_integration", function () {
       value: parseEther("1000"),
     });
 
-    const SLPrice = BigNumber.from(price).sub(2);
-    await priceFeed.setAnswer(SLPrice);
+    const SLPrice = priceBA.add("2");
+    await setOraclePrice(testTokenA, testTokenB, SLPrice);
     await network.provider.send("evm_increaseTime", [10]);
-    await positionManager
-      .connect(liquidator)
-      .closePositionByCondition(0, liquidator.address, routesForClose, conditionIndex, "0x", CloseReason.LIMIT_CONDITION);
+    await positionManager.connect(liquidator).closePositionByCondition({
+      id: 0,
+      keeper: liquidator.address,
+      megaRoutes: routesForClose,
+      conditionIndex: conditionIndex,
+      ccmAdditionalParams: "0x",
+      closeReason: CloseReason.LIMIT_CONDITION,
+      positionSoldAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenA),
+      nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+      positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
+      pmxPositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      nativePositionAssetOracleData: getEncodedChainlinkRouteViaUsd(testTokenB),
+      pullOracleData: [],
+    });
 
     const ethBalanceBefore = await provider.getBalance(liquidator.address);
     const pmxBalanceBefore = await PMXToken.balanceOf(liquidator.address);

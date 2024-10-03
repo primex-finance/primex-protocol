@@ -13,8 +13,7 @@ module.exports = async function (
 
   const pmxPartInReward = parseUnits("0.2", 18).toString();
   const nativePartInReward = parseUnits("0.8", 18).toString();
-  const positionSizeCoefficientA = parseUnits("0.09", 18).toString();
-  const positionSizeCoefficientB = "1";
+  const positionSizeCoefficient = parseUnits("0.009", 18).toString();
   const additionalGas = "10000";
   const defaultMaxGasPrice = parseUnits("1000", 9).toString();
   const oracleGasPriceTolerance = parseUnits("0.1", 18).toString();
@@ -41,8 +40,7 @@ module.exports = async function (
     pmx: pmx.address,
     pmxPartInReward: pmxPartInReward,
     nativePartInReward: nativePartInReward,
-    positionSizeCoefficientA: positionSizeCoefficientA,
-    positionSizeCoefficientB: positionSizeCoefficientB,
+    positionSizeCoefficient: positionSizeCoefficient,
     additionalGas: additionalGas,
     defaultMaxGasPrice: defaultMaxGasPrice,
     oracleGasPriceTolerance: oracleGasPriceTolerance,

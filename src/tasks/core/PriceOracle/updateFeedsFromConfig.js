@@ -30,10 +30,33 @@ module.exports = async function ({ priceOracle }, { ethers: { getContract, getCo
     return priceFeedsData;
   }
 
-  const priceFeedsData = getFeedsData(pricefeeds).concat(getFeedsData(pricefeeds?.selfDeployed));
+  function getFeedsDataForChainLinkUsd(feedsArray) {
+    const priceFeedData = {
+      tokens: [],
+      feeds: [],
+    };
+    if (feedsArray === undefined) return priceFeedData;
+
+    for (const feed in feedsArray) {
+      if (typeof feedsArray[feed] === "object") continue;
+      const feedAssets = feed.split("-");
+      priceFeedData.tokens.push(getAssetAddress(feedAssets[0]));
+      priceFeedData.feeds.push(feedsArray[feed]);
+    }
+    return priceFeedData;
+  }
+  const priceFeedsDataPrimary = getFeedsDataForChainLinkUsd(pricefeeds);
+  const priceFeedsDataSecondary = pricefeeds?.selfDeployed
+    ? getFeedsDataForChainLinkUsd(pricefeeds?.selfDeployed)
+    : { tokens: [], feeds: [] };
+
+  const priceFeedsData = {
+    tokens: [...priceFeedsDataPrimary.tokens, ...priceFeedsDataSecondary.tokens],
+    feeds: [...priceFeedsDataPrimary.feeds, ...priceFeedsDataSecondary.feeds],
+  };
   const priceDropFeedsData = getFeedsData(priceDropfeeds).concat(getFeedsData(priceDropfeeds?.selfDeployed));
 
-  await run("priceOracle:updatePriceFeed", { updatePriceFeeds: JSON.stringify(priceFeedsData), priceOracle: priceOracle });
+  await run("priceOracle:updateChainlinkPriceFeedsUsd", { updatePriceFeeds: JSON.stringify(priceFeedsData), priceOracle: priceOracle });
   await run("priceOracle:updatePriceDropFeed", {
     updatePriceDropFeeds: JSON.stringify(priceDropFeedsData),
     priceOracle: priceOracle,

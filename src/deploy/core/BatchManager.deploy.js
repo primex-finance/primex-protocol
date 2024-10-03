@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 module.exports = async ({ run, ethers: { getContract } }) => {
+  const { getConfigByName } = require("../../config/configUtils");
   const primexPricingLibrary = await getContract("PrimexPricingLibrary");
   const positionLibrary = await getContract("PositionLibrary");
   const positionManager = await getContract("PositionManager");
@@ -8,6 +9,11 @@ module.exports = async ({ run, ethers: { getContract } }) => {
   const whiteBlackList = await getContract("WhiteBlackList");
   const errorsLibrary = await getContract("Errors");
 
+  const { BatchManagerConfig } = getConfigByName("generalConfig.json");
+
+  const gasPerPosition = BatchManagerConfig.gasPerPosition.toString();
+  const gasPerBatch = BatchManagerConfig.gasPerBatch.toString();
+
   await run("deploy:BatchManager", {
     positionManager: positionManager.address,
     priceOracle: priceOracle.address,
@@ -15,6 +21,8 @@ module.exports = async ({ run, ethers: { getContract } }) => {
     positionLibrary: positionLibrary.address,
     whiteBlackList: whiteBlackList.address,
     registry: registry.address,
+    gasPerPosition: gasPerPosition,
+    gasPerBatch: gasPerBatch,
     errorsLibrary: errorsLibrary.address,
   });
 };

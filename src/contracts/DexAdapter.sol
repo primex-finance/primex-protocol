@@ -1,10 +1,11 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import {ISwapRouter as ISwapRouterAlgebraV3} from "@cryptoalgebra/solidity-interfaces/contracts/periphery/ISwapRouter.sol";
 import {IUniswapV2Router02} from "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
@@ -13,16 +14,21 @@ import {IQuoter as IQuoterAlgebraV3} from "@cryptoalgebra/solidity-interfaces/co
 import {WadRayMath} from "./libraries/utils/WadRayMath.sol";
 import {V3Path} from "./libraries/utils/V3Path.sol";
 import {TokenApproveLibrary} from "./libraries/TokenApproveLibrary.sol";
+import {PrimexPricingLibrary} from "./libraries/PrimexPricingLibrary.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {IPrimexDNSV3} from "./PrimexDNS/IPrimexDNS.sol";
+import {IAugustusSwapper} from "./interfaces/IAugustusSwapper.sol";
 
 import "./libraries/Errors.sol";
 
-import {MEDIUM_TIMELOCK_ADMIN, VAULT_ACCESS_ROLE} from "./Constants.sol";
+import {MEDIUM_TIMELOCK_ADMIN, BIG_TIMELOCK_ADMIN, VAULT_ACCESS_ROLE, NATIVE_CURRENCY, NATIVE_CURRENCY_CURVE} from "./Constants.sol";
 import {IBalancer} from "./interfaces/IBalancer.sol";
 import {IAsset} from "./interfaces/IAsset.sol";
 import {IDexAdapter} from "./interfaces/IDexAdapter.sol";
 import {ICurveRouter} from "./interfaces/routers/ICurveRouter.sol";
+import {IWNative} from "./interfaces/IWNative.sol";
 
-contract DexAdapter is IDexAdapter, IERC165 {
+contract DexAdapter is IDexAdapter, IERC165, Initializable {
     using WadRayMath for uint256;
     using V3Path for bytes;
 
@@ -41,6 +47,16 @@ contract DexAdapter is IDexAdapter, IERC165 {
      */
     address public immutable override registry;
 
+    IPrimexDNSV3 public primexDNS;
+
+    /**
+     * @dev e.g WETH or WMATIC
+     */
+    // solhint-disable-next-line var-name-mixedcase
+    IWNative public immutable WNative;
+
+    receive() external payable override {}
+
     /**
      * @dev Throws if caller is not granted with _role
      * @param _role The role that is being checked for a function caller
@@ -50,13 +66,25 @@ contract DexAdapter is IDexAdapter, IERC165 {
         _;
     }
 
-    constructor(address _registry) {
+    // solhint-disable-next-line var-name-mixedcase
+    constructor(address _registry, address _WNative) {
         _require(
             IERC165(_registry).supportsInterface(type(IAccessControl).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector
         );
-
         registry = _registry;
+        WNative = IWNative(_WNative);
+    }
+
+    /**
+     * @inheritdoc IDexAdapter
+     */
+    function initialize(address _primexDNS) external override initializer onlyRole(BIG_TIMELOCK_ADMIN) {
+        _require(
+            IERC165(_primexDNS).supportsInterface(type(IPrimexDNSV3).interfaceId),
+            Errors.ADDRESS_NOT_SUPPORTED.selector
+        );
+        primexDNS = IPrimexDNSV3(_primexDNS);
     }
 
     /**
@@ -81,70 +109,106 @@ contract DexAdapter is IDexAdapter, IERC165 {
     /**
      * @inheritdoc IDexAdapter
      */
-    function swapExactTokensForTokens(
-        SwapParams memory _params
-    ) external override onlyRole(VAULT_ACCESS_ROLE) returns (uint256[3] memory) {
+
+    function performMegaRoutesSwap(
+        PrimexPricingLibrary.MegaSwapParams calldata _params
+    ) external payable override returns (uint256) {
+        _require(_params.deadline >= block.timestamp, Errors.SWAP_DEADLINE_PASSED.selector);
+        MegaSwapVars memory vars;
+
+        for (uint256 i; i < _params.megaRoutes.length; i++) {
+            vars.sumOfShares += _params.megaRoutes[i].shares;
+        }
+        _require(vars.sumOfShares > 0, Errors.SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO.selector);
+
+        vars.remainder = _params.amountTokenA;
+
+        for (uint256 i; i < _params.megaRoutes.length - 1; i++) {
+            vars.amountOnMegaRoute = (_params.amountTokenA * _params.megaRoutes[i].shares) / vars.sumOfShares;
+            vars.remainder -= vars.amountOnMegaRoute;
+            vars.totalAmount += performRoutesSwap(
+                _params.tokenA,
+                vars.amountOnMegaRoute,
+                _params.receiver,
+                _params.megaRoutes[i].routes
+            );
+        }
+        //perform the last route with the remainder
+        vars.totalAmount += performRoutesSwap(
+            _params.tokenA,
+            vars.remainder,
+            _params.receiver,
+            _params.megaRoutes[_params.megaRoutes.length - 1].routes
+        );
+        return vars.totalAmount;
+    }
+
+    /**
+     * @inheritdoc IDexAdapter
+     */
+    function swapExactTokensForTokens(SwapParams memory _params) external payable override returns (uint256[3] memory) {
         _require(_params.to != address(0) && _params.dexRouter != address(0), Errors.ADDRESS_NOT_SUPPORTED.selector);
         _require(_params.amountIn != 0, Errors.ZERO_AMOUNT_IN.selector);
-        DexType type_ = dexType[_params.dexRouter];
-
-        if (type_ == DexType.UniswapV2 || type_ == DexType.Meshswap) {
-            return _swapWithUniswapV2(_params);
-        } else if (type_ == DexType.UniswapV3) {
-            return _swapWithUniswapV3(_params);
-        } else if (type_ == DexType.Curve) {
-            return _swapWithCurve(_params);
-        } else if (type_ == DexType.Balancer) {
-            return _swapWithBalancer(_params);
-        } else if (type_ == DexType.AlgebraV3) {
-            return _swapWithAlgebraV3(_params);
-        } else {
-            _revert(Errors.UNKNOWN_DEX_TYPE.selector);
-        }
+        return _swapExactTokensForTokens(_params);
     }
 
     /**
      * @inheritdoc IDexAdapter
      */
-    function getAmountsOut(GetAmountsParams memory _params) external override returns (uint256[3] memory) {
-        _checkAmountsParams(_params);
-        DexType type_ = dexType[_params.dexRouter];
 
-        if (type_ == DexType.UniswapV2 || type_ == DexType.Meshswap) {
-            return _getAmountsWithUniswapV2(_params);
-        } else if (type_ == DexType.UniswapV3) {
-            return _getAmountsWithUniswapV3(_params);
-        } else if (type_ == DexType.Curve) {
-            return _getAmountsWithCurve(_params);
-        } else if (type_ == DexType.Balancer) {
-            return _getAmountsWithBalancer(_params);
-        } else if (type_ == DexType.AlgebraV3) {
-            return _getAmountsWithAlgebraV3(_params);
-        } else {
-            _revert(Errors.UNKNOWN_DEX_TYPE.selector);
+    function getAmountOutByMegaRoutes(AmountParams calldata _params) external override returns (uint256) {
+        _require(_params.tokenA != _params.tokenB, Errors.IDENTICAL_ASSETS.selector);
+
+        MegaSwapVars memory vars;
+
+        for (uint256 i; i < _params.megaRoutes.length; i++) {
+            vars.sumOfShares += _params.megaRoutes[i].shares;
         }
+        _require(vars.sumOfShares > 0, Errors.SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO.selector);
+        vars.remainder = _params.amount;
+
+        for (uint256 i; i < _params.megaRoutes.length - 1; i++) {
+            vars.amountOnMegaRoute = (_params.amount * _params.megaRoutes[i].shares) / vars.sumOfShares;
+            vars.remainder -= vars.amountOnMegaRoute;
+            vars.totalAmount += getAmountsOutByRoutes(vars.amountOnMegaRoute, _params.megaRoutes[i].routes);
+        }
+        // getting amountOut for the last route
+        vars.totalAmount += getAmountsOutByRoutes(
+            vars.remainder,
+            _params.megaRoutes[_params.megaRoutes.length - 1].routes
+        );
+
+        return vars.totalAmount;
     }
 
     /**
      * @inheritdoc IDexAdapter
      */
-    function getAmountsIn(GetAmountsParams memory _params) external override returns (uint256[3] memory) {
-        _checkAmountsParams(_params);
-        DexType type_ = dexType[_params.dexRouter];
 
-        if (type_ == DexType.UniswapV2 || type_ == DexType.Meshswap) {
-            return _getAmountsInWithUniswapV2(_params);
-        } else if (type_ == DexType.UniswapV3) {
-            return _getAmountsInWithUniswapV3(_params);
-        } else if (type_ == DexType.Curve) {
-            return _getAmountsInWithCurve(_params);
-        } else if (type_ == DexType.Balancer) {
-            return _getAmountsInWithBalancer(_params);
-        } else if (type_ == DexType.AlgebraV3) {
-            return _getAmountsInWithAlgebraV3(_params);
-        } else {
-            _revert(Errors.UNKNOWN_DEX_TYPE.selector);
+    function getAmountInByMegaRoutes(AmountParams calldata _params) external override returns (uint256) {
+        _require(_params.tokenA != _params.tokenB, Errors.IDENTICAL_ASSETS.selector);
+
+        MegaSwapVars memory vars;
+
+        for (uint256 i; i < _params.megaRoutes.length; i++) {
+            vars.sumOfShares += _params.megaRoutes[i].shares;
         }
+        _require(vars.sumOfShares > 0, Errors.SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO.selector);
+        //amount is amountOut
+        vars.remainder = _params.amount;
+
+        for (uint256 i; i < _params.megaRoutes.length - 1; i++) {
+            vars.amountOnMegaRoute = (_params.amount * _params.megaRoutes[i].shares) / vars.sumOfShares;
+            vars.remainder -= vars.amountOnMegaRoute;
+            vars.totalAmount += getAmountsInByRoutes(vars.amountOnMegaRoute, _params.megaRoutes[i].routes);
+        }
+        //getting amountIn for the last route
+        vars.totalAmount += getAmountsInByRoutes(
+            vars.remainder,
+            _params.megaRoutes[_params.megaRoutes.length - 1].routes
+        );
+
+        return vars.totalAmount;
     }
 
     /**
@@ -171,11 +235,243 @@ contract DexAdapter is IDexAdapter, IERC165 {
     }
 
     /**
+     * @inheritdoc IDexAdapter
+     */
+
+    function performRoutesSwap(
+        address tokenIn,
+        uint256 amountIn,
+        address receiver,
+        PrimexPricingLibrary.Route[] calldata routes
+    ) public payable override returns (uint256) {
+        //amountInOnRoute will be either amountIn or amountOut of the previous route
+        uint256 amountInOnRoute = amountIn;
+        for (uint256 i; i < routes.length; i++) {
+            //tokenInOnRoute will be either tokenIn or tokenOutOnRoute of the previous route
+            address tokenInOnRoute = i > 0 ? routes[i - 1].to : tokenIn;
+            address tokenOutOnRoute = routes[i].to;
+            amountInOnRoute = performPathsSwap(
+                tokenInOnRoute,
+                tokenOutOnRoute,
+                amountInOnRoute,
+                i == routes.length - 1 ? receiver : address(this),
+                routes[i].paths
+            );
+        }
+        // at the last iteration amountInOnRoute will be amountOut of the last route
+        return amountInOnRoute;
+    }
+
+    /**
+     * @inheritdoc IDexAdapter
+     */
+    function performPathsSwap(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        address receiver,
+        PrimexPricingLibrary.Path[] calldata paths
+    ) public payable override returns (uint256) {
+        uint256 sumOfShares;
+        uint256 totalAmount;
+
+        for (uint256 i; i < paths.length; i++) {
+            sumOfShares += paths[i].shares;
+        }
+
+        _require(sumOfShares > 0, Errors.SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO.selector);
+        uint256 remainder = amountIn;
+        SwapParams memory swapParams;
+        swapParams.deadline = block.timestamp;
+        swapParams.tokenIn = tokenIn;
+        swapParams.tokenOut = tokenOut;
+        swapParams.to = receiver;
+        for (uint256 i; i < paths.length - 1; i++) {
+            swapParams.amountIn = (amountIn * paths[i].shares) / sumOfShares;
+            remainder -= swapParams.amountIn;
+            swapParams.encodedPath = paths[i].payload;
+            swapParams.dexRouter = primexDNS.getDexAddress(paths[i].dexName);
+            totalAmount += _swapExactTokensForTokens(swapParams)[1];
+        }
+        // swap for the last path
+        swapParams.amountIn = remainder;
+        swapParams.encodedPath = paths[paths.length - 1].payload;
+        swapParams.dexRouter = primexDNS.getDexAddress(paths[paths.length - 1].dexName);
+        totalAmount += _swapExactTokensForTokens(swapParams)[1];
+        return totalAmount;
+    }
+
+    /**
+     * @inheritdoc IDexAdapter
+     */
+    function getAmountsOutByRoutes(
+        uint256 amountIn,
+        PrimexPricingLibrary.Route[] calldata routes
+    ) public override returns (uint256) {
+        //amountInOnRoute will be either amountIn or amountOut of the previous route
+        uint256 amountInOnRoute = amountIn;
+        for (uint256 i; i < routes.length; i++) {
+            amountInOnRoute = getAmountsOutByPaths(amountInOnRoute, routes[i].paths);
+        }
+        // at the last iteration amountInOnRoute will be amountOut of the last route
+        return amountInOnRoute;
+    }
+
+    /**
+     * @inheritdoc IDexAdapter
+     */
+
+    function getAmountsOutByPaths(
+        uint256 amountIn,
+        PrimexPricingLibrary.Path[] calldata paths
+    ) public override returns (uint256) {
+        uint256 sumOfShares;
+        uint256 totalAmount;
+
+        for (uint256 i; i < paths.length; i++) {
+            sumOfShares += paths[i].shares;
+        }
+
+        _require(sumOfShares > 0, Errors.SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO.selector);
+        uint256 remainder = amountIn;
+        GetAmountsParams memory getAmountsParams;
+        for (uint256 i; i < paths.length - 1; i++) {
+            getAmountsParams.amount = (amountIn * paths[i].shares) / sumOfShares;
+            remainder -= getAmountsParams.amount;
+            getAmountsParams.encodedPath = paths[i].payload;
+            getAmountsParams.dexRouter = primexDNS.getDexAddress(paths[i].dexName);
+            totalAmount += getAmountsOut(getAmountsParams)[1];
+        }
+        //getting amountOut for the last path
+        getAmountsParams.amount = remainder;
+        getAmountsParams.encodedPath = paths[paths.length - 1].payload;
+        getAmountsParams.dexRouter = primexDNS.getDexAddress(paths[paths.length - 1].dexName);
+        totalAmount += getAmountsOut(getAmountsParams)[1];
+        return totalAmount;
+    }
+
+    /**
+     * @inheritdoc IDexAdapter
+     */
+
+    function getAmountsOut(GetAmountsParams memory _params) public override returns (uint256[3] memory) {
+        _checkAmountsParams(_params);
+        DexType type_ = dexType[_params.dexRouter];
+
+        if (type_ == DexType.UniswapV2 || type_ == DexType.Meshswap) {
+            return _getAmountsWithUniswapV2(_params);
+        } else if (type_ == DexType.UniswapV3) {
+            return _getAmountsWithUniswapV3(_params);
+        } else if (type_ == DexType.Curve) {
+            return _getAmountsWithCurve(_params);
+        } else if (type_ == DexType.Balancer) {
+            return _getAmountsWithBalancer(_params);
+        } else if (type_ == DexType.AlgebraV3) {
+            return _getAmountsWithAlgebraV3(_params);
+        } else {
+            _revert(Errors.UNKNOWN_DEX_TYPE.selector);
+        }
+    }
+
+    /**
+     * @inheritdoc IDexAdapter
+     */
+
+    function getAmountsInByRoutes(
+        uint256 amountOut,
+        PrimexPricingLibrary.Route[] calldata routes
+    ) public override returns (uint256) {
+        //amountOutOnRoute will be either amountOut or amountIn of the previous route (in reverse order)
+        uint256 amountOutOnRoute = amountOut;
+
+        for (uint256 i = routes.length; i > 0; i--) {
+            // i - 1 == current index
+            amountOutOnRoute = getAmountsInByPaths(amountOutOnRoute, routes[i - 1].paths);
+        }
+        // at the last iteration amountOutOnRoute will be amountIn of the first route
+        return amountOutOnRoute;
+    }
+
+    /**
+     * @inheritdoc IDexAdapter
+     */
+
+    function getAmountsInByPaths(
+        uint256 amountOut,
+        PrimexPricingLibrary.Path[] calldata paths
+    ) public override returns (uint256) {
+        uint256 sumOfShares;
+        uint256 totalAmountIn;
+
+        for (uint256 i; i < paths.length; i++) {
+            sumOfShares += paths[i].shares;
+        }
+        _require(sumOfShares > 0, Errors.SUM_OF_SHARES_SHOULD_BE_GREATER_THAN_ZERO.selector);
+        uint256 remainder = amountOut;
+        GetAmountsParams memory getAmountsParams;
+        for (uint256 i; i < paths.length - 1; i++) {
+            getAmountsParams.amount = (amountOut * paths[i].shares) / sumOfShares;
+            remainder -= getAmountsParams.amount;
+            getAmountsParams.encodedPath = paths[i].payload;
+            getAmountsParams.dexRouter = primexDNS.getDexAddress(paths[i].dexName);
+            totalAmountIn += getAmountsIn(getAmountsParams)[0];
+        }
+        //getting amountIn for the last path
+        getAmountsParams.amount = remainder;
+        getAmountsParams.encodedPath = paths[paths.length - 1].payload;
+        getAmountsParams.dexRouter = primexDNS.getDexAddress(paths[paths.length - 1].dexName);
+        totalAmountIn += getAmountsIn(getAmountsParams)[0];
+        return totalAmountIn;
+    }
+
+    /**
+     * @inheritdoc IDexAdapter
+     */
+    function getAmountsIn(GetAmountsParams memory _params) public override returns (uint256[3] memory) {
+        _checkAmountsParams(_params);
+        DexType type_ = dexType[_params.dexRouter];
+
+        if (type_ == DexType.UniswapV2 || type_ == DexType.Meshswap) {
+            return _getAmountsInWithUniswapV2(_params);
+        } else if (type_ == DexType.UniswapV3) {
+            return _getAmountsInWithUniswapV3(_params);
+        } else if (type_ == DexType.Curve) {
+            return _getAmountsInWithCurve(_params);
+        } else if (type_ == DexType.Balancer) {
+            return _getAmountsInWithBalancer(_params);
+        } else if (type_ == DexType.AlgebraV3) {
+            return _getAmountsInWithAlgebraV3(_params);
+        } else {
+            _revert(Errors.UNKNOWN_DEX_TYPE.selector);
+        }
+    }
+
+    /**
      * @notice Interface checker
      * @param _interfaceId The interface id to check
      */
     function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
         return _interfaceId == type(IERC165).interfaceId || _interfaceId == type(IDexAdapter).interfaceId;
+    }
+
+    function _swapExactTokensForTokens(SwapParams memory _params) internal returns (uint256[3] memory) {
+        DexType type_ = dexType[_params.dexRouter];
+
+        if (type_ == DexType.UniswapV2 || type_ == DexType.Meshswap) {
+            return _swapWithUniswapV2(_params);
+        } else if (type_ == DexType.UniswapV3) {
+            return _swapWithUniswapV3(_params);
+        } else if (type_ == DexType.Curve) {
+            return _swapWithCurve(_params);
+        } else if (type_ == DexType.Balancer) {
+            return _swapWithBalancer(_params);
+        } else if (type_ == DexType.AlgebraV3) {
+            return _swapWithAlgebraV3(_params);
+        } else if (type_ == DexType.Paraswap) {
+            return _swapWithParaswap(_params);
+        } else {
+            _revert(Errors.UNKNOWN_DEX_TYPE.selector);
+        }
     }
 
     function _getAmountsWithBalancer(GetAmountsParams memory _params) internal returns (uint256[3] memory) {
@@ -376,6 +672,10 @@ contract DexAdapter is IDexAdapter, IERC165 {
     }
 
     function _swapWithUniswapV2(SwapParams memory _params) private returns (uint256[3] memory) {
+        if (_params.tokenIn == NATIVE_CURRENCY) {
+            WNative.deposit{value: _params.amountIn}();
+        }
+
         address[] memory path = abi.decode(_params.encodedPath, (address[]));
         TokenApproveLibrary.doApprove(path[0], _params.dexRouter, _params.amountIn);
         uint256[] memory amounts;
@@ -387,11 +687,17 @@ contract DexAdapter is IDexAdapter, IERC165 {
             _params.to,
             _params.deadline
         );
-
+        if (_params.tokenOut == NATIVE_CURRENCY) {
+            WNative.withdraw(WNative.balanceOf(address(this)));
+        }
         return [_params.amountIn, amounts[amounts.length - 1], 0];
     }
 
     function _swapWithUniswapV3(SwapParams memory _params) private returns (uint256[3] memory) {
+        if (_params.tokenIn == NATIVE_CURRENCY) {
+            WNative.deposit{value: _params.amountIn}();
+        }
+
         address tokenIn = _params.encodedPath.decodeFirstToken();
         TokenApproveLibrary.doApprove(tokenIn, _params.dexRouter, _params.amountIn);
 
@@ -407,6 +713,9 @@ contract DexAdapter is IDexAdapter, IERC165 {
         try ISwapRouter(_params.dexRouter).exactInput(params) returns (uint256 _amountOut) {
             // slither-disable-next-line variable-scope
             amountOut = _amountOut;
+            if (_params.tokenOut == NATIVE_CURRENCY) {
+                WNative.withdraw(WNative.balanceOf(address(this)));
+            }
         } catch Error(string memory err) {
             // slither-disable-next-line variable-scope
             revert(err);
@@ -418,6 +727,10 @@ contract DexAdapter is IDexAdapter, IERC165 {
     }
 
     function _swapWithAlgebraV3(SwapParams memory _params) private returns (uint256[3] memory) {
+        if (_params.tokenIn == NATIVE_CURRENCY) {
+            WNative.deposit{value: _params.amountIn}();
+        }
+
         address tokenIn = _params.encodedPath.decodeFirstToken();
         TokenApproveLibrary.doApprove(tokenIn, _params.dexRouter, _params.amountIn);
 
@@ -429,7 +742,33 @@ contract DexAdapter is IDexAdapter, IERC165 {
             amountOutMinimum: _params.amountOutMin
         });
         uint256 amountOut = ISwapRouterAlgebraV3(_params.dexRouter).exactInput(params);
+        if (_params.tokenOut == NATIVE_CURRENCY) {
+            WNative.withdraw(WNative.balanceOf(address(this)));
+        }
         return [_params.amountIn, amountOut, 0];
+    }
+
+    function _swapWithParaswap(SwapParams memory _params) private returns (uint256[3] memory) {
+        uint256 balance = IERC20(_params.tokenOut).balanceOf(_params.to);
+
+        if (_params.tokenIn != NATIVE_CURRENCY) {
+            TokenApproveLibrary.doApprove(
+                _params.tokenIn,
+                IAugustusSwapper(_params.dexRouter).getTokenTransferProxy(),
+                _params.amountIn
+            );
+        }
+        // we just pass all payload data to the target router
+        Address.functionCallWithValue(
+            _params.dexRouter,
+            _params.encodedPath,
+            _params.tokenIn == NATIVE_CURRENCY ? _params.amountIn : 0
+        );
+
+        balance = IERC20(_params.tokenOut).balanceOf(_params.to) - balance;
+        _require(balance >= _params.amountOutMin, Errors.SLIPPAGE_TOLERANCE_EXCEEDED.selector);
+
+        return [_params.amountIn, balance, 0];
     }
 
     function _swapWithCurve(SwapParams memory _params) private returns (uint256[3] memory) {
@@ -438,16 +777,29 @@ contract DexAdapter is IDexAdapter, IERC165 {
         (address[] memory path, address[] memory pools) = abi.decode(_params.encodedPath, (address[], address[]));
         uint256 amountOut = _params.amountIn;
 
+        // we don't wrap and unwrap eth since the curve can handle the native currency
         for (uint256 i; i < path.length - 1; i++) {
-            TokenApproveLibrary.doApprove(path[i], _params.dexRouter, amountOut);
-            amountOut = ICurveRouter(_params.dexRouter).exchange(
-                pools[i],
-                path[i],
-                path[i + 1],
-                amountOut,
-                i == path.length - 2 ? _params.amountOutMin : 0,
-                i == path.length - 2 ? _params.to : address(this)
-            );
+            //'cause in the curve the native currency is denoted as 0xEeE...
+            if (path[i] == NATIVE_CURRENCY_CURVE) {
+                amountOut = ICurveRouter(_params.dexRouter).exchange{value: amountOut}(
+                    pools[i],
+                    path[i],
+                    path[i + 1],
+                    amountOut,
+                    i == path.length - 2 ? _params.amountOutMin : 0,
+                    i == path.length - 2 ? _params.to : address(this)
+                );
+            } else {
+                TokenApproveLibrary.doApprove(path[i], _params.dexRouter, amountOut);
+                amountOut = ICurveRouter(_params.dexRouter).exchange(
+                    pools[i],
+                    path[i],
+                    path[i + 1],
+                    amountOut,
+                    i == path.length - 2 ? _params.amountOutMin : 0,
+                    i == path.length - 2 ? _params.to : address(this)
+                );
+            }
         }
 
         return [_params.amountIn, amountOut, 0];
@@ -459,6 +811,11 @@ contract DexAdapter is IDexAdapter, IERC165 {
             (address[], bytes32[], int256[])
         );
         _require(path.length >= 2, Errors.INCORRECT_PATH.selector);
+
+        if (_params.tokenIn == NATIVE_CURRENCY) {
+            WNative.deposit{value: _params.amountIn}();
+        }
+
         TokenApproveLibrary.doApprove(path[0], _params.dexRouter, _params.amountIn);
 
         IBalancer.FundManagement memory fundManagement = IBalancer.FundManagement({
@@ -484,7 +841,9 @@ contract DexAdapter is IDexAdapter, IERC165 {
                 limits,
                 _params.deadline
             );
-
+            if (_params.tokenOut == NATIVE_CURRENCY) {
+                WNative.withdraw(WNative.balanceOf(address(this)));
+            }
             return [_params.amountIn, uint256(deltas[deltas.length - 1] * -1), 0];
         }
 
@@ -502,6 +861,9 @@ contract DexAdapter is IDexAdapter, IERC165 {
             _params.amountOutMin,
             _params.deadline
         );
+        if (_params.tokenOut == NATIVE_CURRENCY) {
+            WNative.withdraw(WNative.balanceOf(address(this)));
+        }
         return [_params.amountIn, amountOut, 0];
     }
 }

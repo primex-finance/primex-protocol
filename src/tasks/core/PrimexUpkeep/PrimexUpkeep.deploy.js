@@ -9,13 +9,16 @@ module.exports = async function (
   }
   const primexUpkeep = await deploy("PrimexUpkeep", {
     from: deployer,
-    args: [positionManager, limitOrderManager, registry, bestDexLens, primexLens],
+    args: [registry],
     log: true,
     libraries: {
       Errors: errorsLibrary,
     },
   });
   if (primexUpkeep.newlyDeployed) {
+    const PrimexUpkeep = await getContract("PrimexUpkeep");
+    const initializeTx = await PrimexUpkeep.initialize(positionManager, limitOrderManager, bestDexLens, primexLens);
+    await initializeTx.wait();
     const whiteBlackList = await getContract("WhiteBlackList");
     const tx = await whiteBlackList.addAddressToWhitelist(primexUpkeep.address);
     await tx.wait();

@@ -85,6 +85,7 @@ function calculateMaxAssetLeverage(
   pairPriceDropBA,
   oracleTolerableLimitAB,
   oracleTolerableLimitBA,
+  feeRate,
 ) {
   const bnWAD = BigNumber(WAD);
   const numerator = wadMul(bnWAD.plus(maintenanceBuffer.toString()).toString(), feeBuffer.toString());
@@ -98,6 +99,7 @@ function calculateMaxAssetLeverage(
         ),
       ),
     )
+    .plus(feeRate.toString())
     .toString();
   return wadDiv(numerator, denominator);
 }

@@ -1,4 +1,4 @@
-// (c) 2023 Primex.finance
+// (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.18;
 
@@ -7,14 +7,15 @@ import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol"
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
+import {IUniswapPriceFeed} from "../UniswapPriceFeed/IUniswapPriceFeed.sol";
 
 import "./PriceOracleStorage.sol";
 import "../libraries/Errors.sol";
 
 import {BIG_TIMELOCK_ADMIN, MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN, NATIVE_CURRENCY, EMERGENCY_ADMIN, USD} from "../Constants.sol";
-import {IPriceOracle} from "./IPriceOracle.sol";
+import {IPriceOracleV2} from "./IPriceOracle.sol";
 
-contract PriceOracle is IPriceOracle, PriceOracleStorage {
+contract PriceOracle is IPriceOracleV2, PriceOracleStorageV2 {
     using WadRayMath for uint256;
 
     constructor() {
@@ -31,7 +32,7 @@ contract PriceOracle is IPriceOracle, PriceOracleStorage {
     }
 
     /**
-     * @inheritdoc IPriceOracle
+     * @inheritdoc IPriceOracleV2
      */
     function initialize(address _registry, address _eth) external override initializer {
         _require(
@@ -43,8 +44,12 @@ contract PriceOracle is IPriceOracle, PriceOracleStorage {
         __ERC165_init();
     }
 
+    function setPyth(address _pyth) external override onlyRole(BIG_TIMELOCK_ADMIN) {
+        pyth = IPyth(_pyth);
+    }
+
     /**
-     * @inheritdoc IPriceOracle
+     * @inheritdoc IPriceOracleV2
      */
     function increasePairPriceDrop(
         address _assetA,
@@ -59,7 +64,15 @@ contract PriceOracle is IPriceOracle, PriceOracleStorage {
     }
 
     /**
-     * @inheritdoc IPriceOracle
+     * @inheritdoc IPriceOracleV2
+     */
+    function setTimeTolerance(uint256 _timeTolerance) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
+        timeTolerance = _timeTolerance;
+        emit TimeToleranceUpdated(_timeTolerance);
+    }
+
+    /**
+     * @inheritdoc IPriceOracleV2
      */
     function setPairPriceDrop(
         address _assetA,
@@ -71,72 +84,169 @@ contract PriceOracle is IPriceOracle, PriceOracleStorage {
     }
 
     /**
-     * @inheritdoc IPriceOracle
+     * @inheritdoc IPriceOracleV2
      */
     function updatePriceDropFeed(
         address assetA,
         address assetB,
         address priceDropFeed
     ) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
-        _require(assetA != assetB, Errors.IDENTICAL_TOKEN_ADDRESSES.selector);
-        oraclePriceDropFeeds[assetA][assetB] = priceDropFeed;
-        emit PriceDropFeedUpdated(assetA, assetB, priceDropFeed);
+        _updatePriceDropFeed(assetA, assetB, priceDropFeed);
     }
 
     /**
-     * @inheritdoc IPriceOracle
+     * @inheritdoc IPriceOracleV2
      */
-    function updatePriceFeed(
+    function updatePriceDropFeeds(
+        UpdatePriceDropFeedsParams[] calldata _updateParams
+    ) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
+        for (uint256 i; i < _updateParams.length; i++) {
+            _updatePriceDropFeed(_updateParams[i].assetA, _updateParams[i].assetB, _updateParams[i].priceDropFeed);
+        }
+    }
+
+    function updateChainlinkPriceFeedsUsd(
+        address[] calldata _tokens,
+        address[] calldata _feeds
+    ) external override onlyRole(SMALL_TIMELOCK_ADMIN) {
+        _require(_tokens.length == _feeds.length, Errors.PARAMS_LENGTH_MISMATCH.selector);
+        for (uint256 i; i < _tokens.length; i++) {
+            chainlinkPriceFeedsUsd[_tokens[i]] = _feeds[i];
+            emit ChainlinkPriceFeedUpdated(_tokens[i], _feeds[i]);
+        }
+    }
+
+    function updatePythPairId(
+        address[] calldata _tokens,
+        bytes32[] calldata _priceFeedIds
+    ) external override onlyRole(SMALL_TIMELOCK_ADMIN) {
+        _require(_tokens.length == _priceFeedIds.length, Errors.PARAMS_LENGTH_MISMATCH.selector);
+        for (uint256 i; i < _tokens.length; i++) {
+            pythPairIds[_tokens[i]] = _priceFeedIds[i];
+            emit PythPairIdUpdated(_tokens[i], _priceFeedIds[i]);
+        }
+    }
+
+    function updatePullOracle(bytes[] calldata _pullOracleData) external payable override {
+        if (_pullOracleData.length > 0) {
+            uint256 updateFee = pyth.getUpdateFee(_pullOracleData);
+            _require(updateFee <= msg.value, Errors.NOT_ENOUGH_MSG_VALUE.selector);
+            pyth.updatePriceFeeds{value: updateFee}(_pullOracleData);
+        }
+    }
+
+    function updateUniv3TypeOracle(
+        uint256[] calldata _oracleTypes,
+        address[] calldata _oracles
+    ) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
+        _require(_oracleTypes.length == _oracles.length, Errors.PARAMS_LENGTH_MISMATCH.selector);
+        for (uint256 i; i < _oracleTypes.length; i++) {
+            univ3TypeOracles[_oracleTypes[i]] = _oracles[i];
+            emit Univ3OracleUpdated(_oracleTypes[i], _oracles[i]);
+        }
+    }
+
+    function updateUniv3TrustedPair(
+        UpdateUniv3TrustedPairParams[] calldata _updateParams
+    ) external override onlyRole(SMALL_TIMELOCK_ADMIN) {
+        for (uint256 i; i < _updateParams.length; i++) {
+            univ3TrustedPairs[_updateParams[i].oracleType][_updateParams[i].tokenA][
+                _updateParams[i].tokenB
+            ] = _updateParams[i].isTrusted;
+            // reverse order
+            univ3TrustedPairs[_updateParams[i].oracleType][_updateParams[i].tokenB][
+                _updateParams[i].tokenA
+            ] = _updateParams[i].isTrusted;
+            emit Univ3TrustedPairUpdated(
+                _updateParams[i].oracleType,
+                _updateParams[i].tokenA,
+                _updateParams[i].tokenB,
+                _updateParams[i].isTrusted
+            );
+        }
+    }
+
+    function getExchangeRate(
         address assetA,
         address assetB,
-        address priceFeed
-    ) external override onlyRole(BIG_TIMELOCK_ADMIN) {
-        _require(assetA != assetB, Errors.IDENTICAL_TOKEN_ADDRESSES.selector);
-        chainLinkPriceFeeds[assetA][assetB] = priceFeed;
-        emit PriceFeedUpdated(assetA, assetB, priceFeed);
-    }
+        bytes calldata oracleData
+    ) external payable override returns (uint256) {
+        OracleRoute[] memory oracleRoutes = abi.decode(oracleData, (OracleRoute[]));
+        _require(oracleRoutes.length > 0 && oracleRoutes.length < 5, Errors.WRONG_ORACLE_ROUTES_LENGTH.selector);
+        _require(oracleRoutes[oracleRoutes.length - 1].tokenTo == assetB, Errors.INCORRECT_TOKEN_TO.selector);
+        if (oracleRoutes.length == 3)
+            _require(oracleRoutes[1].oracleType != OracleType.Uniswapv3, Errors.INCORRECT_ROUTE_SEQUENCE.selector);
+        if (oracleRoutes.length == 4)
+            _require(
+                oracleRoutes[1].oracleType != OracleType.Uniswapv3 &&
+                    oracleRoutes[0].oracleType != OracleType.Pyth &&
+                    oracleRoutes[0].oracleType != OracleType.Chainlink,
+                Errors.INCORRECT_ROUTE_SEQUENCE.selector
+            );
 
-    /**
-     * @inheritdoc IPriceOracle
-     */
-    function getExchangeRate(address assetA, address assetB) external view override returns (uint256, bool) {
-        address priceFeed = chainLinkPriceFeeds[assetA][assetB];
-        bool isForward = true;
+        address tokenFrom = assetA;
+        uint256 price = WadRayMath.WAD;
 
-        if (priceFeed == address(0)) {
-            priceFeed = chainLinkPriceFeeds[assetB][assetA];
-            if (priceFeed == address(0)) {
-                (address basePriceFeed, address quotePriceFeed) = getPriceFeedsPair(assetA, assetB);
-
-                (, int256 basePrice, , , ) = AggregatorV3Interface(basePriceFeed).latestRoundData();
-                (, int256 quotePrice, , , ) = AggregatorV3Interface(quotePriceFeed).latestRoundData();
-
-                _require(basePrice > 0 && quotePrice > 0, Errors.ZERO_EXCHANGE_RATE.selector);
-                //the return value will always be 18 decimals if the basePrice and quotePrice have the same decimals
-                return (uint256(basePrice).wdiv(uint256(quotePrice)), true);
-            }
-            isForward = false;
+        for (uint256 i; i < oracleRoutes.length; i++) {
+            price = price.wmul(_getExchangeRate(tokenFrom, oracleRoutes[i]));
+            tokenFrom = oracleRoutes[i].tokenTo;
         }
+        return price;
+    }
 
-        (, int256 answer, , , ) = AggregatorV3Interface(priceFeed).latestRoundData();
-        _require(answer > 0, Errors.ZERO_EXCHANGE_RATE.selector);
+    function _getExchangeRate(address _assetA, OracleRoute memory _oracleRoute) internal returns (uint256) {
+        bool assetAIsUsd = _assetA == USD;
+        if (_oracleRoute.oracleType == OracleType.Pyth) {
+            if (!assetAIsUsd) _require(_oracleRoute.tokenTo == USD, Errors.INCORRECT_PYTH_ROUTE.selector);
+            bytes32 pairID = pythPairIds[assetAIsUsd ? _oracleRoute.tokenTo : _assetA];
+            _require(pairID != bytes32(0), Errors.NO_PRICEFEED_FOUND.selector);
+            PythStructs.Price memory price = pyth.getPrice(pairID);
+            _require(
+                price.publishTime >= block.timestamp - timeTolerance,
+                Errors.PUBLISH_TIME_EXCEEDS_THRESHOLD_TIME.selector
+            );
+            // price in WAD format and invert if necessary
+            return assetAIsUsd ? WadRayMath.WAD.wdiv(_convertPythPriceToWad(price)) : _convertPythPriceToWad(price);
+        }
+        if (_oracleRoute.oracleType == OracleType.Chainlink) {
+            if (!assetAIsUsd) _require(_oracleRoute.tokenTo == USD, Errors.INCORRECT_CHAINLINK_ROUTE.selector);
+            address priceFeed = chainlinkPriceFeedsUsd[assetAIsUsd ? _oracleRoute.tokenTo : _assetA];
+            _require(priceFeed != address(0), Errors.NO_PRICEFEED_FOUND.selector);
 
-        uint256 answerDecimals = AggregatorV3Interface(priceFeed).decimals();
-        return ((uint256(answer) * 10 ** (18 - answerDecimals)), isForward);
+            (, int256 answer, , , ) = AggregatorV3Interface(priceFeed).latestRoundData();
+            _require(answer > 0, Errors.ZERO_EXCHANGE_RATE.selector);
+            // price in WAD format and invert if necessary
+            return
+                assetAIsUsd
+                    ? WadRayMath.WAD.wdiv((uint256(answer) * 10 ** (18 - AggregatorV3Interface(priceFeed).decimals())))
+                    : (uint256(answer) * 10 ** (18 - AggregatorV3Interface(priceFeed).decimals()));
+        }
+        uint256 oracleType = uint256(bytes32(_oracleRoute.oracleData));
+        address uniOracle = univ3TypeOracles[oracleType];
+        _require(uniOracle != address(0), Errors.NO_PRICEFEED_FOUND.selector);
+        _require(
+            univ3TrustedPairs[oracleType][_assetA][_oracleRoute.tokenTo],
+            Errors.TOKEN_PAIR_IS_NOT_TRUSTED.selector
+        );
+        // always returns price in WAD
+        return IUniswapPriceFeed(uniOracle).getExchangeRate(_assetA, _oracleRoute.tokenTo);
+    }
+
+    function _convertPythPriceToWad(PythStructs.Price memory price) internal pure returns (uint256) {
+        if (price.price < 0 || price.expo > 0 || price.expo < -255) {
+            _revert(Errors.INCORRECT_PYTH_PRICE.selector);
+        }
+        uint8 priceDecimals = uint8(uint32(-1 * price.expo));
+
+        if (18 >= priceDecimals) {
+            return uint256(uint64(price.price)) * 10 ** uint32(18 - priceDecimals);
+        } else {
+            return uint256(uint64(price.price)) / 10 ** uint32(priceDecimals - 18);
+        }
     }
 
     /**
-     * @inheritdoc IPriceOracle
-     */
-    function getDirectPriceFeed(address assetA, address assetB) external view override returns (address) {
-        _require(assetA != assetB, Errors.IDENTICAL_TOKEN_ADDRESSES.selector);
-        address priceFeed = chainLinkPriceFeeds[assetA][assetB];
-        _require(priceFeed != address(0), Errors.NO_PRICEFEED_FOUND.selector);
-        return priceFeed;
-    }
-
-    /**
-     * @inheritdoc IPriceOracle
+     * @inheritdoc IPriceOracleV2
      */
     function getPairPriceDrop(address _assetA, address _assetB) external view override returns (uint256 priceDrop) {
         uint256 oraclePairPriceDrop = getOraclePriceDrop(_assetA, _assetB);
@@ -147,7 +257,7 @@ contract PriceOracle is IPriceOracle, PriceOracleStorage {
     }
 
     /**
-     * @inheritdoc IPriceOracle
+     * @inheritdoc IPriceOracleV2
      */
     function getOraclePriceDropFeed(address assetA, address assetB) external view override returns (address) {
         _require(assetA != assetB, Errors.IDENTICAL_TOKEN_ADDRESSES.selector);
@@ -157,7 +267,7 @@ contract PriceOracle is IPriceOracle, PriceOracleStorage {
     }
 
     /**
-     * @inheritdoc IPriceOracle
+     * @inheritdoc IPriceOracleV2
      */
     function setGasPriceFeed(address priceFeed) public override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
         gasPriceFeed = priceFeed;
@@ -165,7 +275,7 @@ contract PriceOracle is IPriceOracle, PriceOracleStorage {
     }
 
     /**
-     * @inheritdoc IPriceOracle
+     * @inheritdoc IPriceOracleV2
      */
     function getOraclePriceDrop(address assetA, address assetB) public view override returns (uint256) {
         address priceDropFeed = oraclePriceDropFeeds[assetA][assetB];
@@ -176,25 +286,7 @@ contract PriceOracle is IPriceOracle, PriceOracleStorage {
     }
 
     /**
-     * @inheritdoc IPriceOracle
-     */
-    function getPriceFeedsPair(
-        address baseAsset,
-        address quoteAsset
-    ) public view override returns (address basePriceFeed, address quotePriceFeed) {
-        _require(baseAsset != quoteAsset, Errors.IDENTICAL_TOKEN_ADDRESSES.selector);
-        basePriceFeed = chainLinkPriceFeeds[baseAsset][USD];
-        quotePriceFeed = chainLinkPriceFeeds[quoteAsset][USD];
-
-        if (basePriceFeed == address(0) || quotePriceFeed == address(0)) {
-            basePriceFeed = chainLinkPriceFeeds[baseAsset][eth];
-            quotePriceFeed = chainLinkPriceFeeds[quoteAsset][eth];
-            _require(basePriceFeed != address(0) && quotePriceFeed != address(0), Errors.NO_PRICEFEED_FOUND.selector);
-        }
-    }
-
-    /**
-     * @inheritdoc IPriceOracle
+     * @inheritdoc IPriceOracleV2
      */
     function getGasPrice() public view override returns (int256 price) {
         if (gasPriceFeed != address(0)) (, price, , , ) = AggregatorV3Interface(gasPriceFeed).latestRoundData();
@@ -205,7 +297,7 @@ contract PriceOracle is IPriceOracle, PriceOracleStorage {
      * @param _interfaceId The interface id to check
      */
     function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
-        return _interfaceId == type(IPriceOracle).interfaceId || super.supportsInterface(_interfaceId);
+        return _interfaceId == type(IPriceOracleV2).interfaceId || super.supportsInterface(_interfaceId);
     }
 
     /**
@@ -219,5 +311,11 @@ contract PriceOracle is IPriceOracle, PriceOracleStorage {
         _require(_assetA != _assetB, Errors.IDENTICAL_ASSET_ADDRESSES.selector);
         pairPriceDrops[_assetA][_assetB] = _pairPriceDrop;
         emit PairPriceDropChanged(_assetA, _assetB, _pairPriceDrop);
+    }
+
+    function _updatePriceDropFeed(address assetA, address assetB, address priceDropFeed) internal {
+        _require(assetA != assetB, Errors.IDENTICAL_TOKEN_ADDRESSES.selector);
+        oraclePriceDropFeeds[assetA][assetB] = priceDropFeed;
+        emit PriceDropFeedUpdated(assetA, assetB, priceDropFeed);
     }
 }

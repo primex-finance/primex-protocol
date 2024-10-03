@@ -9,5 +9,6 @@ module.exports = async function ({ _ }, { run }) {
     deployBalancer: true,
     deployMeshswap: true,
     deployUniswapMulticall: true,
+    deployMockPyth: true,
   });
 };

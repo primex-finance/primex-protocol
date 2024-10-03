@@ -27,7 +27,7 @@
         "isReinvestToAaveEnabled": true,
         "LMDeadline": 1701344466
       },
-      "flowConfig":{
+      "flowConfig": {
         "execute": false,
         "steps": {
           "1": false,
@@ -68,7 +68,7 @@
         "isReinvestToAaveEnabled": true,
         "LMDeadline": 1701344466
       },
-      "flowConfig":{
+      "flowConfig": {
         "execute": false,
         "steps": {
           "1": false,
@@ -109,7 +109,7 @@
         "isReinvestToAaveEnabled": true,
         "LMDeadline": 1701344466
       },
-      "flowConfig":{
+      "flowConfig": {
         "execute": false,
         "steps": {
           "1": false,
@@ -121,8 +121,8 @@
           "bucket": "0x4C3e997509eD6DA075380bD578b9F5FA5e1D2051",
           "PToken": "0x7e6969208B949390404E9CaB2C45a148FFF75c58",
           "DebtToken": "0xF0a991f7911d848AC6C20dc8baF92ac7cFc17B58"
+        }
       }
-    }
     }
   ]
 }

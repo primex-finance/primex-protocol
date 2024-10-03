@@ -32,20 +32,48 @@ const CloseReason = Object.freeze({
   BATCH_TAKE_PROFIT: 6,
 });
 
-const OrderType = Object.freeze({
-  MARKET_ORDER: 0,
-  LIMIT_ORDER: 1,
-  SWAP_MARKET_ORDER: 2,
-  SWAP_LIMIT_ORDER: 3,
+const FeeRateType = Object.freeze({
+  MarginPositionClosedByTrader: 0,
+  SpotPositionClosedByTrader: 1,
+  MarginPositionClosedByKeeper: 2,
+  SpotPositionClosedByKeeper: 3,
+  MarginLimitOrderExecuted: 4,
+  SpotLimitOrderExecuted: 5,
+  SwapLimitOrderExecuted: 6,
+  SwapMarketOrder: 7,
+});
+
+const TradingOrderType = Object.freeze({
+  MarginMarketOrder: 0,
+  SpotMarketOrder: 1,
+  MarginLimitOrder: 2,
+  MarginLimitOrderDepositInThirdAsset: 3,
+  SpotLimitOrder: 4,
+  SwapLimitOrder: 5,
+});
+
+const CallingMethod = Object.freeze({
+  OpenPositionByOrder: 0,
+  ClosePositionByCondition: 1,
+});
+
+const OracleType = Object.freeze({
+  Pyth: 0,
+  Chainlink: 1,
+  Uniswapv3: 2,
 });
 
 const ORDER_INFO_DECODE = [
   "uint256",
   "uint256",
-  "tuple(uint256,uint256,bytes,tuple(uint256, tuple(string, bytes)[])[],tuple(uint256, tuple(string, bytes)[])[])[]",
+  "tuple(uint256,uint256,bytes,tuple(uint256,tuple(address,tuple(string,uint256,bytes)[])[])[],tuple(uint256,tuple(address,tuple(string,uint256,bytes)[])[])[])[]",
 ];
 
-const POSITION_INFO_DECODE = ["uint256", "uint256", "tuple(uint256,uint256,bytes,tuple(uint256, tuple(string, bytes)[])[],uint8)[]"];
+const POSITION_INFO_DECODE = [
+  "uint256",
+  "uint256",
+  "tuple(uint256,uint256,bytes,tuple(uint256,tuple(address,tuple(string,uint256,bytes)[])[])[],uint8)[]",
+];
 
 const BAR_CALC_PARAMS_DECODE = ["(uint256,uint256,uint256,uint256,int256)"];
 
@@ -91,7 +119,8 @@ module.exports = {
   ArbGasInfo,
   PaymentModel,
   CloseReason,
-  OrderType,
+  FeeRateType,
+  TradingOrderType,
   ORDER_INFO_DECODE,
   POSITION_INFO_DECODE,
   BAR_CALC_PARAMS_DECODE,
@@ -101,4 +130,6 @@ module.exports = {
   KeeperActionType,
   DecreasingReason,
   KeeperCallingMethod,
+  CallingMethod,
+  OracleType,
 };
