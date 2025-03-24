@@ -17,7 +17,25 @@ module.exports = async function (
   if (bucketsConfig === undefined) bucketsConfig = "buckets.json";
   bucketsConfig = getConfigByName(bucketsConfig);
 
-  const { assets } = getConfig();
+  const { assets, morphoLP, aaveLP, curveLP } = getConfig();
+
+  const allAssets = { ...assets };
+
+  if (morphoLP) {
+    for (const key in morphoLP) {
+      allAssets[key] = morphoLP[key].address;
+    }
+  }
+  if (aaveLP) {
+    for (const key in aaveLP) {
+      allAssets[key] = aaveLP[key].address;
+    }
+  }
+  if (curveLP) {
+    for (const key in curveLP) {
+      allAssets[key] = curveLP[key].lpTokenAddress;
+    }
+  }
 
   const SECONDS_PER_DAY = 24 * 60 * 60;
   const deployDelay = bucketsConfig.DELAY_IN_DAYS_AFTER_DEPLOY * SECONDS_PER_DAY;
@@ -61,9 +79,9 @@ module.exports = async function (
       bucket.flowConfig = defaultFlowConfig;
     }
 
-    const underlyingAsset = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", assets[bucket.tokenName]);
+    const underlyingAsset = await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", allAssets[bucket.tokenName]);
 
-    const assetAddresses = bucket.allowedAssets.map(asset => assets[asset]);
+    const assetAddresses = bucket.allowedAssets.map(asset => allAssets[asset]);
 
     const decimals = await underlyingAsset.decimals();
 

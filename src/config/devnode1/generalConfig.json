@@ -23,14 +23,26 @@
     "gasPriceBuffer": "1.05",
     "additionalGasSpent": "100000",
     "feeRates": {
-      "MarginPositionClosedByTrader": "0.005",
-      "SpotPositionClosedByTrader": "0.002",
-      "MarginPositionClosedByKeeper": "0.003",
-      "SpotPositionClosedByKeeper": "0.003",
-      "MarginLimitOrderExecuted": "0.003",
-      "SpotLimitOrderExecuted": "0.003",
-      "SwapLimitOrderExecuted": "0.003",
-      "SwapMarketOrder": "0.003"
+      "0": {
+        "MarginPositionClosedByTrader": "0.005",
+        "SpotPositionClosedByTrader": "0.002",
+        "MarginPositionClosedByKeeper": "0.003",
+        "SpotPositionClosedByKeeper": "0.003",
+        "MarginLimitOrderExecuted": "0.003",
+        "SpotLimitOrderExecuted": "0.003",
+        "SwapLimitOrderExecuted": "0.003",
+        "SwapMarketOrder": "0.003"
+      },
+      "1": {
+        "MarginPositionClosedByTrader": "0.004",
+        "SpotPositionClosedByTrader": "0.001",
+        "MarginPositionClosedByKeeper": "0.002",
+        "SpotPositionClosedByKeeper": "0.002",
+        "MarginLimitOrderExecuted": "0.002",
+        "SpotLimitOrderExecuted": "0.002",
+        "SwapLimitOrderExecuted": "0.002",
+        "SwapMarketOrder": "0.002"
+      }
     },
     "averageGasPerAction": {
       "MarginMarketOrder": "100000",
@@ -134,6 +146,42 @@
   "FlashLoanManagerConfig": {
     "flashLoanFeeRate": "0.05",
     "flashLoanProtocolRate": "0.2"
+  },
+  "DepositManagerConfig": {
+    "buckets": [
+      {
+        "bucketName": "Primex Bucket WETH",
+        "rewardTokens": [
+          {
+            "rewardTokenAddress": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdef",
+            "durations": [
+              {
+                "durationInDays": 20,
+                "newInterestRate": "0.05"
+              },
+              {
+                "durationInDays": 15,
+                "newInterestRate": "0.06"
+              }
+            ]
+          },
+          {
+            "rewardTokenAddress": "0xfedcfedcfedcfedcfedcfedcfedcfedcfedcfedc",
+            "durations": [
+              {
+                "durationInDays": 5,
+                "newInterestRate": "0.07"
+              },
+              {
+                "durationInDays": 10,
+                "newInterestRate": "0.08"
+              }
+            ]
+          }
+        ],
+        "maxTotalDeposit": "1000000"
+      }
+    ]
   },
   "TreasuryConfig": {
     "setMaxSpendingLimit": [

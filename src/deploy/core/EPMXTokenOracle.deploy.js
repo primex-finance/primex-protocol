@@ -13,15 +13,15 @@ module.exports = async ({
   const config = getConfigByName("generalConfig.json");
   const price = parseUnits(config.EPMXOraclePrice, USD_DECIMALS);
 
-  const EPMXPriceFeed = await run("deploy:EPMXPriceFeed", {
+  const PMXPriceFeed = await run("deploy:PMXPriceFeed", {
     registry: registry.address,
     price: price.toString(),
   });
 
-  if (EPMXPriceFeed.newlyDeployed) {
+  if (PMXPriceFeed.newlyDeployed) {
     const priceOracle = await getContract("PriceOracle");
     const EPMXToken = await getContract("EPMXToken");
-    const priceFeeds = { tokens: [EPMXToken.address], feeds: [EPMXPriceFeed.address] };
+    const priceFeeds = { tokens: [EPMXToken.address], feeds: [PMXPriceFeed.address] };
     await run("priceOracle:updateChainlinkPriceFeedsUsd", {
       priceOracle: priceOracle.address,
       updatePriceFeeds: JSON.stringify(priceFeeds),
@@ -29,5 +29,5 @@ module.exports = async ({
   }
 };
 
-module.exports.tags = ["EPMXPriceFeed", "Test", "PrimexCore"];
+module.exports.tags = ["PMXPriceFeed", "Test", "PrimexCore"];
 module.exports.dependencies = ["Registry", "Errors", "PriceOracle", "EPMXToken"];

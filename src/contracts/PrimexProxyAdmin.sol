@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {ProxyAdmin, ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";

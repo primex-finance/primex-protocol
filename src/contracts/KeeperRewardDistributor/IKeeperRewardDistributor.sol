@@ -204,3 +204,12 @@ interface IKeeperRewardDistributorV3 is IKeeperRewardDistributorStorageV2, IPaus
      */
     function setOptimisticGasCoefficient(uint256 _newOptimisticGasCoefficient) external;
 }
+
+interface IKeeperRewardDistributorV4 is IKeeperRewardDistributorV3 {
+    /**
+     * @notice Sets the address of the PMX token contract.
+     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @param _pmx The address of the PMX token contract.
+     */
+    function setPMX(address _pmx) external;
+}

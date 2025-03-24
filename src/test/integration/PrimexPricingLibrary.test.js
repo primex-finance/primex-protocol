@@ -500,7 +500,7 @@ describe("PrimexPricingLibrary_integration", function () {
       const feeBuffer = await bucket.feeBuffer();
       const securityBuffer = await positionManager.securityBuffer();
       const oracleTolerableLimit = await positionManager.getOracleTolerableLimit(testTokenB.address, testTokenA.address);
-      const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
+      const feeRate = parseEther(feeRates[0].MarginPositionClosedByKeeper);
       const denominator = wadMul(
         wadMul(
           wadMul(BigNumber.from(WAD).sub(securityBuffer).toString(), BigNumber.from(WAD).sub(oracleTolerableLimit).toString()),

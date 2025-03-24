@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
@@ -19,6 +19,7 @@ import {ITraderBalanceVault} from "../TraderBalanceVault/ITraderBalanceVault.sol
 import {TokenTransfersLibrary} from "./TokenTransfersLibrary.sol";
 import {IPriceOracleStorageV2} from "../PriceOracle/IPriceOracleStorage.sol";
 import {IPriceOracleV2} from "../PriceOracle/IPriceOracle.sol";
+import {ITiersManager} from "../TiersManager/ITiersManager.sol";
 import "./Errors.sol";
 
 library PrimexPricingLibrary {
@@ -133,6 +134,9 @@ library PrimexPricingLibrary {
         uint256 gasSpent;
         bool isFeeProhibitedInPmx;
         bytes nativePaymentAssetOracleData;
+        ITiersManager tierManager;
+        uint256 maxProtocolFee;
+        address trader;
     }
 
     struct MinProtocolFeeParams {
@@ -152,10 +156,12 @@ library PrimexPricingLibrary {
     struct ProtocolFeeVars {
         address pmx;
         address treasury;
+        address tierManager;
         uint256 feeInPaymentAssetWithDiscount;
         uint256 pmxTraderBalance;
         uint256 pmxTraderBalanceInPaymentAsset;
         uint256 pmxDiscountMultiplier;
+        uint256 maxProtocolFee;
     }
 
     /**
@@ -163,7 +169,6 @@ library PrimexPricingLibrary {
      */
     struct FeeInPaymentAssetVars {
         uint256 protocolFeeRate;
-        uint256 maxProtocolFee;
         uint256 feeInPaymentAsset;
         uint256 maxProtocolFeeInPaymentAsset;
         uint256 minProtocolFeeInPaymentAsset;
@@ -193,9 +198,23 @@ library PrimexPricingLibrary {
     struct CalculateFeeInPaymentAssetBatchCloseVars {
         uint256[] feeInPaymentAsset;
         uint256 protocolFeeRate;
-        uint256 maxProtocolFee;
         uint256 maxProtocolFeeInPaymentAsset;
         uint256 minProtocolFeeInPaymentAsset;
+    }
+
+    struct CalculateFeeInPaymentAssetBatchCloseParams {
+        uint256 numberOfPositions;
+        IPrimexDNSV3 primexDNS;
+        address priceOracle;
+        IPrimexDNSStorageV3.FeeRateType feeRateType;
+        address paymentAsset;
+        uint256[] paymentAmounts;
+        address keeperRewardDistributor;
+        uint256 estimatedGasAmount;
+        uint256 estimatedBaseLength;
+        ITiersManager tierManager;
+        uint256 maxProtocolFee;
+        bool isFeeProhibitedInPmx;
     }
 
     /**
@@ -363,9 +382,9 @@ library PrimexPricingLibrary {
         }
 
         ProtocolFeeVars memory vars;
-        (vars.pmx, vars.treasury, , , vars.pmxDiscountMultiplier) = params.primexDNS.getPrimexDNSParams(
-            params.feeRateType
-        );
+        (vars.pmx, vars.treasury, vars.tierManager, vars.maxProtocolFee, vars.pmxDiscountMultiplier) = params
+            .primexDNS
+            .getPrimexDNSParams();
         feeInPaymentAsset = calculateFeeInPaymentAsset(
             CalculateFeeInPaymentAssetParams({
                 primexDNS: params.primexDNS,
@@ -376,7 +395,10 @@ library PrimexPricingLibrary {
                 keeperRewardDistributor: params.keeperRewardDistributor,
                 gasSpent: params.gasSpent,
                 isFeeProhibitedInPmx: params.isFeeProhibitedInPmx,
-                nativePaymentAssetOracleData: params.nativePaymentAssetOracleData
+                nativePaymentAssetOracleData: params.nativePaymentAssetOracleData,
+                tierManager: ITiersManager(vars.tierManager),
+                maxProtocolFee: vars.maxProtocolFee,
+                trader: params.trader
             })
         );
         (vars.pmxTraderBalance, ) = params.traderBalanceVault.balances(params.trader, vars.pmx);
@@ -420,17 +442,22 @@ library PrimexPricingLibrary {
      */
     function calculateFeeInPaymentAsset(CalculateFeeInPaymentAssetParams memory params) public returns (uint256) {
         FeeInPaymentAssetVars memory vars;
-        (, , vars.protocolFeeRate, vars.maxProtocolFee, ) = params.primexDNS.getPrimexDNSParams(params.feeRateType);
+
+        vars.protocolFeeRate = params.primexDNS.getProtocolFeeRateByTier(
+            params.feeRateType,
+            params.isFeeProhibitedInPmx ? 0 : params.tierManager.getTraderTierForAddress(params.trader)
+        );
+
         // Calculate protocol fee in position asset
         vars.feeInPaymentAsset = params.paymentAmount.wmul(vars.protocolFeeRate);
 
         // Calculate max protocol fee in position asset
-        vars.maxProtocolFeeInPaymentAsset = vars.maxProtocolFee == type(uint256).max
+        vars.maxProtocolFeeInPaymentAsset = params.maxProtocolFee == type(uint256).max
             ? type(uint256).max
             : getOracleAmountsOut(
                 NATIVE_CURRENCY,
                 params.paymentAsset,
-                vars.maxProtocolFee,
+                params.maxProtocolFee,
                 params.priceOracle,
                 params.nativePaymentAssetOracleData
             );
@@ -476,20 +503,28 @@ library PrimexPricingLibrary {
         uint256[] memory feeInPaymentAsset = new uint256[](params.numberOfPositions);
         uint256[] memory feeInPmx = new uint256[](params.numberOfPositions);
 
-        (vars.pmx, vars.treasury, , , vars.pmxDiscountMultiplier) = params.primexDNS.getPrimexDNSParams(
-            params.feeRateType
-        );
+        (vars.pmx, vars.treasury, vars.tierManager, vars.maxProtocolFee, vars.pmxDiscountMultiplier) = params
+            .primexDNS
+            .getPrimexDNSParams();
+
         feeInPaymentAsset = calculateFeeInPaymentAssetBatchClose(
-            params.numberOfPositions,
-            params.primexDNS,
-            params.priceOracle,
-            params.feeRateType,
-            params.paymentAsset,
-            params.paymentAmounts,
-            params.keeperRewardDistributor,
-            params.estimatedGasAmount,
-            params.estimatedBaseLength,
-            params.nativePaymentAssetOracleData
+            CalculateFeeInPaymentAssetBatchCloseParams({
+                numberOfPositions: params.numberOfPositions,
+                primexDNS: params.primexDNS,
+                priceOracle: params.priceOracle,
+                feeRateType: params.feeRateType,
+                paymentAsset: params.paymentAsset,
+                paymentAmounts: params.paymentAmounts,
+                keeperRewardDistributor: params.keeperRewardDistributor,
+                estimatedGasAmount: params.estimatedGasAmount,
+                estimatedBaseLength: params.estimatedBaseLength,
+                tierManager: ITiersManager(vars.tierManager),
+                maxProtocolFee: vars.maxProtocolFee,
+                isFeeProhibitedInPmx: params.isFeeProhibitedInPmx
+            }),
+            // to keep calldata
+            params.nativePaymentAssetOracleData,
+            params.traders
         );
         for (uint256 i; i < params.numberOfPositions; i++) {
             // This is done to ensure that after upgrading the contracts, positions that have already been opened
@@ -545,46 +580,50 @@ library PrimexPricingLibrary {
      * @return The amount of the protocol fee in '_feeToken' which needs to be paid according to the specified deposit parameters.
      */
     function calculateFeeInPaymentAssetBatchClose(
-        uint256 numberOfPositions,
-        IPrimexDNSV3 primexDNS,
-        address priceOracle,
-        IPrimexDNSStorageV3.FeeRateType feeRateType,
-        address paymentAsset,
-        uint256[] memory paymentAmounts,
-        address keeperRewardDistributor,
-        uint256 estimatedGasAmount,
-        uint256 estimatedBaseLength,
-        bytes calldata _nativePaymentAssetOracleData
+        CalculateFeeInPaymentAssetBatchCloseParams memory _params,
+        bytes calldata _nativePaymentAssetOracleData,
+        address[] calldata _traders
     ) public returns (uint256[] memory) {
         CalculateFeeInPaymentAssetBatchCloseVars memory vars;
-        (, , vars.protocolFeeRate, vars.maxProtocolFee, ) = primexDNS.getPrimexDNSParams(feeRateType);
         // Calculate max protocol fee in payment (sold) asset
-        vars.maxProtocolFeeInPaymentAsset = vars.maxProtocolFee == type(uint256).max
+        vars.maxProtocolFeeInPaymentAsset = _params.maxProtocolFee == type(uint256).max
             ? type(uint256).max
             : getOracleAmountsOut(
                 NATIVE_CURRENCY,
-                paymentAsset,
-                vars.maxProtocolFee,
-                priceOracle,
+                _params.paymentAsset,
+                _params.maxProtocolFee,
+                _params.priceOracle,
                 _nativePaymentAssetOracleData
             );
-
         vars.minProtocolFeeInPaymentAsset = minProtocolFeeCloseBatch(
-            paymentAsset,
-            priceOracle,
-            IKeeperRewardDistributorV3(keeperRewardDistributor),
-            estimatedGasAmount,
-            estimatedBaseLength,
-            primexDNS,
+            _params.paymentAsset,
+            _params.priceOracle,
+            IKeeperRewardDistributorV3(_params.keeperRewardDistributor),
+            _params.estimatedGasAmount,
+            _params.estimatedBaseLength,
+            _params.primexDNS,
             _nativePaymentAssetOracleData
         );
 
-        vars.feeInPaymentAsset = new uint256[](numberOfPositions);
+        vars.feeInPaymentAsset = new uint256[](_params.numberOfPositions);
+
+        uint256[] memory protocolFeeRates;
+        if (_params.isFeeProhibitedInPmx) {
+            vars.protocolFeeRate = _params.primexDNS.getProtocolFeeRateByTier(_params.feeRateType, 0);
+        } else {
+            protocolFeeRates = _params.primexDNS.getProtocolFeeRatesByTier(
+                _params.feeRateType,
+                _params.tierManager.getTraderTiersForAddresses(_traders)
+            );
+        }
         // Calculate protocol fee in position asset
-        for (uint256 i; i < numberOfPositions; i++) {
-            vars.feeInPaymentAsset[i] = paymentAmounts[i].wmul(vars.protocolFeeRate);
+        for (uint256 i; i < _params.numberOfPositions; i++) {
+            if (!_params.isFeeProhibitedInPmx) {
+                vars.protocolFeeRate = protocolFeeRates[i];
+            }
+            vars.feeInPaymentAsset[i] = _params.paymentAmounts[i].wmul(vars.protocolFeeRate);
             _require(
-                vars.minProtocolFeeInPaymentAsset < paymentAmounts[i],
+                vars.minProtocolFeeInPaymentAsset < _params.paymentAmounts[i],
                 Errors.MIN_PROTOCOL_FEE_IS_GREATER_THAN_PAYMENT_AMOUNT.selector
             );
             vars.feeInPaymentAsset[i] = min(
@@ -592,7 +631,6 @@ library PrimexPricingLibrary {
                 vars.maxProtocolFeeInPaymentAsset
             );
         }
-
         return vars.feeInPaymentAsset;
     }
 
@@ -807,8 +845,9 @@ library PrimexPricingLibrary {
             .wmul(_positionAmount)
             .wmul(
                 WadRayMath.WAD -
-                    IPrimexDNSV3(_primexDNS).protocolFeeRates(
-                        IPrimexDNSStorageV3.FeeRateType.MarginPositionClosedByKeeper
+                    IPrimexDNSV3(_primexDNS).getProtocolFeeRateByTier(
+                        IPrimexDNSStorageV3.FeeRateType.MarginPositionClosedByKeeper,
+                        0 // we don't consider the tier in liquidation
                     )
             ) * 10 ** (18 - IERC20Metadata(_positionAsset).decimals());
         // numerator = data.bucket.feeBuffer().wmul(_positionDebt) * multiplier1;
@@ -955,15 +994,7 @@ library PrimexPricingLibrary {
                     (_baseLength + TRANSACTION_METADATA_BYTES);
         }
         if (paymentModel == IKeeperRewardDistributorStorage.PaymentModel.OPTIMISTIC) {
-            // Adds 68 bytes of padding to account for the fact that the input does not have a signature.
-            uint256 l1GasUsed = GAS_FOR_BYTE * (_baseLength + OVM_GASPRICEORACLE.overhead() + 68);
-            return
-                l1CostWei =
-                    (OVM_GASPRICEORACLE.l1BaseFee() *
-                        l1GasUsed *
-                        OVM_GASPRICEORACLE.scalar() *
-                        optimisticGasCoefficient) /
-                    10 ** 6;
+            return l1CostWei = OVM_GASPRICEORACLE.getL1FeeUpperBound(_baseLength).wmul(optimisticGasCoefficient);
         }
         return 0;
     }

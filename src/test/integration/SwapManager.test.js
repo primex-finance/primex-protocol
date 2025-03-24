@@ -41,7 +41,7 @@ describe("SwapManager_integration", function () {
   let deployer, trader;
   let decimalsA, decimalsB;
   let ErrorsLibrary;
-
+  const defaultTier = 0;
   before(async function () {
     await fixture(["Test"]);
     ({ deployer, trader } = await getNamedSigners());
@@ -232,7 +232,7 @@ describe("SwapManager_integration", function () {
       const tokenBID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b2";
       const nativeID = "0x63f341689d98a12ef60a5cff1d7f85c70a9e17bf1575f0e7c0b2512d48b1c8b3";
       const pyth = await getContract("MockPyth");
-      await PrimexDNS.setProtocolFeeRate([FeeRateType.SwapMarketOrder, parseEther("0.001")]);
+      await PrimexDNS.setProtocolFeeRate([[FeeRateType.SwapMarketOrder, defaultTier, parseEther("0.001")]]);
 
       await priceOracle.updatePythPairId([PMXToken.address, testTokenB.address, await priceOracle.eth()], [PMXID, tokenBID, nativeID]);
       // price in 10**8
@@ -386,7 +386,7 @@ describe("SwapManager_integration", function () {
     });
 
     it("Should swap and should not increase treasury balance if protocolFeeRate = 0 and fee in PMX", async function () {
-      await PrimexDNS.setProtocolFeeRate([FeeRateType.SwapMarketOrder, 0]);
+      await PrimexDNS.setProtocolFeeRate([[FeeRateType.SwapMarketOrder, defaultTier, 0]]);
       expect(await PrimexDNS.protocolFeeRates(FeeRateType.SwapMarketOrder)).to.equal(0);
 
       const params = { ...swapParams, isSwapFromWallet: true, isSwapFeeInPmx: true };

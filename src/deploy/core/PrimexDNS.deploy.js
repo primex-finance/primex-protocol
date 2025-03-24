@@ -13,6 +13,7 @@ module.exports = async ({
   const registry = await getContract("Registry");
   const Treasury = await getContract("Treasury");
   const errorsLibrary = await getContract("Errors");
+  const TiersManager = await getContract("TiersManager");
 
   const SECONDS_PER_DAY = 24 * 60 * 60;
   const { PrimexDNSconfig } = getConfigByName("generalConfig.json");
@@ -24,11 +25,14 @@ module.exports = async ({
   const averageGasPerActionParams = [];
   const restrictions = [];
 
-  for (const feeRateType in FeeRateType) {
-    feeRateParams.push({
-      feeRateType: FeeRateType[feeRateType],
-      feeRate: parseEther(PrimexDNSconfig.feeRates[feeRateType]).toString(),
-    });
+  for (const tier in PrimexDNSconfig.feeRates) {
+    for (const feeRateType in FeeRateType) {
+      feeRateParams.push({
+        feeRateType: FeeRateType[feeRateType],
+        tier: tier,
+        feeRate: parseEther(PrimexDNSconfig.feeRates[tier][feeRateType]).toString(),
+      });
+    }
   }
 
   for (const tradingOrderType in TradingOrderType) {
@@ -72,7 +76,8 @@ module.exports = async ({
     gasPriceBuffer: gasPriceBuffer,
     errorsLibrary: errorsLibrary.address,
     restrictions: JSON.stringify(restrictions),
+    tiersManager: TiersManager.address,
   });
 };
 module.exports.tags = ["PrimexDNS", "Test", "PrimexCore"];
-module.exports.dependencies = ["Registry", "EPMXToken", "Treasury", "Errors", "PrimexProxyAdmin"];
+module.exports.dependencies = ["Registry", "EPMXToken", "Treasury", "Errors", "PrimexProxyAdmin", "TiersManager"];

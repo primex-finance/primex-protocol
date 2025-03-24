@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
@@ -261,48 +261,6 @@ contract BatchManager is IBatchManager, BatchManagerStorage {
                 vars.totalCloseAmount;
         }
 
-        if (_closeReason == PositionLibrary.CloseReason.BATCH_LIQUIDATION) {
-            data.feeBuffer = _bucket.feeBuffer();
-            data.positionAmountInBorrowedAsset = PrimexPricingLibrary.getBatchOracleAmountsOut(
-                _positionAsset,
-                _soldAsset,
-                vars.positionAmounts,
-                address(vars.priceOracle),
-                _positionSoldAssetOracleData
-            );
-            for (uint256 i; i < _ids.length; i++) {
-                uint256 feeInPaymentAsset = vars.feeTokens[i] == address(0)
-                    ? 0
-                    : PrimexPricingLibrary.calculateFeeInPaymentAsset(
-                        PrimexPricingLibrary.CalculateFeeInPaymentAssetParams({
-                            primexDNS: vars.primexDNS,
-                            priceOracle: address(vars.priceOracle),
-                            feeRateType: IPrimexDNSStorageV3.FeeRateType.MarginPositionClosedByKeeper,
-                            paymentAsset: _soldAsset,
-                            paymentAmount: vars.shareOfBorrowedAssetAmount[i],
-                            keeperRewardDistributor: address(vars.keeperRewardDistributor),
-                            gasSpent: 0,
-                            isFeeProhibitedInPmx: true,
-                            nativePaymentAssetOracleData: _nativeSoldAssetOracleData
-                        })
-                    );
-                _require(
-                    vars.debts[i] > 0 &&
-                        PositionLibrary.health(
-                            data.positionAmountInBorrowedAsset[i] - feeInPaymentAsset,
-                            vars.pairPriceDrop,
-                            vars.securityBuffer,
-                            vars.oracleTolerableLimit,
-                            vars.debts[i],
-                            data.feeBuffer
-                        ) <
-                        WadRayMath.WAD,
-                    Errors.POSITION_CANNOT_BE_CLOSED_FOR_THIS_REASON.selector
-                );
-            }
-            vars.actionType = IKeeperRewardDistributorStorage.KeeperActionType.Liquidation;
-        }
-
         (vars.feeInPaymentAsset, vars.feeInPmx) = PrimexPricingLibrary.payProtocolFeeBatchClose(
             PrimexPricingLibrary.ProtocolFeeParamsBatchClose({
                 numberOfPositions: _ids.length,
@@ -324,6 +282,33 @@ contract BatchManager is IBatchManager, BatchManagerStorage {
                 pmxPaymentAssetOracleData: _pmxSoldAssetOracleData
             })
         );
+
+        if (_closeReason == PositionLibrary.CloseReason.BATCH_LIQUIDATION) {
+            data.feeBuffer = _bucket.feeBuffer();
+            data.positionAmountInBorrowedAsset = PrimexPricingLibrary.getBatchOracleAmountsOut(
+                _positionAsset,
+                _soldAsset,
+                vars.positionAmounts,
+                address(vars.priceOracle),
+                _positionSoldAssetOracleData
+            );
+            for (uint256 i; i < _ids.length; i++) {
+                _require(
+                    vars.debts[i] > 0 &&
+                        PositionLibrary.health(
+                            data.positionAmountInBorrowedAsset[i] - vars.feeInPaymentAsset[i],
+                            vars.pairPriceDrop,
+                            vars.securityBuffer,
+                            vars.oracleTolerableLimit,
+                            vars.debts[i],
+                            data.feeBuffer
+                        ) <
+                        WadRayMath.WAD,
+                    Errors.POSITION_CANNOT_BE_CLOSED_FOR_THIS_REASON.selector
+                );
+            }
+            vars.actionType = IKeeperRewardDistributorStorage.KeeperActionType.Liquidation;
+        }
 
         if (_closeReason == PositionLibrary.CloseReason.BATCH_TAKE_PROFIT) {
             data.multiplierPositionAsset = 10 ** (18 - IERC20Metadata(_positionAsset).decimals());

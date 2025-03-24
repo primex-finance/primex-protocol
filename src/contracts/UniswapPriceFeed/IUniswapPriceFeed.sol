@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 /** @notice This contract (originally IPriceFeed) was taken from (https://github.com/decentralizedlabs/uniswap-v3-price-feed)
 
 */
 
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import {IUniLikeOracle} from "../interfaces/IUniLikeOracle.sol";
 
-interface IUniswapPriceFeed {
+interface IUniswapPriceFeed is IUniLikeOracle {
     struct PoolData {
         address poolAddress;
         uint24 fee;
@@ -60,8 +61,6 @@ interface IUniswapPriceFeed {
     ) external returns (PoolData memory highestLiquidityPool, int56[] memory tickCumulatives, uint160 sqrtPriceX96);
 
     function addFee(uint24 fee) external;
-
-    function getExchangeRate(address baseToken, address quoteToken) external returns (uint256);
 
     function registry() external view returns (IAccessControl);
 

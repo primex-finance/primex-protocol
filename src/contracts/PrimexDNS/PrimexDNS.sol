@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {IERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -18,8 +18,9 @@ import {ILiquidityMiningRewardDistributor} from "../LiquidityMiningRewardDistrib
 import {ITreasury} from "../Treasury/ITreasury.sol";
 import {IConditionalClosingManager} from "../interfaces/IConditionalClosingManager.sol";
 import {IConditionalOpeningManager} from "../interfaces/IConditionalOpeningManager.sol";
+import {ITiersManager} from "../TiersManager/ITiersManager.sol";
 
-contract PrimexDNS is IPrimexDNSV3, PrimexDNSStorageV3 {
+contract PrimexDNS is IPrimexDNSV3, PrimexDNSStorageV4 {
     constructor() {
         _disableInitializers();
     }
@@ -84,10 +85,6 @@ contract PrimexDNS is IPrimexDNSV3, PrimexDNSStorageV3 {
      * @inheritdoc IPrimexDNSV3
      */
     function setPMX(address _pmx) external override onlyRole(BIG_TIMELOCK_ADMIN) {
-        _require(
-            IERC165Upgradeable(_pmx).supportsInterface(type(IERC20).interfaceId),
-            Errors.ADDRESS_NOT_SUPPORTED.selector
-        );
         pmx = _pmx;
         emit PMXchanged(_pmx);
     }
@@ -128,8 +125,24 @@ contract PrimexDNS is IPrimexDNSV3, PrimexDNSStorageV3 {
     /**
      * @inheritdoc IPrimexDNSV3
      */
-    function setProtocolFeeRate(FeeRateParams calldata _feeRateParams) external override onlyRole(BIG_TIMELOCK_ADMIN) {
-        _setProtocolFeeRate(_feeRateParams);
+    function setProtocolFeeRate(
+        FeeRateParams[] calldata _feeRateParams
+    ) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
+        for (uint256 i; i < _feeRateParams.length; i++) {
+            _setProtocolFeeRate(_feeRateParams[i]);
+        }
+    }
+
+    /**
+     * @inheritdoc IPrimexDNSV3
+     */
+    function setTiersManager(address _tiersManager) external override onlyRole(BIG_TIMELOCK_ADMIN) {
+        _require(
+            IERC165Upgradeable(_tiersManager).supportsInterface(type(ITiersManager).interfaceId),
+            Errors.ADDRESS_NOT_SUPPORTED.selector
+        );
+        tiersManager = ITiersManager(_tiersManager);
+        emit TiersManagerchanged(_tiersManager);
     }
 
     /**
@@ -179,10 +192,34 @@ contract PrimexDNS is IPrimexDNSV3, PrimexDNSStorageV3 {
     /**
      * @inheritdoc IPrimexDNSV3
      */
-    function getPrimexDNSParams(
-        FeeRateType _feeRateType
-    ) external view override returns (address, address, uint256, uint256, uint256) {
-        return (pmx, treasury, protocolFeeRates[_feeRateType], maxProtocolFee, pmxDiscountMultiplier);
+    function getPrimexDNSParams() external view override returns (address, address, address, uint256, uint256) {
+        return (pmx, treasury, address(tiersManager), maxProtocolFee, pmxDiscountMultiplier);
+    }
+
+    /**
+     * @inheritdoc IPrimexDNSV3
+     */
+
+    function getProtocolFeeRateByTier(
+        FeeRateType _feeRateType,
+        uint256 _tier
+    ) external view override returns (uint256) {
+        return protocolFeeRatesByTier[_feeRateType][_tier];
+    }
+
+    /**
+     * @inheritdoc IPrimexDNSV3
+     */
+
+    function getProtocolFeeRatesByTier(
+        FeeRateType _feeRateType,
+        uint256[] calldata _tiers
+    ) external view override returns (uint256[] memory) {
+        uint256[] memory rates = new uint256[](_tiers.length);
+        for (uint256 i; i < _tiers.length; i++) {
+            rates[i] = protocolFeeRatesByTier[_feeRateType][_tiers[i]];
+        }
+        return rates;
     }
 
     /**
@@ -377,8 +414,8 @@ contract PrimexDNS is IPrimexDNSV3, PrimexDNSStorageV3 {
     }
 
     function _setProtocolFeeRate(FeeRateParams calldata _feeRateParams) internal {
-        protocolFeeRates[_feeRateParams.feeRateType] = _feeRateParams.feeRate;
-        emit ChangeProtocolFeeRate(_feeRateParams.feeRateType, _feeRateParams.feeRate);
+        protocolFeeRatesByTier[_feeRateParams.feeRateType][_feeRateParams.tier] = _feeRateParams.feeRate;
+        emit ChangeProtocolFeeRate(_feeRateParams.feeRateType, _feeRateParams.tier, _feeRateParams.feeRate);
     }
 
     function _setAverageGasPerAction(AverageGasPerActionParams calldata _averageGasPerActionParams) internal {

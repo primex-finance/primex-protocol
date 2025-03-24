@@ -1,6 +1,7 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
+import {ITiersManager} from "../TiersManager/ITiersManager.sol";
 
 interface IPrimexDNSStorage {
     enum Status {
@@ -118,4 +119,10 @@ interface IPrimexDNSStorageV3 is IPrimexDNSStorageV2 {
     function gasPriceBuffer() external view returns (uint256);
 
     function leverageTolerance() external view returns (uint256);
+}
+
+interface IPrimexDNSStorageV4 is IPrimexDNSStorageV3 {
+    function protocolFeeRatesByTier(FeeRateType _feeRateType, uint256 _tier) external view returns (uint256);
+
+    function tiersManager() external view returns (ITiersManager);
 }

@@ -134,3 +134,10 @@ interface ITraderBalanceVault is ITraderBalanceVaultStorage, IPausable {
      */
     function topUpAvailableBalance(address receiver, address asset, uint256 amount) external payable;
 }
+
+interface ITraderBalanceVaultV2 is ITraderBalanceVault {
+    function getBalancesForAddresses(
+        address[] calldata _traders,
+        address _asset
+    ) external view returns (uint256[] memory availableBalances, uint256[] memory lockedBalances);
+}

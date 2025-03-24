@@ -330,10 +330,12 @@ describe("ProxyContracts", function () {
         feeRateParams: [
           {
             feeRateType: 1,
+            tier: 0,
             feeRate: parseEther("0.024"),
           },
           {
             feeRateType: 0,
+            tier: 0,
             feeRate: parseEther("0.024"),
           },
         ],
@@ -488,6 +490,24 @@ describe("ProxyContracts", function () {
       await expect(pmxBonusNftImpl.initialize(mockPrimexDNS.address, mockRegistry.address, mockWhiteBlackList.address)).to.be.revertedWith(
         "Initializable: contract is already initialized",
       );
+    });
+  });
+
+  describe("DepositManager", function () {
+    it("Should not initialize again from proxy", async function () {
+      const depositManager = await getContract("DepositManager");
+
+      await expect(
+        depositManager.initialize(mockRegistry.address, mockPrimexDNS.address, mockPriceOracle.address, mockWhiteBlackList.address),
+      ).to.be.revertedWith("Initializable: contract is already initialized");
+    });
+
+    it("Should not initialize again from implementation", async function () {
+      const depositManagerImpl = await getContract("DepositManager_Implementation");
+
+      await expect(
+        depositManagerImpl.initialize(mockRegistry.address, mockPrimexDNS.address, mockPriceOracle.address, mockWhiteBlackList.address),
+      ).to.be.revertedWith("Initializable: contract is already initialized");
     });
   });
 

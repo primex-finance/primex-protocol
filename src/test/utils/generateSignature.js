@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 const ethUtil = require("ethereumjs-util");
 const {
-  utils: { defaultAbiCoder, arrayify, verifyMessage },
+  utils: { defaultAbiCoder, arrayify, verifyMessage, solidityKeccak256 },
 } = require("ethers");
 /**
  * Generate a valid signature that can be verified on-chain.
@@ -22,10 +22,35 @@ async function signNftMintData(signer, mintParams) {
   const message = defaultAbiCoder.encode(["tuple(uint256,uint256,uint256,uint256,address,string[])"], [Object.values(mintParams)]);
   return await signer.signMessage(arrayify(message));
 }
+async function signPrimexMintData(signer, mintParams) {
+  const message = defaultAbiCoder.encode(["tuple(uint256,uint256,address,uint256)"], [Object.values(mintParams)]);
+  return await signer.signMessage(arrayify(message));
+}
+
+async function signEthMessage(signer, types, values) {
+  const message = solidityKeccak256([...types], [...values]);
+  const signMessage = await signer.signMessage(arrayify(message));
+  const r = signMessage.slice(0, 66);
+  const s = "0x" + signMessage.slice(66, 130);
+  const v = "0x" + signMessage.slice(130, 132);
+  return { r, s, v };
+}
 
 function recoverSignerOfNftMintData(signature, mintParams) {
   const message = defaultAbiCoder.encode(["tuple(uint256,uint256,uint256,uint256,address,string[])"], [Object.values(mintParams)]);
   return verifyMessage(arrayify(message), signature);
 }
 
-module.exports = { generateSignature, signNftMintData, recoverSignerOfNftMintData };
+function recoverSignerOfPrimexNftMintData(signature, mintParams) {
+  const message = defaultAbiCoder.encode(["tuple(uint256,uint256,address,uint256)"], [Object.values(mintParams)]);
+  return verifyMessage(arrayify(message), signature);
+}
+
+module.exports = {
+  generateSignature,
+  signNftMintData,
+  recoverSignerOfNftMintData,
+  signEthMessage,
+  signPrimexMintData,
+  recoverSignerOfPrimexNftMintData,
+};

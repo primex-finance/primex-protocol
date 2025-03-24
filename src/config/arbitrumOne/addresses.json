@@ -14,6 +14,7 @@
   "isETHNative": true,
   "assets": {
     "usdc.e": "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+    "epmx": "0x47EfB45CE4c47422ffEF3bfa1ABA443a09459421",
     "usdc": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
     "usdt": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
     "weth": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
@@ -35,15 +36,41 @@
     "knc": "0xe4DDDfe67E7164b0FE14E218d80dC4C08eDC01cB",
     "xai": "0x4cb9a7ae498cedcbb5eae9f25736ae7d428c9d66",
     "fxs": "0x9d2F299715D94d8A7E6F5eaa8E654E8c74a988A7",
-    "tia": "0xD56734d7f9979dD94FAE3d67C7e928234e71cD4C",
+    "tia.n": "0xD56734d7f9979dD94FAE3d67C7e928234e71cD4C",
     "rpl": "0xB766039cc6DB368759C1E56B79AFfE831d0Cc507",
-    "aave": "0xba5DdD1f9d7F570dc94a51479a000E3BCE967196"
+    "aave": "0xba5DdD1f9d7F570dc94a51479a000E3BCE967196",
+    "wsteth": "0x5979D7b546E38E414F7E9822514be443A4800529",
+    "reth": "0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8",
+    "weeth": "0x35751007a407ca6feffe80b3cb397736d2cf4dbe",
+    "ethfi": "0x7189fb5B6504bbfF6a852B13B7B82a3c118fDc27",
+    "ezeth": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+    "rseth": "0x4186bfc76e2e237523cbc30fd220fe055156b41f",
+    "usde": "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34",
+    "cbeth": "0x1debd73e752beaf79865fd6446b0c970eae7732f",
+    "usdy": "0x35e050d3C0eC2d29D269a8EcEa763a183bDF9A9D",
+    "tbtc": "0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40",
+    "frax": "0x17fc002b466eec40dae837fc4be5c67993ddbd6f",
+    "frxeth": "0x178412e79c25968a32e89b11f63b33f733770c2a",
+    "sfrxeth": "0x95ab45875cffdba1e5f451b950bc2e42c0053f39"
+  },
+  "curveLP": {
+    "wstETHCRV": {
+      "oracleType": 0,
+      "lpTokenAddress": "0xdbcd16e622c95acb2650b38ec799f76bfc557a0b",
+      "pool": "0x6eb2dc694eb516b16dc9fbc678c60052bbdd7d80",
+      "assets": ["curve_eth", "wsteth"],
+      "alternativeName": "Curve LP (ETH / wsteth)",
+      "registry": "0x445FE580eF8d70FF569aB36e80c647af338db351",
+      "registryIndex": 0
+    }
   },
   "wrappedNativeToken": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
   "aave": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
   "pyth": "0xff1a0f4744e8582DF1aE09D5611b887B6a12925C",
+  "orally": "0x096eb773BE73CEDed425029Dc43EC0890DB72507",
   "supraPullOracle": "0x41AB2059bAA4b73E9A3f55D30Dff27179e0eA181",
   "supraStorageOracle": "0x6562fB484C57d1Cba9E89A59C9Ad3F1b6fc79a65",
+  "curveAddressProvider": "0x0000000022D53366457F9d5E68Ec105046FC4383",
   "dexes": {
     "sushiswap": {
       "router": "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",
@@ -63,7 +90,8 @@
     "camelotv3": {
       "router": "0x1F721E2E82F6676FCE4eA07A5958cF098D339e18",
       "type": "5",
-      "quoter": "0x0Fc73040b26E9bC8514fA028D998E73A254Fa76E"
+      "quoter": "0x0Fc73040b26E9bC8514fA028D998E73A254Fa76E",
+      "factory": "0x1a3c9B1d2F0529D97f2afC5136Cc23e58f1FD35B"
     },
     "ramsesv2": {
       "router": "0xAA23611badAFB62D37E7295A682D21960ac85A90",
@@ -98,7 +126,7 @@
   },
   "pricefeeds": {
     "selfDeployed": {
-      "epmx-usd": "0x053FB5b7c555FC0d9Bc49118023d6B6A4019168f"
+      "epmx-usd": "0xF1D96C76f61b8bd39602434E42F8f8D74645C814"
     },
     "usdc.e-usd": "0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3",
     "usdc-usd": "0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3",
@@ -123,7 +151,7 @@
     "knc-usd": "0xbF539d4c2106dd4D9AB6D56aed3d9023529Db145",
     "xai-usd": "0x806c532D543352e7C344ba6C7F3F00Bfbd309Af1",
     "fxs-usd": "0x36a121448D74Fa81450c992A1a44B9b7377CD3a5",
-    "tia-usd": "0x4096b9bfB4c34497B7a3939D4f629cf65EBf5634",
+    "tia.n-usd": "0x4096b9bfB4c34497B7a3939D4f629cf65EBf5634",
     "rpl-usd": "0xF0b7159BbFc341Cc41E7Cb182216F62c6d40533D",
     "aave-usd": "0xaD1d5344AaDE45F43E596773Bcc4c423EAbdD034"
   }

@@ -1,0 +1,105 @@
+{
+  "DELAY_IN_DAYS_AFTER_DEPLOY": 5,
+  "buckets": [
+    {
+      "bucketName": "USDC",
+      "tokenName": "usdc",
+      "allowedAssets": ["cbbtc", "weth", "eurc", "wsteth", "reth", "ezeth", "cbeth", "aero"],
+      "feeBuffer": "1.000014935",
+      "withdrawalFeeRate": "0.001",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.9",
+        "k0": "0.0833333333333333",
+        "k1": "9.25",
+        "b0": "0",
+        "b1": "-8.25"
+      },
+      "maxTotalDeposit": 3000000,
+      "LiquidityMining": {
+      }
+    },
+    {
+      "bucketName": "EURC",
+      "tokenName": "eurc",
+      "allowedAssets": ["cbbtc", "weth", "usdc", "wsteth", "reth", "ezeth", "cbeth", "aero"],
+      "feeBuffer": "1.000014935",
+      "withdrawalFeeRate": "0.001",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.9",
+        "k0": "0.0833333333333333",
+        "k1": "9.25",
+        "b0": "0",
+        "b1": "-8.25"
+      },
+      "maxTotalDeposit": 3000000,
+      "LiquidityMining": {
+      }
+    },
+    {
+      "bucketName": "WETH",
+      "tokenName": "weth",
+      "allowedAssets": ["cbbtc", "usdc", "eurc", "wsteth", "reth", "ezeth", "cbeth", "aero"],
+      "feeBuffer": "1.000014935",
+      "withdrawalFeeRate": "0.001",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.9",
+        "k0": "0.0330555555555556",
+        "k1": "6.2025",
+        "b0": "0",
+        "b1": "-5.5525"
+      },
+      "maxTotalDeposit": 800,
+      "LiquidityMining": {
+      }
+    },
+    {
+      "bucketName": "CBBTC",
+      "tokenName": "cbbtc",
+      "allowedAssets": ["usdc", "weth", "eurc", "aero"],
+      "feeBuffer": "1.000014935",
+      "withdrawalFeeRate": "0.001",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.9",
+        "k0": "0.0330555555555556",
+        "k1": "6.2025",
+        "b0": "0",
+        "b1": "-5.5525"
+      },
+      "maxTotalDeposit": 30,
+      "LiquidityMining": {
+      }
+    },
+    {
+      "bucketName": "AERO",
+      "tokenName": "aero",
+      "allowedAssets": ["cbbtc", "weth", "eurc", "usdc"],
+      "feeBuffer": "1.000014935",
+      "withdrawalFeeRate": "0.001",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 2100000,
+      "LiquidityMining": {
+      }
+    }
+  ]
+}

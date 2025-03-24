@@ -89,7 +89,7 @@ describe("PrimexTimelocks_integration", function () {
 
       const feeRateType = FeeRateType.SpotPositionClosedByTrader;
       const feeRate = parseEther("0.01");
-      const data = primexDNS.interface.encodeFunctionData("setProtocolFeeRate", [[feeRateType, feeRate]]);
+      const data = primexDNS.interface.encodeFunctionData("setProtocolFeeRate", [[[feeRateType, 0, feeRate]]]);
       const delay = await bigTimelock.getMinDelay();
 
       const args = [primexDNS.address, 0, data, HashZero, MaxUint256, delay];
@@ -102,7 +102,7 @@ describe("PrimexTimelocks_integration", function () {
       args.pop();
       await bigTimelock.execute(...args);
 
-      expect(await primexDNS.protocolFeeRates(feeRateType)).to.equal(feeRate);
+      expect(await primexDNS.getProtocolFeeRateByTier(feeRateType, 0)).to.equal(feeRate);
     });
   });
 

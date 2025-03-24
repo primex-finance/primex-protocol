@@ -665,11 +665,77 @@ describe("KeeperRewardDistributor_integration", function () {
         priceOracle.address,
         getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
       );
-      const overhead = await ovmGasPriceOracle.overhead();
-      const l1BaseFee = await ovmGasPriceOracle.l1BaseFee();
-      const scalar = await ovmGasPriceOracle.scalar();
-      const l1GasUsed = 16 * (routesLength + baseLength + overhead.toNumber()) + 68 * 16;
-      const l1CostWei = (l1BaseFee * l1GasUsed * scalar) / 10 ** 6;
+      const l1FeeUpperBound = await ovmGasPriceOracle.getL1FeeUpperBound(routesLength + baseLength);
+      const l1CostWei = wadMul(l1FeeUpperBound, WAD);
+      const gasAmount = gasSpent.add(additionalGas);
+      const positionSizeAddend = wadMul(ethAmount, positionSizeCoefficient);
+      const reward = gasAmount.mul(receipt.effectiveGasPrice).add(l1CostWei.toString()).add(positionSizeAddend);
+      const rewardInEth = wadMul(reward, nativePartInReward);
+
+      const rewardInPmx = wadMul(
+        await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+          NATIVE_CURRENCY,
+          PMXToken.address,
+          reward,
+          priceOracle.address,
+          getEncodedChainlinkRouteViaUsd(PMXToken),
+        ),
+        pmxPartInReward,
+      );
+
+      const { pmxBalance, nativeBalance } = await KeeperRDOptimistic.keeperBalance(liquidator.address);
+      expect(rewardInEth).to.be.equal(nativeBalance);
+      expect(rewardInPmx).to.be.equal(pmxBalance);
+
+      const { pmxBalance: totalPmxBalance, nativeBalance: totalNativeBalance } = await KeeperRDOptimistic.totalBalance();
+      expect(totalPmxBalance).to.be.equal(pmxBalance);
+      expect(totalNativeBalance).to.be.equal(nativeBalance);
+    });
+    it("Should correctly updateReward for keeper by optimistic payment model when the OptimisticGasCoefficient is greater than WAD", async function () {
+      const baseLength = 196;
+      const routesLength = 200;
+      const maxRoutesLength = 3200;
+
+      initParams.maxGasPerPositionParams = [
+        {
+          actionType: KeeperActionType.OpenByOrder,
+          config: {
+            baseMaxGas1: "100000",
+            baseMaxGas2: "100000",
+            multiplier1: parseEther("100"),
+            multiplier2: "0",
+            inflectionPoint: "0",
+          },
+        },
+      ];
+      const KeeperRDOptimistic = await upgrades.deployProxy(KeeperRDFactory, [initParams], {
+        unsafeAllow: ["external-library-linking", "constructor", "delegatecall"],
+      });
+      await KeeperRDOptimistic.setDataLengthRestrictions(1, maxRoutesLength, baseLength);
+      const optimisticGasCoefficient = BigNumber.from("12").mul(BigNumber.from("10").pow("17")); // 1.2 WAD
+      await KeeperRDOptimistic.setOptimisticGasCoefficient(optimisticGasCoefficient);
+      const tx = await KeeperRDOptimistic.connect(liquidator).updateReward({
+        keeper: liquidator.address,
+        positionAsset: testTokenB.address,
+        positionSize: positionAmount,
+        action: KeeperActionType.OpenByOrder,
+        numberOfActions: 1,
+        gasSpent: gasSpent,
+        decreasingCounter: [],
+        routesLength: routesLength,
+        nativePmxOracleData: getEncodedChainlinkRouteViaUsd(PMXToken),
+        positionNativeAssetOracleData: getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
+      });
+      const receipt = await tx.wait();
+      const ethAmount = await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
+        testTokenB.address,
+        NATIVE_CURRENCY,
+        positionAmount,
+        priceOracle.address,
+        getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
+      );
+      const l1FeeUpperBound = await ovmGasPriceOracle.getL1FeeUpperBound(routesLength + baseLength);
+      const l1CostWei = wadMul(l1FeeUpperBound, optimisticGasCoefficient);
       const gasAmount = gasSpent.add(additionalGas);
       const positionSizeAddend = wadMul(ethAmount, positionSizeCoefficient);
       const reward = gasAmount.mul(receipt.effectiveGasPrice).add(l1CostWei.toString()).add(positionSizeAddend);
@@ -727,11 +793,8 @@ describe("KeeperRewardDistributor_integration", function () {
         priceOracle.address,
         getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
       );
-      const overhead = await ovmGasPriceOracle.overhead();
-      const l1BaseFee = await ovmGasPriceOracle.l1BaseFee();
-      const scalar = await ovmGasPriceOracle.scalar();
-      const l1GasUsed = 16 * (routesLength + baseLength + overhead.toNumber()) + 68 * 16;
-      const l1CostWei = (l1BaseFee * l1GasUsed * scalar) / 10 ** 6;
+      const l1FeeUpperBound = await ovmGasPriceOracle.getL1FeeUpperBound(routesLength + baseLength);
+      const l1CostWei = wadMul(l1FeeUpperBound, WAD);
       const gasCost = gasSpent.add(additionalGas).mul(receipt.effectiveGasPrice).add(l1CostWei);
       const positionSizeAddend = wadMul(ethAmount, positionSizeCoefficient);
       const reward = gasCost.add(positionSizeAddend);
@@ -789,11 +852,8 @@ describe("KeeperRewardDistributor_integration", function () {
         priceOracle.address,
         getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
       );
-      const overhead = await ovmGasPriceOracle.overhead();
-      const l1BaseFee = await ovmGasPriceOracle.l1BaseFee();
-      const scalar = await ovmGasPriceOracle.scalar();
-      const l1GasUsed = 16 * (variableLength + baseLength + overhead.toNumber()) + 68 * 16;
-      const l1CostWei = (l1BaseFee * l1GasUsed * scalar) / 10 ** 6;
+      const l1FeeUpperBound = await ovmGasPriceOracle.getL1FeeUpperBound(variableLength + baseLength);
+      const l1CostWei = wadMul(l1FeeUpperBound, WAD);
       const gasCost = gasSpent.add(additionalGas).mul(receipt.effectiveGasPrice).add(l1CostWei);
       const positionSizeAddend = wadMul(ethAmount, positionSizeCoefficient);
       const reward = gasCost.add(positionSizeAddend);
@@ -850,11 +910,8 @@ describe("KeeperRewardDistributor_integration", function () {
         priceOracle.address,
         getEncodedChainlinkRouteViaUsd({ address: await priceOracle.eth() }),
       );
-      const overhead = await ovmGasPriceOracle.overhead();
-      const l1BaseFee = await ovmGasPriceOracle.l1BaseFee();
-      const scalar = await ovmGasPriceOracle.scalar();
-      const l1GasUsed = 16 * (maxRoutesLength + baseLength + batchValidPositionsLength + overhead.toNumber()) + 68 * 16;
-      const l1CostWei = (l1BaseFee * l1GasUsed * scalar) / 10 ** 6;
+      const l1FeeUpperBound = await ovmGasPriceOracle.getL1FeeUpperBound(maxRoutesLength + baseLength + batchValidPositionsLength);
+      const l1CostWei = wadMul(l1FeeUpperBound, WAD);
       const gasCost = gasSpent.add(additionalGas).mul(receipt.effectiveGasPrice).add(l1CostWei);
       const positionSizeAddend = wadMul(ethAmount, positionSizeCoefficient);
       const reward = gasCost.add(positionSizeAddend);

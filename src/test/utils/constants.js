@@ -37,6 +37,13 @@ const CloseReason = Object.freeze({
 const UpdatePullOracle = Object.freeze({
   Pyth: 0,
   Supra: 1,
+  Orally: 2,
+});
+
+const CurveOracleKind = Object.freeze({
+  STABLE: 0,
+  TRICRYPTO: 1,
+  VOLATILE: 2,
 });
 
 const FeeRateType = Object.freeze({
@@ -69,6 +76,11 @@ const OracleType = Object.freeze({
   Chainlink: 1,
   Uniswapv3: 2,
   Supra: 3,
+  Orally: 4,
+  Stork: 5,
+  CurveLPOracle: 6,
+  EIP4626: 7,
+  UniswapV2LP: 8,
 });
 
 const ORDER_INFO_DECODE = [
@@ -142,4 +154,5 @@ module.exports = {
   CallingMethod,
   OracleType,
   UpdatePullOracle,
+  CurveOracleKind,
 };

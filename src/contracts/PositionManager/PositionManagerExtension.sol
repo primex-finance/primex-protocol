@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {IERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
@@ -31,9 +31,13 @@ contract PositionManagerExtension is IPositionManagerExtension, PositionManagerS
         address _token1,
         uint256 _amountInToken0,
         uint256 _amountInToken1
-    ) external override {
+    ) public override {
         _onlyRole(SMALL_TIMELOCK_ADMIN);
-        PositionLibrary.setMaxPositionSize(maxPositionSize, _token0, _token1, _amountInToken0, _amountInToken1);
+        _require(_token0 != address(0) && _token1 != address(0), Errors.TOKEN_ADDRESS_IS_ZERO.selector);
+        _require(_token0 != _token1, Errors.IDENTICAL_ASSET_ADDRESSES.selector);
+
+        maxPositionSize[_token1][_token0] = _amountInToken0;
+        maxPositionSize[_token0][_token1] = _amountInToken1;
         emit SetMaxPositionSize(_token0, _token1, _amountInToken0, _amountInToken1);
     }
 
@@ -44,14 +48,7 @@ contract PositionManagerExtension is IPositionManagerExtension, PositionManagerS
     function setMaxPositionSizes(MaxPositionSizeParams[] calldata _params) external override {
         _onlyRole(SMALL_TIMELOCK_ADMIN);
         for (uint256 i; i < _params.length; i++) {
-            PositionLibrary.setMaxPositionSize(
-                maxPositionSize,
-                _params[i].token0,
-                _params[i].token1,
-                _params[i].amountInToken0,
-                _params[i].amountInToken1
-            );
-            emit SetMaxPositionSize(
+            setMaxPositionSize(
                 _params[i].token0,
                 _params[i].token1,
                 _params[i].amountInToken0,
@@ -96,9 +93,13 @@ contract PositionManagerExtension is IPositionManagerExtension, PositionManagerS
     /**
      * @inheritdoc IPositionManagerExtension
      */
-    function setOracleTolerableLimit(address _assetA, address _assetB, uint256 _percent) external override {
+    function setOracleTolerableLimit(address _assetA, address _assetB, uint256 _percent) public override {
         _onlyRole(SMALL_TIMELOCK_ADMIN);
-        PositionLibrary.setOracleTolerableLimit(oracleTolerableLimits, _assetA, _assetB, _percent);
+        _require(_assetA != address(0) && _assetB != address(0), Errors.ASSET_ADDRESS_NOT_SUPPORTED.selector);
+        _require(_assetA != _assetB, Errors.IDENTICAL_ASSET_ADDRESSES.selector);
+        _require(_percent <= WadRayMath.WAD && _percent > 0, Errors.INVALID_PERCENT_NUMBER.selector);
+        oracleTolerableLimits[_assetA][_assetB] = _percent;
+        oracleTolerableLimits[_assetB][_assetA] = _percent;
         emit SetOracleTolerableLimit(_assetA, _assetB, _percent);
     }
 
@@ -108,13 +109,7 @@ contract PositionManagerExtension is IPositionManagerExtension, PositionManagerS
     function setOracleTolerableLimits(OracleTolerableLimitsParams[] calldata _limitParams) external override {
         _onlyRole(SMALL_TIMELOCK_ADMIN);
         for (uint256 i; i < _limitParams.length; i++) {
-            PositionLibrary.setOracleTolerableLimit(
-                oracleTolerableLimits,
-                _limitParams[i].assetA,
-                _limitParams[i].assetB,
-                _limitParams[i].percent
-            );
-            emit SetOracleTolerableLimit(_limitParams[i].assetA, _limitParams[i].assetB, _limitParams[i].percent);
+            setOracleTolerableLimit(_limitParams[i].assetA, _limitParams[i].assetB, _limitParams[i].percent);
         }
     }
 

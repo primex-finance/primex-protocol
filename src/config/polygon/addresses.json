@@ -37,12 +37,17 @@
     "crv": "0x172370d5cd63279efa6d502dab29171933a610af",
     "sushi": "0x0b3f868e0be5597d5db7feb59e1cadbb0fdda50a",
     "sol": "0x7dff46370e9ea5f0bad3c4e29711ad50062ea7a4",
-    "paxg": "0x553d3d295e0f695b9228246232edf400ed3560b5"
+    "paxg": "0x553d3d295e0f695b9228246232edf400ed3560b5",
+    "wsteth": "0x03b54a6e9a984069379fae1a4fc4dbae93b3bccd",
+    "ldo": "0xC3C7d422809852031b44ab29EEC9F1EfF2A58756",
+    "frax": "0x45c32fa6df82ead1e2ef74d17b76547eddfaff89",
+    "fxs": "0x1a3acf6d19267e2d3e7f898f42803e90c9219062"
   },
   "aave": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
   "pyth": "0xff1a0f4744e8582DF1aE09D5611b887B6a12925C",
   "supraPullOracle": "0x2FA6DbFe4291136Cf272E1A3294362b6651e8517",
   "supraStorageOracle": "0xD02cc7a670047b6b012556A88e275c685d25e0c9",
+  "curveAddressProvider": "0x0000000022D53366457F9d5E68Ec105046FC4383",
   "dexes": {
     "quickswap": {
       "router": "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff",
@@ -69,7 +74,8 @@
     "quickswapv3": {
       "router": "0xf5b509bB0909a69B1c207E495f687a596C168E12",
       "type": "5",
-      "quoter": "0xa15F0D7377B2A0C0c10db057f641beD21028FC89"
+      "quoter": "0xa15F0D7377B2A0C0c10db057f641beD21028FC89",
+      "factory": "0x411b0fAcC3489691f28ad58c47006AF5E3Ab3A28"
     },
     "meshswap": {
       "router": "0x10f4A785F458Bc144e3706575924889954946639",

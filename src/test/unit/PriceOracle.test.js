@@ -8,8 +8,8 @@ const {
     getSigners,
     getContract,
     getContractFactory,
-    utils: { parseUnits },
-    constants: { Zero, AddressZero },
+    utils: { parseUnits, parseEther },
+    constants: { Zero, AddressZero, HashZero },
     BigNumber,
   },
   deployments: { fixture },
@@ -20,17 +20,27 @@ const {
   deployMockUniswapPriceFeed,
   deployMockAggregatorV3Interface,
   deployMockPyth,
+  deployMockOrally,
+  deployMockStork,
   deploySupraPullMock,
   deploySupraStoragelMock,
   deployMockTreasury,
+  deployMockCurvePriceFeed,
+  deployMockERC4626,
+  deployMockUniswapV2LPOracle,
 } = require("../utils/waffleMocks");
-const { getEncodedRoutes } = require("../utils/oracleUtils");
+const {
+  getEncodedRoutes,
+  getEncodedStorkOracleData,
+  getEncodedCurveLTOracleData,
+  getEncodedUniswapV2LPOracleData,
+} = require("../utils/oracleUtils");
 
-const { WAD, NATIVE_CURRENCY, USD } = require("../utils/constants.js");
+const { WAD, NATIVE_CURRENCY, USD, CurveOracleKind } = require("../utils/constants.js");
 const { MEDIUM_TIMELOCK_ADMIN } = require("../../Constants");
 const { getAdminSigners } = require("../utils/hardhatUtils");
 const { ZERO_BYTES_32, ZERO_ADDRESS } = require("@aave/deploy-v3");
-const { wadDiv } = require("../utils/bnMath");
+const { wadDiv, wadMul } = require("../utils/bnMath");
 
 const { OracleType } = require("../utils/constants.js");
 
@@ -38,7 +48,20 @@ process.env.TEST = true;
 
 describe("PriceOracle_unit", function () {
   let priceOracle, priceOracleFactory;
-  let mockRegistry, mockPriceFeed, mockPriceDropFeed, mockUniswapPriceFeed, mockTreasury, mockPyth, supraPullMock, supraStorageMock;
+  let mockRegistry,
+    mockPriceFeed,
+    mockOrally,
+    mockPriceDropFeed,
+    mockUniswapPriceFeed,
+    mockCurvePriceFeed,
+    mockTreasury,
+    mockPyth,
+    supraPullMock,
+    mockStork,
+    mockEIP4626,
+    mockEIP4626Underlying,
+    mockUniswapV2LPOracle,
+    supraStorageMock;
   let EmergencyAdmin, SmallTimelockAdmin;
   let tokenA, tokenB;
   let deployer, caller;
@@ -58,19 +81,29 @@ describe("PriceOracle_unit", function () {
     mockPriceFeed = await deployMockAggregatorV3Interface(deployer);
     mockPriceDropFeed = await deployMockAggregatorV3Interface(deployer);
     mockUniswapPriceFeed = await deployMockUniswapPriceFeed(deployer);
+    mockCurvePriceFeed = await deployMockCurvePriceFeed(deployer);
     mockPyth = await deployMockPyth(deployer);
+    mockOrally = await deployMockOrally(deployer);
+    mockStork = await deployMockStork(deployer);
     supraPullMock = await deploySupraPullMock(deployer);
     supraStorageMock = await deploySupraStoragelMock(deployer);
     mockTreasury = await deployMockTreasury(deployer);
+    mockEIP4626 = await deployMockERC4626(deployer);
+    mockEIP4626Underlying = await deployMockERC20(deployer);
+    mockUniswapV2LPOracle = await deployMockUniswapV2LPOracle(deployer);
+    await mockEIP4626.mock.asset.returns(mockEIP4626Underlying.address);
   });
 
   beforeEach(async function () {
     priceOracle = await getContract("PriceOracle");
+    await priceOracle.setUniswapV2LPOracle(mockUniswapV2LPOracle.address);
     await priceOracle.updateUniv3TypeOracle([0], [mockUniswapPriceFeed.address]);
     await priceOracle.setPyth(mockPyth.address);
+    await priceOracle.setOrallyOracle(mockOrally.address);
     await priceOracle.setSupraPullOracle(supraPullMock.address);
     await priceOracle.setSupraStorageOracle(supraStorageMock.address);
     await priceOracle.setTimeTolerance("60");
+    await priceOracle.setStorkVerify(mockStork.address);
     snapshotId = await network.provider.request({
       method: "evm_snapshot",
       params: [],
@@ -149,6 +182,39 @@ describe("PriceOracle_unit", function () {
       expect(await priceOracle.pyth()).to.be.equal(tokenA.address);
     });
   });
+  describe("setOrallyOracle", function () {
+    it("Should revert if not BIG_TIMELOCK_ADMIN call setOrallyOracle", async function () {
+      await expect(priceOracle.connect(caller).setOrallyOracle(mockOrally.address)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+    it("Should successfully setOrallyOracle", async function () {
+      expect(await priceOracle.setOrallyOracle(mockOrally.address));
+      expect(await priceOracle.orallyOracle()).to.be.equal(mockOrally.address);
+    });
+  });
+  describe("setStorkPublicKey", function () {
+    it("Should revert if not BIG_TIMELOCK_ADMIN call setStorkPublicKey", async function () {
+      await expect(priceOracle.connect(caller).setStorkPublicKey(mockStork.address)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+    it("Should successfully setStorkPublicKey", async function () {
+      expect(await priceOracle.setStorkPublicKey(mockStork.address));
+      expect(await priceOracle.storkPublicKey()).to.be.equal(mockStork.address);
+    });
+  });
+  describe("setStorkVerify", function () {
+    it("Should revert if not BIG_TIMELOCK_ADMIN call setStorkVerify", async function () {
+      await expect(priceOracle.connect(caller).setStorkVerify(mockStork.address)).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
+    });
+    it("Should successfully setStorkVerify", async function () {
+      expect(await priceOracle.setStorkVerify(mockStork.address));
+      expect(await priceOracle.storkVerify()).to.be.equal(mockStork.address);
+    });
+  });
   describe("setTreasury", function () {
     it("Should revert if not BIG_TIMELOCK_ADMIN call setTreasury", async function () {
       await expect(priceOracle.connect(caller).setTreasury(mockTreasury.address)).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
@@ -196,6 +262,44 @@ describe("PriceOracle_unit", function () {
     });
   });
 
+  describe("setUniswapV2LPOracle", function () {
+    it("Should revert if not BIG_TIMELOCK_ADMIN call setUniswapV2LPOracle", async function () {
+      await expect(priceOracle.connect(caller).setUniswapV2LPOracle(mockUniswapV2LPOracle.address)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+    it("Should successfully setUniswapV2LPOracle", async function () {
+      expect(await priceOracle.setUniswapV2LPOracle(mockUniswapV2LPOracle.address));
+      expect(await priceOracle.uniswapV2LPOracle()).to.be.equal(mockUniswapV2LPOracle.address);
+    });
+  });
+
+  describe("addUniswapV2LPTokens", function () {
+    it("Should revert if not SMALL_TIMELOCK_ADMIN call addUniswapV2LPTokens", async function () {
+      await expect(priceOracle.connect(caller).addUniswapV2LPTokens([tokenA.address])).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+    it("Should successfully addUniswapV2LPTokens", async function () {
+      expect(await priceOracle.addUniswapV2LPTokens([tokenA.address]));
+      expect(await priceOracle.isUniswapV2LP(tokenA.address)).to.be.equal(true);
+    });
+  });
+  describe("removeUniswapV2LPTokens", function () {
+    it("Should revert if not SMALL_TIMELOCK_ADMIN call addUniswapV2LPTokens", async function () {
+      await expect(priceOracle.connect(caller).removeUniswapV2LPTokens([tokenA.address])).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "FORBIDDEN",
+      );
+    });
+    it("Should successfully removeUniswapV2LPTokens", async function () {
+      await priceOracle.addUniswapV2LPTokens([tokenA.address]);
+      expect(await priceOracle.removeUniswapV2LPTokens([tokenA.address]));
+      expect(await priceOracle.isUniswapV2LP(tokenA.address)).to.be.equal(false);
+    });
+  });
   describe("updateChainlinkPriceFeedsUsd", function () {
     it("Should revert if not SMALL_TIMELOCK_ADMIN call updateChainlinkPriceFeedsUsd", async function () {
       await expect(
@@ -231,6 +335,69 @@ describe("PriceOracle_unit", function () {
       expect(await priceOracle.pythPairIds(tokenA.address)).to.be.equal(NOT_ZERO_BYTES);
     });
   });
+  describe("updateEIP4626TokenToUnderlyingAsset", function () {
+    it("Should revert if not SMALL_TIMELOCK_ADMIN call updateEIP4626TokenToUnderlyingAsset", async function () {
+      await expect(
+        priceOracle.connect(caller).updateEIP4626TokenToUnderlyingAsset([tokenA.address], [tokenB.address]),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
+    });
+    it("Should revert if param lengths don't match", async function () {
+      await expect(priceOracle.updateEIP4626TokenToUnderlyingAsset([tokenA.address], [])).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "PARAMS_LENGTH_MISMATCH",
+      );
+    });
+    it("Should successfully updateEIP4626TokenToUnderlyingAsset", async function () {
+      expect(await priceOracle.updateEIP4626TokenToUnderlyingAsset([tokenA.address], [tokenB.address]));
+      expect(await priceOracle.eip4626TokenToUnderlyingAsset(tokenA.address)).to.be.equal(tokenB.address);
+    });
+  });
+  describe("updateOrallySymbols", function () {
+    it("Should revert if not SMALL_TIMELOCK_ADMIN call updateOrallySymbols", async function () {
+      await expect(
+        priceOracle.connect(caller).updateOrallySymbols([
+          {
+            symbol: "TOKENA_USD",
+            tokens: [tokenA.address, USD],
+          },
+        ]),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
+    });
+    it("Should successfully updateOrallySymbols", async function () {
+      expect(
+        await priceOracle.updateOrallySymbols([
+          {
+            symbol: "TOKENA_USD",
+            tokens: [tokenA.address, USD],
+          },
+        ]),
+      );
+      expect(await priceOracle.orallySymbol(tokenA.address, USD)).to.be.equal("TOKENA_USD");
+    });
+  });
+  describe("updateStorkPairIds", function () {
+    it("Should revert if not SMALL_TIMELOCK_ADMIN call updateStorkPairIds", async function () {
+      await expect(
+        priceOracle.connect(caller).updateStorkPairIds([
+          {
+            pair: "TOKENAUSD",
+            tokens: [tokenA.address, USD],
+          },
+        ]),
+      ).to.be.revertedWithCustomError(ErrorsLibrary, "FORBIDDEN");
+    });
+    it("Should successfully updateStorkPairIds", async function () {
+      expect(
+        await priceOracle.updateStorkPairIds([
+          {
+            pair: "TOKENAUSD",
+            tokens: [tokenA.address, USD],
+          },
+        ]),
+      );
+      expect(await priceOracle.storkAssetPairId(tokenA.address, USD)).to.be.equal("TOKENAUSD");
+    });
+  });
   describe("updateSupraDataFeed", function () {
     it("Should revert if not SMALL_TIMELOCK_ADMIN call updateSupraDataFeed", async function () {
       await expect(
@@ -259,7 +426,6 @@ describe("PriceOracle_unit", function () {
           },
         ]),
       );
-      console.log(await priceOracle.supraDataFeedID(tokenA.address, tokenB.address));
       const feedData = await priceOracle.supraDataFeedID(tokenA.address, tokenB.address);
       expect(feedData.id).to.be.equal(0);
       expect(feedData.initialize).to.be.equal(true);
@@ -490,6 +656,393 @@ describe("PriceOracle_unit", function () {
       const amount = await priceOracle.callStatic.getExchangeRate(tokenA.address, USD, oracleData);
       // price in wad
       expect(amount).to.be.equal(price.mul(BigNumber.from("10").pow("18")));
+    });
+
+    describe("getExchangeRate when oracle is Orally", function () {
+      before(async function () {
+        await priceOracle.setOrallyTimeTolerance("60");
+      });
+      it("Should revert when the oracle route is the Orally and there is no a symbol for the token", async function () {
+        const oracleData = getEncodedRoutes([[USD, OracleType.Orally, "0x"]]);
+        await expect(priceOracle.getExchangeRate(tokenA.address, USD, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "NO_TOKEN_SYMBOL_FOUND",
+        );
+      });
+      it("Should revert when the oracle route is the Orally and the return price is incorrect", async function () {
+        const oracleData = getEncodedRoutes([[USD, OracleType.Orally, "0x"]]);
+        await priceOracle.updateOrallySymbols([
+          {
+            symbol: "TOKEN/USD",
+            tokens: [tokenA.address, USD],
+          },
+        ]);
+        // price is negative
+        await mockOrally.mock.getPriceFeed.returns({ pairId: "TOKEN/USD", price: 0, decimals: 0, timestamp: 0 });
+        await expect(priceOracle.getExchangeRate(tokenA.address, USD, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "INCORRECT_ORALLY_PRICE",
+        );
+      });
+      it("Should revert when the publishTime exceeds the time tolerance", async function () {
+        const oracleData = getEncodedRoutes([[USD, OracleType.Orally, "0x"]]);
+        await priceOracle.updateOrallySymbols([
+          {
+            symbol: "TOKEN/USD",
+            tokens: [tokenA.address, USD],
+          },
+        ]);
+        const price = BigNumber.from("2500").mul(BigNumber.from("10").pow("6"));
+        // price is negative
+        await mockOrally.mock.getPriceFeed.returns({
+          pairId: "TOKEN/USD",
+          price: price,
+          decimals: 6,
+          timestamp: (await provider.getBlock("latest")).timestamp - 70,
+        });
+
+        await expect(priceOracle.callStatic.getExchangeRate(tokenA.address, USD, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "PUBLISH_TIME_EXCEEDS_THRESHOLD_TIME",
+        );
+      });
+      it("Should return correct amount when tokenA is the usd", async function () {
+        const oracleData = getEncodedRoutes([[tokenA.address, OracleType.Orally, "0x"]]);
+        const decimals = 6;
+        await priceOracle.updateOrallySymbols([
+          {
+            symbol: "TOKEN/USD",
+            tokens: [tokenA.address, USD],
+          },
+        ]);
+        const price = BigNumber.from("2500").mul(BigNumber.from("10").pow(decimals));
+        await mockOrally.mock.getPriceFeed.returns({
+          pairId: "TOKEN/USD",
+          price: price,
+          decimals: decimals,
+          timestamp: (await provider.getBlock("latest")).timestamp,
+        });
+        const amount = await priceOracle.callStatic.getExchangeRate(USD, tokenA.address, oracleData);
+        // price in wad
+        expect(amount).to.be.equal(wadDiv(WAD, price.mul(BigNumber.from("10").pow(18 - decimals)).toString()));
+      });
+      it("Should return correct amount when tokenA is not the usd", async function () {
+        const oracleData = getEncodedRoutes([[USD, OracleType.Orally, "0x"]]);
+        const decimals = 6;
+        await priceOracle.updateOrallySymbols([
+          {
+            symbol: "TOKEN/USD",
+            tokens: [tokenA.address, USD],
+          },
+        ]);
+        const price = BigNumber.from("2500").mul(BigNumber.from("10").pow(decimals));
+        await mockOrally.mock.getPriceFeed.returns({
+          pairId: "TOKEN/USD",
+          price: price,
+          decimals: decimals,
+          timestamp: (await provider.getBlock("latest")).timestamp,
+        });
+        const amount = await priceOracle.callStatic.getExchangeRate(tokenA.address, USD, oracleData);
+        // price in wad
+        expect(amount).to.be.equal(price.mul(BigNumber.from("10").pow(18 - decimals)));
+      });
+    });
+
+    describe("getExchangeRate when oracle is Stork", function () {
+      it("Should revert when the oracle route is the Orally and there is no a symbol for the token", async function () {
+        const oracleData = getEncodedRoutes([
+          [
+            USD,
+            OracleType.Stork,
+            getEncodedStorkOracleData(
+              (await provider.getBlock("latest")).timestamp,
+              BigNumber.from("2500").mul(BigNumber.from("10").pow("18")),
+              HashZero,
+              HashZero,
+              0,
+            ),
+          ],
+        ]);
+        await expect(priceOracle.getExchangeRate(tokenA.address, USD, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "NO_TOKEN_PAIR_FOUND",
+        );
+      });
+      it("Should revert when the publishTime exceeds the time tolerance", async function () {
+        const oracleData = getEncodedRoutes([
+          [
+            USD,
+            OracleType.Stork,
+            getEncodedStorkOracleData(
+              (await provider.getBlock("latest")).timestamp - 70,
+              BigNumber.from("2500").mul(BigNumber.from("10").pow("18")),
+              HashZero,
+              HashZero,
+              0,
+            ),
+          ],
+        ]);
+        await priceOracle.updateStorkPairIds([
+          {
+            pair: "TOKENAUSD",
+            tokens: [tokenA.address, USD],
+          },
+        ]);
+        await expect(priceOracle.callStatic.getExchangeRate(tokenA.address, USD, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "PUBLISH_TIME_EXCEEDS_THRESHOLD_TIME",
+        );
+      });
+      it("Should return correct amount in reverse order", async function () {
+        const price = BigNumber.from("2500").mul(BigNumber.from("10").pow("18"));
+        const oracleData = getEncodedRoutes([
+          [
+            tokenA.address,
+            OracleType.Stork,
+            getEncodedStorkOracleData((await provider.getBlock("latest")).timestamp, price, HashZero, HashZero, 0),
+          ],
+        ]);
+        await priceOracle.updateStorkPairIds([
+          {
+            pair: "TOKENAUSD",
+            tokens: [tokenA.address, USD],
+          },
+        ]);
+        const amount = await priceOracle.callStatic.getExchangeRate(USD, tokenA.address, oracleData);
+        // price in wad
+        expect(amount).to.be.equal(wadDiv(WAD, price.toString()));
+      });
+      it("Should return correct amount in direct order", async function () {
+        const price = BigNumber.from("2500").mul(BigNumber.from("10").pow("18"));
+        const oracleData = getEncodedRoutes([
+          [USD, OracleType.Stork, getEncodedStorkOracleData((await provider.getBlock("latest")).timestamp, price, HashZero, HashZero, 0)],
+        ]);
+
+        await priceOracle.updateStorkPairIds([
+          {
+            pair: "TOKENAUSD",
+            tokens: [tokenA.address, USD],
+          },
+        ]);
+        const amount = await priceOracle.callStatic.getExchangeRate(tokenA.address, USD, oracleData);
+        // price in wad
+        expect(amount).to.be.equal(price);
+      });
+    });
+
+    describe("getExchangeRate when oracle is Curve LP", function () {
+      it("Should revert when there is no a curve oracle for the oracle type", async function () {
+        await priceOracle.updateCurveTypeOracle([CurveOracleKind.STABLE], [ZERO_ADDRESS]);
+        const oracleData = getEncodedRoutes([[USD, OracleType.CurveLPOracle, getEncodedCurveLTOracleData(CurveOracleKind.STABLE, [[]])]]);
+        await expect(priceOracle.getExchangeRate(tokenA.address, USD, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "NO_PRICEFEED_FOUND",
+        );
+      });
+      it("Should revert when neither token is USD", async function () {
+        await priceOracle.updateCurveTypeOracle([CurveOracleKind.STABLE], [ZERO_ADDRESS]);
+        const oracleData = getEncodedRoutes([
+          [tokenB.address, OracleType.CurveLPOracle, getEncodedCurveLTOracleData(CurveOracleKind.STABLE, [[]])],
+        ]);
+        await expect(priceOracle.getExchangeRate(tokenA.address, tokenB.address, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "INCORRECT_CURVELP_ROUTE",
+        );
+      });
+      it("Should return correct price tokenA/USD", async function () {
+        // setup UniswapPriceFeed
+        await mockCurvePriceFeed.mock.getPrice.returns(WAD);
+        await priceOracle.updateCurveTypeOracle([CurveOracleKind.STABLE], [mockCurvePriceFeed.address]);
+        const oracleData = getEncodedRoutes([[USD, OracleType.CurveLPOracle, getEncodedCurveLTOracleData(CurveOracleKind.STABLE, [[]])]]);
+        // retrieve price and direction
+        const amount = await priceOracle.callStatic.getExchangeRate(tokenA.address, USD, oracleData);
+        expect(amount).to.equal(WAD);
+      });
+      it("Should return correct price USD/tokenA", async function () {
+        const price = BigNumber.from(WAD).div("2");
+        // setup UniswapPriceFeed
+        await mockCurvePriceFeed.mock.getPrice.returns(price);
+        await priceOracle.updateCurveTypeOracle([CurveOracleKind.STABLE], [mockCurvePriceFeed.address]);
+        const oracleData = getEncodedRoutes([
+          [tokenA.address, OracleType.CurveLPOracle, getEncodedCurveLTOracleData(CurveOracleKind.STABLE, [[]])],
+        ]);
+        // retrieve price and direction
+        const amount = await priceOracle.callStatic.getExchangeRate(USD, tokenA.address, oracleData);
+        expect(amount).to.equal(wadDiv(WAD, price));
+      });
+    });
+
+    describe("getExchangeRate when oracle is UniswapV2 LP Oracle", function () {
+      let price;
+      before(async function () {
+        price = parseEther("1.2");
+        await mockUniswapV2LPOracle.mock.getLPExchangeRate.returns(price);
+      });
+      it("Should revert when passed token is not a uniswap lp", async function () {
+        const oracleData = getEncodedRoutes([[USD, OracleType.UniswapV2LP, getEncodedUniswapV2LPOracleData(["0x", "0x"])]]);
+        await expect(priceOracle.getExchangeRate(tokenA.address, USD, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "ADDRESS_IS_NOT_UNISWAPV2LP_TOKEN",
+        );
+      });
+      it("Should revert when neither token is USD", async function () {
+        await priceOracle.addUniswapV2LPTokens([tokenA.address]);
+        const oracleData = getEncodedRoutes([[tokenB.address, OracleType.UniswapV2LP, getEncodedUniswapV2LPOracleData(["0x", "0x"])]]);
+        await expect(priceOracle.getExchangeRate(tokenA.address, tokenB.address, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "INCORRECT_UNISWAPV2LP_ROUTE",
+        );
+      });
+      it("Should return correct price tokenA/USD", async function () {
+        await priceOracle.addUniswapV2LPTokens([tokenA.address]);
+
+        const oracleData = getEncodedRoutes([[USD, OracleType.UniswapV2LP, getEncodedUniswapV2LPOracleData(["0x", "0x"])]]);
+        // retrieve price and direction
+        const amount = await priceOracle.callStatic.getExchangeRate(tokenA.address, USD, oracleData);
+        expect(amount).to.equal(price);
+      });
+      it("Should return correct price USD/tokenA", async function () {
+        await priceOracle.addUniswapV2LPTokens([tokenA.address]);
+
+        const oracleData = getEncodedRoutes([[tokenA.address, OracleType.UniswapV2LP, getEncodedUniswapV2LPOracleData(["0x", "0x"])]]);
+        // retrieve price and direction
+        const amount = await priceOracle.callStatic.getExchangeRate(USD, tokenA.address, oracleData);
+        expect(amount).to.equal(wadDiv(WAD, price));
+      });
+    });
+
+    describe("getExchangeRate when oracle is EIP4626", function () {
+      it("Should revert when there is no a curve oracle for the oracle type", async function () {
+        const oracleData = getEncodedRoutes([[USD, OracleType.EIP4626, "0x"]]);
+        await expect(priceOracle.getExchangeRate(tokenA.address, USD, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "NO_UNDERLYING_TOKEN_FOUND",
+        );
+      });
+      it("Should revert when neither token is USD", async function () {
+        await priceOracle.updateEIP4626TokenToUnderlyingAsset([tokenA.address], [tokenB.address]);
+        const oracleData = getEncodedRoutes([[tokenB.address, OracleType.EIP4626, "0x"]]);
+        await expect(priceOracle.getExchangeRate(tokenA.address, tokenB.address, oracleData)).to.be.revertedWithCustomError(
+          ErrorsLibrary,
+          "INCORRECT_EIP4626_ROUTE",
+        );
+      });
+      it("Should return correct price EIP4626/USD", async function () {
+        const shareExchangePrice = parseUnits("1.2", "18");
+        // setup
+        await priceOracle.updateEIP4626TokenToUnderlyingAsset([mockEIP4626.address], [mockEIP4626Underlying.address]);
+        await mockEIP4626.mock.decimals.returns(18);
+        await mockEIP4626.mock.previewRedeem.returns(shareExchangePrice); // 1.2 is the exchange price
+
+        const pythOracleData = getEncodedRoutes([[USD, OracleType.Pyth, "0x"]]);
+        await priceOracle.updatePythPairId([mockEIP4626Underlying.address], [NOT_ZERO_BYTES]);
+        const price = BigNumber.from("3");
+        const expo = -8;
+        const expoPrice = price.mul(BigNumber.from("10").pow(expo * -1));
+        // price is negative
+        await mockPyth.mock.getPrice.returns({
+          price: expoPrice,
+          conf: 0,
+          expo: expo,
+          publishTime: (await provider.getBlock("latest")).timestamp,
+        });
+
+        const oracleData = getEncodedRoutes([[USD, OracleType.EIP4626, pythOracleData]]);
+
+        // retrieve price and direction
+        const eip4626Price = await priceOracle.callStatic.getExchangeRate(mockEIP4626.address, USD, oracleData);
+        const underlyingPrice = await priceOracle.callStatic.getExchangeRate(mockEIP4626Underlying.address, USD, pythOracleData);
+        const expectedPrice = wadMul(shareExchangePrice, underlyingPrice);
+        expect(eip4626Price).to.be.equal(expectedPrice);
+      });
+      it("Should return correct price EIP4626/USD when the underlying asset has a different decimals", async function () {
+        const underlyingDecimals = 6;
+        await mockEIP4626Underlying.mock.decimals.returns(underlyingDecimals);
+        const shareExchangePrice = parseUnits("1.2", underlyingDecimals);
+        // setup
+        await priceOracle.updateEIP4626TokenToUnderlyingAsset([mockEIP4626.address], [mockEIP4626Underlying.address]);
+        await mockEIP4626.mock.decimals.returns(18);
+        await mockEIP4626.mock.previewRedeem.returns(shareExchangePrice); // 1.2 is the exchange price
+
+        const pythOracleData = getEncodedRoutes([[USD, OracleType.Pyth, "0x"]]);
+        await priceOracle.updatePythPairId([mockEIP4626Underlying.address], [NOT_ZERO_BYTES]);
+        const price = BigNumber.from("3");
+        const expo = -8;
+        const expoPrice = price.mul(BigNumber.from("10").pow(expo * -1));
+        // price is negative
+        await mockPyth.mock.getPrice.returns({
+          price: expoPrice,
+          conf: 0,
+          expo: expo,
+          publishTime: (await provider.getBlock("latest")).timestamp,
+        });
+
+        const oracleData = getEncodedRoutes([[USD, OracleType.EIP4626, pythOracleData]]);
+
+        // retrieve price and direction
+        const eip4626Price = await priceOracle.callStatic.getExchangeRate(mockEIP4626.address, USD, oracleData);
+        const underlyingPrice = await priceOracle.callStatic.getExchangeRate(mockEIP4626Underlying.address, USD, pythOracleData);
+        const expectedPrice = wadMul(shareExchangePrice.mul(BigNumber.from("10").pow(18 - underlyingDecimals)), underlyingPrice);
+        expect(eip4626Price).to.be.equal(expectedPrice);
+      });
+      it("Should return correct price EIP4626/USD when EIP4626Underlying and the one set in updateEIP4626TokenToUnderlyingAsset do not match", async function () {
+        const underlyingDecimals = 6;
+        await mockEIP4626Underlying.mock.decimals.returns(underlyingDecimals);
+        const shareExchangePrice = parseUnits("1.2", underlyingDecimals);
+        // setup
+        await priceOracle.updateEIP4626TokenToUnderlyingAsset([mockEIP4626.address], [tokenA.address]);
+        await mockEIP4626.mock.decimals.returns(18);
+        await mockEIP4626.mock.previewRedeem.returns(shareExchangePrice); // 1.2 is the exchange price
+
+        const pythOracleData = getEncodedRoutes([[USD, OracleType.Pyth, "0x"]]);
+        await priceOracle.updatePythPairId([tokenA.address], [NOT_ZERO_BYTES]);
+        const price = BigNumber.from("3");
+        const expo = -8;
+        const expoPrice = price.mul(BigNumber.from("10").pow(expo * -1));
+        // price is negative
+        await mockPyth.mock.getPrice.returns({
+          price: expoPrice,
+          conf: 0,
+          expo: expo,
+          publishTime: (await provider.getBlock("latest")).timestamp,
+        });
+
+        const oracleData = getEncodedRoutes([[USD, OracleType.EIP4626, pythOracleData]]);
+
+        // retrieve price and direction
+        const eip4626Price = await priceOracle.callStatic.getExchangeRate(mockEIP4626.address, USD, oracleData);
+        const underlyingPrice = await priceOracle.callStatic.getExchangeRate(tokenA.address, USD, pythOracleData);
+        const expectedPrice = wadMul(shareExchangePrice.mul(BigNumber.from("10").pow(18 - underlyingDecimals)), underlyingPrice);
+        expect(eip4626Price).to.be.equal(expectedPrice);
+      });
+      it("Should return correct price USD/EIP4626", async function () {
+        const shareExchangePrice = parseEther("1.2");
+        // setup
+        await priceOracle.updateEIP4626TokenToUnderlyingAsset([mockEIP4626.address], [mockEIP4626Underlying.address]);
+        await mockEIP4626.mock.decimals.returns(18);
+        await mockEIP4626.mock.previewRedeem.returns(shareExchangePrice); // 1.2 is the exchange price
+
+        const pythOracleData = getEncodedRoutes([[USD, OracleType.Pyth, "0x"]]);
+        await priceOracle.updatePythPairId([mockEIP4626Underlying.address], [NOT_ZERO_BYTES]);
+        const price = BigNumber.from("3");
+        const expo = -8;
+        const expoPrice = price.mul(BigNumber.from("10").pow(expo * -1));
+        // price is negative
+        await mockPyth.mock.getPrice.returns({
+          price: expoPrice,
+          conf: 0,
+          expo: expo,
+          publishTime: (await provider.getBlock("latest")).timestamp,
+        });
+
+        const oracleData = getEncodedRoutes([[mockEIP4626.address, OracleType.EIP4626, pythOracleData]]);
+
+        // retrieve price and direction
+        const eip4626Price = await priceOracle.callStatic.getExchangeRate(USD, mockEIP4626.address, oracleData);
+        const underlyingPrice = await priceOracle.callStatic.getExchangeRate(mockEIP4626Underlying.address, USD, pythOracleData);
+        const expectedPrice = wadDiv(WAD, wadMul(shareExchangePrice, underlyingPrice));
+        expect(eip4626Price).to.be.equal(expectedPrice);
+      });
     });
 
     describe("getExchangeRate when oracle is Uniswap", function () {

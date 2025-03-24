@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
@@ -181,23 +181,33 @@ contract PrimexUpkeep is IPrimexUpkeep, Initializable {
         address keeper
     ) external payable override {
         for (uint256 i; i < toLiquidate.length; i++) {
-            pm.closePositionByCondition{value: toLiquidate[i].value}(
-                IPositionManagerV2.ClosePositionByConditionParams({
-                    id: toLiquidate[i].id,
-                    keeper: keeper,
-                    megaRoutes: toLiquidate[i].positionAssetMegaRoutes,
-                    conditionIndex: toLiquidate[i].conditionIndex,
-                    ccmAdditionalParams: toLiquidate[i].ccmAdditionalParams,
-                    closeReason: toLiquidate[i].closeReason,
-                    positionSoldAssetOracleData: toLiquidate[i].positionSoldAssetOracleData,
-                    nativePmxOracleData: toLiquidate[i].nativePmxOracleData,
-                    positionNativeAssetOracleData: toLiquidate[i].positionNativeAssetOracleData,
-                    pmxSoldAssetOracleData: toLiquidate[i].pmxSoldAssetOracleData,
-                    nativeSoldAssetOracleData: toLiquidate[i].nativeSoldAssetOracleData,
-                    pullOracleData: toLiquidate[i].pullOracleData,
-                    pullOracleTypes: toLiquidate[i].pullOracleTypes
-                })
+            IPositionManagerV2.ClosePositionByConditionParams memory params = _getClosePositionByConditionParams(
+                toLiquidate[i],
+                keeper
             );
+            pm.closePositionByCondition{value: toLiquidate[i].value}(params);
         }
+    }
+
+    function _getClosePositionByConditionParams(
+        ClosePositionInfo calldata info,
+        address keeper
+    ) internal pure returns (IPositionManagerV2.ClosePositionByConditionParams memory) {
+        return
+            IPositionManagerV2.ClosePositionByConditionParams({
+                id: info.id,
+                keeper: keeper,
+                megaRoutes: info.positionAssetMegaRoutes,
+                conditionIndex: info.conditionIndex,
+                ccmAdditionalParams: info.ccmAdditionalParams,
+                closeReason: info.closeReason,
+                positionSoldAssetOracleData: info.positionSoldAssetOracleData,
+                nativePmxOracleData: info.nativePmxOracleData,
+                positionNativeAssetOracleData: info.positionNativeAssetOracleData,
+                pmxSoldAssetOracleData: info.pmxSoldAssetOracleData,
+                nativeSoldAssetOracleData: info.nativeSoldAssetOracleData,
+                pullOracleData: info.pullOracleData,
+                pullOracleTypes: info.pullOracleTypes
+            });
     }
 }

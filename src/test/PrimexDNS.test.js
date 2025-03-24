@@ -61,6 +61,7 @@ describe("PrimexDNS", function () {
   let ErrorsLibrary;
   let snapshotId;
   let BigTimelockAdmin, MediumTimelockAdmin, SmallTimelockAdmin, EmergencyAdmin;
+  const defaultTier = 0;
   before(async function () {
     ({ deployer, caller } = await getNamedSigners());
     await fixture(["Test"]);
@@ -117,11 +118,13 @@ describe("PrimexDNS", function () {
           feeRateParams: [
             {
               feeRateType: FeeRateType.SpotPositionClosedByTrader,
-              feeRate: parseEther(feeRates.SpotPositionClosedByTrader),
+              tier: defaultTier,
+              feeRate: parseEther(feeRates[defaultTier].SpotPositionClosedByTrader),
             },
             {
               feeRateType: FeeRateType.MarginPositionClosedByTrader,
-              feeRate: parseEther(feeRates.MarginPositionClosedByTrader),
+              tier: defaultTier,
+              feeRate: parseEther(feeRates[defaultTier].MarginPositionClosedByTrader),
             },
           ],
           averageGasPerActionParams: [
@@ -371,14 +374,14 @@ describe("PrimexDNS", function () {
       feeRate = parseEther("0.01");
     });
     it("change protocolFeeRate if called by BIG_TIMELOCK_ADMIN and throw event", async function () {
-      await expect(PrimexDNS.connect(BigTimelockAdmin).setProtocolFeeRate([feeRateType, feeRate]))
+      await expect(PrimexDNS.setProtocolFeeRate([[feeRateType, defaultTier, feeRate]]))
         .to.emit(PrimexDNS, "ChangeProtocolFeeRate")
-        .withArgs(feeRateType, feeRate);
-      expect(await PrimexDNS.protocolFeeRates(feeRateType)).to.equal(feeRate);
+        .withArgs(feeRateType, defaultTier, feeRate);
+      expect(await PrimexDNS.getProtocolFeeRateByTier(feeRateType, defaultTier)).to.equal(feeRate);
     });
 
     it("Should revert if not BIG_TIMELOCK_ADMIN call setProtocolFeeRate", async function () {
-      await expect(PrimexDNS.connect(caller).setProtocolFeeRate([feeRateType, feeRate])).to.be.revertedWithCustomError(
+      await expect(PrimexDNS.connect(caller).setProtocolFeeRate([[feeRateType, defaultTier, feeRate]])).to.be.revertedWithCustomError(
         ErrorsLibrary,
         "FORBIDDEN",
       );

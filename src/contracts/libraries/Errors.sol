@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 // solhint-disable-next-line func-visibility
 function _require(bool condition, bytes4 selector) pure {
@@ -137,6 +137,7 @@ library Errors {
     error CALLER_IS_NOT_OWNER();
     error TOKEN_IS_ALREADY_ACTIVATED();
     error WRONG_NETWORK();
+    error WRONG_DEADLINE();
     error ID_DOES_NOT_EXIST();
     error WRONG_URIS_LENGTH();
 
@@ -176,12 +177,21 @@ library Errors {
     error WRONG_ASSET_B();
     error INCORRECT_ROUTE_SEQUENCE();
     error INCORRECT_PYTH_PRICE();
+    error INCORRECT_ORALLY_PRICE();
     error TOKEN_PAIR_IS_NOT_TRUSTED();
     error INCORRECT_TOKEN_TO();
     error INCORRECT_PYTH_ROUTE();
     error INCORRECT_CHAINLINK_ROUTE();
+    error INCORRECT_CURVELP_ROUTE();
+    error INCORRECT_UNISWAPV2LP_ROUTE();
+    error ADDRESS_IS_NOT_UNISWAPV2LP_TOKEN();
     error NOT_ENOUGH_MSG_VALUE();
     error PUBLISH_TIME_EXCEEDS_THRESHOLD_TIME();
+    error STORK_VERIFY_FAILED();
+    error NO_TOKEN_SYMBOL_FOUND();
+    error NO_TOKEN_PAIR_FOUND();
+    error INCORRECT_EIP4626_ROUTE();
+    error NO_UNDERLYING_TOKEN_FOUND();
     //DNS
     error INCORRECT_FEE_RATE();
     error INCORRECT_RESTRICTIONS();
@@ -311,4 +321,26 @@ library Errors {
     error INVALID_FLASHLOAN_EXECUTOR_RETURN();
     error FLASH_LOAN_FEE_RATE_IS_MORE_10_PERCENT();
     error FLASH_LOAN_PROTOCOL_RATE_IS_MORE_50_PERCENT();
+
+    // DepositManager
+    error REWARD_PERCENT_SHOULD_BE_GREATER_THAN_ZERO();
+    error TOKEN_CANNOT_BE_P_TOKEN();
+    error INSUFFICIENT_REWARD_TOKEN_BALANCE();
+    error VESTED_AMOUNT_IS_ZERO();
+    //Curve oracle
+    error ORACLE_NOT_SUPPORT_LP();
+    error ZERO_ADDRESS();
+    error REENTRANCY_RISK();
+    error ORACLE_DATA_AND_TOKENS_LENGTH_MISMATCH();
+    error INCORRECT_LIMITS();
+    error INCORRECT_ORACLE_DATA();
+    error VALUE_OUT_OF_RANGE();
+    //UniswapV2LPOracle
+    error INVALID_RESERVES();
+    error INVALID_PRICES();
+    error INCORRECT_TOKENS_LENGTH();
+
+    // TiersManager
+    error INCORRECT_TIERS_ORDER();
+    error INCORRECT_TIER();
 }

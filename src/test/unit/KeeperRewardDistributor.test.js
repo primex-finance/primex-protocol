@@ -279,13 +279,6 @@ describe("KeeperRewardDistributor_unit", function () {
         "INCORRECT_OPTIMISM_GAS_COEFFICIENT",
       );
     });
-    it("Should revert setOptimisticGasCoefficient if coefficient > 1", async function () {
-      const newOptimisticGasCoefficient = WAD.add(1);
-      await expect(keeperRewardDistributor.setOptimisticGasCoefficient(newOptimisticGasCoefficient)).to.be.revertedWithCustomError(
-        ErrorsLibrary,
-        "INCORRECT_OPTIMISM_GAS_COEFFICIENT",
-      );
-    });
     it("Should set optimisticGasCoefficient", async function () {
       const newOptimisticGasCoefficient = WAD;
       await keeperRewardDistributor.setOptimisticGasCoefficient(newOptimisticGasCoefficient);

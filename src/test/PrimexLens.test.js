@@ -59,7 +59,7 @@ async function getTokenMetadata(tokenAddress, trader) {
   return tokenMetadata;
 }
 
-async function getBucketMetaData(bucketAddress, trader) {
+async function getBucketMetaData(bucketAddress, trader, tier) {
   const bucket = await getContractAt("Bucket", bucketAddress);
   const DebtToken = await getContractAt("DebtToken", await bucket.debtToken());
   const PToken = await getContractAt("PToken", await bucket.pToken());
@@ -78,7 +78,7 @@ async function getBucketMetaData(bucketAddress, trader) {
       index: assetParams.index,
       isSupported: assetParams.isSupported,
       pairPriceDrop: await priceOracle.pairPriceDrops(asset, await bucket.borrowedAsset()),
-      maxLeverage: await bucket["maxAssetLeverage(address,uint256)"](asset, parseEther(feeRates.MarginPositionClosedByKeeper)),
+      maxLeverage: await bucket["maxAssetLeverage(address,uint256)"](asset, parseEther(feeRates[tier].MarginPositionClosedByKeeper)),
     };
     const supportedToken = { asset: await getTokenMetadata(asset, trader), properties: assetParams };
     supportedTokens.push(supportedToken);
@@ -159,6 +159,7 @@ describe("PrimexLens", function () {
   let multiplierA, multiplierB;
   let emptyBucketMetaData;
   const timestamps = [];
+  const defaultTier = 0;
   before(async function () {
     await fixture(["Test"]);
     ({ deployer, trader, lender } = await getNamedSigners());
@@ -556,7 +557,7 @@ describe("PrimexLens", function () {
         [
           {
             id: 0,
-            bucket: await getBucketMetaData(bucket.address, trader),
+            bucket: await getBucketMetaData(bucket.address, trader, defaultTier),
             pair: [await getTokenMetadata(testTokenA.address, trader), await getTokenMetadata(testTokenB.address, trader)],
             positionSize: positionAmount0,
             liquidationPrice: await PrimexLens["getLiquidationPrice(address,uint256)"](positionManager.address, 0),
@@ -565,11 +566,11 @@ describe("PrimexLens", function () {
             debt: positionDebt0,
             depositAmount: depositAmountA,
             createdAt: timestamps[0],
-            extraParams: extraParams
+            extraParams: extraParams,
           },
           {
             id: 1,
-            bucket: await getBucketMetaData(bucket.address, trader),
+            bucket: await getBucketMetaData(bucket.address, trader, defaultTier),
             pair: [await getTokenMetadata(testTokenA.address, trader), await getTokenMetadata(testTokenB.address, trader)],
             positionSize: positionAmount1,
             liquidationPrice: await PrimexLens["getLiquidationPrice(address,uint256)"](positionManager.address, 1),
@@ -578,11 +579,11 @@ describe("PrimexLens", function () {
             debt: positionDebt1,
             depositAmount: depositAmountAFromB,
             createdAt: timestamps[1],
-            extraParams: extraParams
+            extraParams: extraParams,
           },
           {
             id: 2,
-            bucket: await getBucketMetaData(bucket.address, trader),
+            bucket: await getBucketMetaData(bucket.address, trader, defaultTier),
             pair: [await getTokenMetadata(testTokenA.address, trader), await getTokenMetadata(testTokenB.address, trader)],
             positionSize: positionAmount2,
             liquidationPrice: await PrimexLens["getLiquidationPrice(address,uint256)"](positionManager.address, 2),
@@ -591,7 +592,7 @@ describe("PrimexLens", function () {
             debt: positionDebt2,
             depositAmount: depositAmountAFromX,
             createdAt: timestamps[2],
-            extraParams: extraParams
+            extraParams: extraParams,
           },
         ],
         0,
@@ -653,7 +654,7 @@ describe("PrimexLens", function () {
         [
           {
             id: 0,
-            bucket: await getBucketMetaData(bucket.address, trader),
+            bucket: await getBucketMetaData(bucket.address, trader, defaultTier),
             pair: [await getTokenMetadata(testTokenA.address, trader), await getTokenMetadata(testTokenB.address, trader)],
             positionSize: positionAmount0,
             liquidationPrice: await PrimexLens["getLiquidationPrice(address,uint256)"](positionManager.address, 0),
@@ -662,11 +663,11 @@ describe("PrimexLens", function () {
             debt: positionDebt0,
             depositAmount: depositAmountA,
             createdAt: timestamps[0],
-            extraParams: extraParams
+            extraParams: extraParams,
           },
           {
             id: 1,
-            bucket: await getBucketMetaData(bucket.address, trader),
+            bucket: await getBucketMetaData(bucket.address, trader, defaultTier),
             pair: [await getTokenMetadata(testTokenA.address, trader), await getTokenMetadata(testTokenB.address, trader)],
             positionSize: positionAmount1,
             liquidationPrice: await PrimexLens["getLiquidationPrice(address,uint256)"](positionManager.address, 1),
@@ -675,11 +676,11 @@ describe("PrimexLens", function () {
             debt: positionDebt1,
             depositAmount: depositAmountAFromB,
             createdAt: timestamps[1],
-            extraParams: extraParams
+            extraParams: extraParams,
           },
           {
             id: 2,
-            bucket: await getBucketMetaData(bucket.address, trader),
+            bucket: await getBucketMetaData(bucket.address, trader, defaultTier),
             pair: [await getTokenMetadata(testTokenA.address, trader), await getTokenMetadata(testTokenB.address, trader)],
             positionSize: positionAmount2,
             liquidationPrice: await PrimexLens["getLiquidationPrice(address,uint256)"](positionManager.address, 2),
@@ -688,7 +689,7 @@ describe("PrimexLens", function () {
             debt: positionDebt2,
             depositAmount: depositAmountAFromX,
             createdAt: timestamps[2],
-            extraParams: extraParams
+            extraParams: extraParams,
           },
         ],
         0,
@@ -1069,7 +1070,7 @@ describe("PrimexLens", function () {
       const oracleTolerableLimit = await positionManager.getOracleTolerableLimit(testTokenB.address, testTokenA.address);
 
       // position 4
-      const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
+      const feeRate = parseEther(feeRates[defaultTier].MarginPositionClosedByKeeper);
       const denominator = wadMul(
         wadMul(
           wadMul(BigNumber.from(WAD).sub(securityBuffer).toString(), BigNumber.from(WAD).sub(oracleTolerableLimit).toString()),
@@ -1349,7 +1350,10 @@ describe("PrimexLens", function () {
   });
 
   it("getBucket return correct values", async function () {
-    parseArguments(await PrimexLens.getBucket(bucket.address, trader.address), await getBucketMetaData(bucket.address, trader));
+    parseArguments(
+      await PrimexLens.getBucket(bucket.address, trader.address),
+      await getBucketMetaData(bucket.address, trader, defaultTier),
+    );
   });
 
   it("getBucketsArray does not return a bucket if it is deprecated and 'showDeprecated' param is false and there is no user's deposit in a bucket", async function () {
@@ -1388,7 +1392,7 @@ describe("PrimexLens", function () {
     expect(await bucket.isDeprecated()).to.be.equal(true);
 
     const bucketsFromLens = await PrimexLens.getBucketsArray([bucket.address], lender.address, positionManager.address, false);
-    const expectedBucket = await getBucketMetaData(bucket.address, lender);
+    const expectedBucket = await getBucketMetaData(bucket.address, lender, defaultTier);
     expect(bucketsFromLens.length).to.be.equal(1);
     expect(bucketsFromLens[0].name).to.be.equal(expectedBucket.name);
     expect(bucketsFromLens[0].bucketAddress).to.be.equal(expectedBucket.bucketAddress);
@@ -1400,7 +1404,7 @@ describe("PrimexLens", function () {
     await PrimexDNS.deprecateBucket(await bucket.name());
     expect(await bucket.isDeprecated()).to.be.equal(true);
     const bucketsFromLens = await PrimexLens.getBucketsArray([bucket.address], trader.address, positionManager.address, true);
-    const expectedBucket = await getBucketMetaData(bucket.address, trader);
+    const expectedBucket = await getBucketMetaData(bucket.address, trader, defaultTier);
     expect(bucketsFromLens.length).to.be.equal(1);
     expect(bucketsFromLens[0].name).to.be.equal(expectedBucket.name);
     expect(bucketsFromLens[0].bucketAddress).to.be.equal(expectedBucket.bucketAddress);
@@ -1444,7 +1448,7 @@ describe("PrimexLens", function () {
       positionManager.address,
       false,
     );
-    const expectedBucket = await getBucketMetaData(bucket.address, lender);
+    const expectedBucket = await getBucketMetaData(bucket.address, lender, defaultTier);
 
     expect(bucketsFromLens.length).to.equal(1);
     expect(bucketsFromLens[0].name).to.be.equal(expectedBucket.name);
@@ -1498,7 +1502,7 @@ describe("PrimexLens", function () {
       positionManager.address,
       false,
     );
-    const expectedBucket = await getBucketMetaData(bucket.address, lender);
+    const expectedBucket = await getBucketMetaData(bucket.address, lender, defaultTier);
 
     expect(bucketsFromLens.length).to.equal(1);
     expect(bucketsFromLens[0].name).to.be.equal(expectedBucket.name);
@@ -1510,7 +1514,7 @@ describe("PrimexLens", function () {
     const extraParams = defaultAbiCoder.encode(["address"], [testTokenA.address]);
     const expectedValues = {
       id: 0,
-      bucket: await getBucketMetaData(bucket.address, trader),
+      bucket: await getBucketMetaData(bucket.address, trader, defaultTier),
       pair: [await getTokenMetadata(testTokenA.address, trader), await getTokenMetadata(testTokenB.address, trader)],
       positionSize: positionAmount0,
       liquidationPrice: await PrimexLens["getLiquidationPrice(address,uint256)"](positionManager.address, 0),
@@ -1519,7 +1523,7 @@ describe("PrimexLens", function () {
       debt: positionDebt0,
       depositAmount: depositAmountA,
       createdAt: timestamps[0],
-      extraParams: extraParams
+      extraParams: extraParams,
     };
 
     parseArguments(expectedValues, await PrimexLens.callStatic.getOpenPositionData(positionManager.address, 0));
@@ -1568,7 +1572,7 @@ describe("PrimexLens", function () {
       debt: 0,
       depositAmount: depositAmountA,
       createdAt: timestamp,
-      extraParams: extraParams
+      extraParams: extraParams,
     };
 
     parseArguments(expectedValues, await PrimexLens.callStatic.getOpenPositionData(positionManager.address, 3));
@@ -1584,7 +1588,7 @@ describe("PrimexLens", function () {
     const multiplier2 = BigNumber.from("10").pow(MAX_TOKEN_DECIMALITY.sub(decimalsB));
 
     // position 0
-    const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
+    const feeRate = parseEther(feeRates[defaultTier].MarginPositionClosedByKeeper);
     let denominator = wadMul(
       wadMul(
         wadMul(BigNumber.from(WAD).sub(securityBuffer).toString(), BigNumber.from(WAD).sub(oracleTolerableLimit).toString()),

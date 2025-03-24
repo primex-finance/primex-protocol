@@ -26,6 +26,7 @@ module.exports = async function (
   const bigTimeLock = await getContract("BigTimelockAdmin");
   const PrimexProxyAdmin = await getContract("PrimexProxyAdmin");
   const TraderBalanceVault = await getContract("TraderBalanceVault");
+  const TokenTransfersLibrary = await getContract("TokenTransfersLibrary");
   let tx;
 
   const bigDelay = await bigTimeLock.getMinDelay();
@@ -88,12 +89,14 @@ module.exports = async function (
   }
   if (!executeUpgrade) {
     /**
-     * ActivityRewardDistributor upgrade
+     * TraderBalanceVault upgrade
      */
     await upgradeProxyWithoutCheck({
       proxyAddress: TraderBalanceVault.address,
       contractName: "TraderBalanceVault",
-      libraries: {},
+      libraries: {
+        TokenTransfersLibrary: TokenTransfersLibrary.address,
+      },
       isBeacon: false,
     });
   }

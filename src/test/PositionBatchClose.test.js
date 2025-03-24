@@ -97,6 +97,7 @@ describe("PositionManager batch functions", function () {
   let positionAmount, price, depositAmount, borrowedAmount, swapSize, ttaPriceInETH;
   let PMXToken;
   let ErrorsLibrary, treasury;
+  const defaultTier = 0;
 
   before(async function () {
     await fixture(["Test"]);
@@ -879,7 +880,7 @@ describe("PositionManager batch functions", function () {
       });
 
       const amountB = totalPositionAmount.mul(multiplierB);
-      const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
+      const feeRate = parseEther(feeRates[defaultTier].MarginPositionClosedByKeeper);
       const amount0Out = await getAmountsOut(dex, totalPositionAmount, [testTokenB.address, testTokenA.address]);
       const feeInPaymentAsset = wadMul(amount0Out.toString(), feeRate.toString()).toString();
       const amountA = amount0Out.mul(multiplierA);
@@ -1255,7 +1256,7 @@ describe("PositionManager batch functions", function () {
 
     it("Should calculate permanentLossScaled after bucket's indexes update", async function () {
       const amountB = totalPositionAmount.mul(multiplierB);
-      const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
+      const feeRate = parseEther(feeRates[defaultTier].MarginPositionClosedByKeeper);
       const amount0Out = await getAmountsOut(dex, totalPositionAmount, [testTokenB.address, testTokenA.address]);
       const feeInPaymentAsset = wadMul(amount0Out.toString(), feeRate.toString()).toString();
       const amountA = amount0Out.mul(multiplierA);
@@ -1607,7 +1608,7 @@ describe("PositionManager batch functions", function () {
       const totalPrice = wadDiv(totalAmountB.toString(), totalAmountA.toString()).toString();
       await setOraclePrice(testTokenA, testTokenB, BigNumber.from(totalPrice).div(USD_MULTIPLIER));
 
-      const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
+      const feeRate = parseEther(feeRates[defaultTier].MarginPositionClosedByKeeper);
       const feeInPaymentAsset = wadMul(totalAmountOut.toString(), feeRate.toString()).toString();
       const maxProtocolFee = BigNumber.from(feeInPaymentAsset).div(4);
 
@@ -1744,7 +1745,7 @@ describe("PositionManager batch functions", function () {
         rayMul(cumulatedVariableBorrowInterest.toString(), borrowIndexBefore.toString()),
       ).toString();
 
-      const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
+      const feeRate = parseEther(feeRates[defaultTier].MarginPositionClosedByKeeper);
       const amount0Out = await getAmountsOut(dex, totalPositionAmount, [testTokenB.address, testTokenA.address]);
       const feeInPaymentAsset = wadMul(amount0Out.toString(), feeRate.toString()).toString();
 
@@ -1867,7 +1868,7 @@ describe("PositionManager batch functions", function () {
       const shareOfBorrowedAmountOut2 = positionAmount2.mul(totalAmountOut).div(totalPositionAmount23);
       const shareOfBorrowedAmountOut3 = positionAmount3.mul(totalAmountOut).div(totalPositionAmount23);
 
-      const feeRate = parseEther(feeRates.SpotPositionClosedByKeeper);
+      const feeRate = parseEther(feeRates[defaultTier].SpotPositionClosedByKeeper);
       const feeInPaymentAsset = wadMul(totalAmountOut.toString(), feeRate.toString()).toString();
 
       const totalTokenA = shareOfBorrowedAmountOut2.add(shareOfBorrowedAmountOut3);
@@ -2155,7 +2156,7 @@ describe("PositionManager batch functions", function () {
           await network.provider.send("evm_mine");
         }
         const totalAmountB = totalPositionAmount.mul(multiplierB);
-        const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
+        const feeRate = parseEther(feeRates[defaultTier].MarginPositionClosedByKeeper);
         const totalAmountOut = await getAmountsOut(dex, totalPositionAmount, [testTokenB.address, testTokenA.address]);
 
         const amountOut0 = positionAmount0.mul(totalAmountOut).div(totalPositionAmount);
@@ -2475,7 +2476,7 @@ describe("PositionManager batch functions", function () {
       const totalPrice = wadDiv(totalAmountB.toString(), totalAmountA.toString()).toString();
       await setOraclePrice(testTokenA, testTokenB, BigNumber.from(totalPrice).div(USD_MULTIPLIER));
 
-      const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
+      const feeRate = parseEther(feeRates[defaultTier].MarginPositionClosedByKeeper);
       const feeInPaymentAsset = wadMul(totalAmountOut.toString(), feeRate.toString()).toString();
       const pmxDiscountMultiplier = await PrimexDNS.pmxDiscountMultiplier();
       const feeInPaymentAssetWithDiscount = wadMul(feeInPaymentAsset.toString(), pmxDiscountMultiplier.toString()).toString();
@@ -2515,7 +2516,7 @@ describe("PositionManager batch functions", function () {
         path: [testTokenA.address, testTokenB.address],
       });
       const totalAmountOut = await getAmountsOut(dex, totalPositionAmount, [testTokenB.address, testTokenA.address]);
-      const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
+      const feeRate = parseEther(feeRates[defaultTier].MarginPositionClosedByKeeper);
       const totalFeeInPaymentAsset = wadMul(totalAmountOut.toString(), feeRate.toString()).toString();
 
       const pmxDiscountMultiplier = await PrimexDNS.pmxDiscountMultiplier();
@@ -2699,7 +2700,7 @@ describe("PositionManager batch functions", function () {
         amountIn: parseUnits("50", decimalsA).toString(),
         path: [testTokenA.address, testTokenB.address],
       });
-      const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
+      const feeRate = parseEther(feeRates[defaultTier].MarginPositionClosedByKeeper);
       const feePaymentAsset = wadMul(totalAmountOut.toString(), feeRate.toString()).toString();
       const feeInNativeCurrency = await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
         testTokenA.address,
@@ -2762,7 +2763,7 @@ describe("PositionManager batch functions", function () {
       });
 
       const totalAmountB = totalPositionAmount.mul(multiplierB);
-      const feeRate = parseEther(feeRates.MarginPositionClosedByKeeper);
+      const feeRate = parseEther(feeRates[defaultTier].MarginPositionClosedByKeeper);
       const feePaymentAsset = wadMul(totalAmountOut.toString(), feeRate.toString()).toString();
       const feeInNativeCurrency = await primexPricingLibraryMock.callStatic.getOracleAmountsOut(
         testTokenA.address,

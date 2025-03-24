@@ -71,7 +71,7 @@ module.exports = {
   solidity: {
     compilers: [
       {
-        version: "0.8.18",
+        version: "0.8.26",
         settings: {
           optimizer: {
             runs: 200,
@@ -91,6 +91,9 @@ module.exports = {
       },
       {
         version: "0.4.18",
+      },
+      {
+        version: "0.8.20",
       }
     ],
     overrides: {
@@ -208,6 +211,7 @@ module.exports = {
     },
     localhost: {
       url: "http://127.0.0.1:8545/",
+      timeout: 100_000,
     },
     fuzzing: {
       url: "http://127.0.0.1:8545/",
@@ -278,11 +282,20 @@ module.exports = {
       accounts: accounts,
       timeout: 60000,
     },
+    baseMainnet: {
+      chainId: 8453,
+      url: "https://mainnet.base.org",
+      accounts: accounts,
+      timeout: 60000,
+    } 
   },
   external: {
     contracts: [
       {
         artifacts: "node_modules/@uniswap/v2-core/build",
+      },
+      {
+        artifacts: "node_modules/@openzeppelin/contracts/build/contracts",
       },
       {
         artifacts: "node_modules/@uniswap/v2-periphery/build",
@@ -347,11 +360,11 @@ module.exports = {
   },
   typechain: {
     outDir: "typechain",
-    target: "ethers-v5",
+    target: "ethers-v6",
   },
   contractSizer: {
     alphaSort: true,
-    runOnCompile: true,
+    runOnCompile: false,
     disambiguatePaths: false,
   },
   tenderly: {

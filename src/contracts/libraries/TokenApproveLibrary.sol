@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 // Modified version of approve logic that allows working with non-standart ERC-20 tokens
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import "./Errors.sol";
 

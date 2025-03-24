@@ -60,7 +60,7 @@ interface IBucketStorage {
         bool isSupported;
     }
 
-    function liquidityIndex() external returns (uint128);
+    function liquidityIndex() external view returns (uint128);
 
     function variableBorrowIndex() external returns (uint128);
 

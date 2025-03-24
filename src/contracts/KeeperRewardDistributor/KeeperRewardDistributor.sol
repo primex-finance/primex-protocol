@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -12,13 +12,13 @@ import {TokenTransfersLibrary} from "../libraries/TokenTransfersLibrary.sol";
 
 import "./KeeperRewardDistributorStorage.sol";
 import "../Constants.sol";
-import {IKeeperRewardDistributorV3} from "./IKeeperRewardDistributor.sol";
+import {IKeeperRewardDistributorV3, IKeeperRewardDistributorV4} from "./IKeeperRewardDistributor.sol";
 import {IPriceOracleV2} from "../PriceOracle/IPriceOracle.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
 import {ITreasury} from "../Treasury/ITreasury.sol";
 import {IPausable} from "../interfaces/IPausable.sol";
 
-contract KeeperRewardDistributor is IKeeperRewardDistributorV3, KeeperRewardDistributorStorageV2 {
+contract KeeperRewardDistributor is IKeeperRewardDistributorV4, KeeperRewardDistributorStorageV2 {
     using WadRayMath for uint256;
 
     constructor() {
@@ -97,6 +97,15 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV3, KeeperRewardDist
     }
 
     /**
+     * @notice Sets the address of the PMX token contract.
+     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @param _pmx The address of the PMX token contract.
+     */
+    function setPMX(address _pmx) external override onlyRole(BIG_TIMELOCK_ADMIN) {
+        pmx = _pmx;
+    }
+
+    /**
      * @inheritdoc IKeeperRewardDistributorV3
      */
     function updateReward(UpdateRewardParams calldata _params) external override onlyManagerRole {
@@ -154,14 +163,10 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV3, KeeperRewardDist
                         (variableLength + restrictions.baseLength + TRANSACTION_METADATA_BYTES);
                 }
                 if (paymentModel == PaymentModel.OPTIMISTIC) {
-                    // Adds 68 bytes of padding to account for the fact that the input does not have a signature.
-                    uint256 l1GasUsed = GAS_FOR_BYTE *
-                        (variableLength + restrictions.baseLength + OVM_GASPRICEORACLE.overhead() + 68);
-                    l1CostWei =
-                        (OVM_GASPRICEORACLE.l1BaseFee() *
-                            l1GasUsed *
-                            OVM_GASPRICEORACLE.scalar().wmul(optimisticGasCoefficient)) /
-                        10 ** 6;
+                    // getL1FeeUpperBound expects unsigned fully RLP-encoded transaction size
+                    l1CostWei = OVM_GASPRICEORACLE.getL1FeeUpperBound(variableLength + restrictions.baseLength).wmul(
+                        optimisticGasCoefficient
+                    );
                 }
             }
 
@@ -210,10 +215,7 @@ contract KeeperRewardDistributor is IKeeperRewardDistributorV3, KeeperRewardDist
     function setOptimisticGasCoefficient(
         uint256 _newOptimisticGasCoefficient
     ) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
-        _require(
-            _newOptimisticGasCoefficient > 0 && _newOptimisticGasCoefficient <= WadRayMath.WAD,
-            Errors.INCORRECT_OPTIMISM_GAS_COEFFICIENT.selector
-        );
+        _require(_newOptimisticGasCoefficient > 0, Errors.INCORRECT_OPTIMISM_GAS_COEFFICIENT.selector);
         optimisticGasCoefficient = _newOptimisticGasCoefficient;
         emit OptimisticGasCoefficientChanged(_newOptimisticGasCoefficient);
     }

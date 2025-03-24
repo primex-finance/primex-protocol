@@ -271,7 +271,8 @@ describe("DexAdapter", function () {
         "ZERO_AMOUNT_IN",
       );
     });
-    it("Should swapExactTokensForTokens() through swapWithArbitraryDex", async function () {
+
+    it("Should successfully swap tokens with arbitrary multicalls", async function () {
       const amountIn = parseUnits("1", decimalsA);
       const amountOutMin = 0;
       const path = [testTokenA.address, testTokenB.address];
@@ -279,14 +280,22 @@ describe("DexAdapter", function () {
       const deadline = new Date().getTime() + 600;
 
       const uniswapV2Router02 = await getContractAt("UniswapV2Router02", dexRouter);
-      const encodedData = uniswapV2Router02.interface.encodeFunctionData("swapExactTokensForTokens", [
+
+      const approveCalldata = testTokenA.interface.encodeFunctionData("approve", [dexRouter, amountIn]);
+
+      const swapCalldata = uniswapV2Router02.interface.encodeFunctionData("swapExactTokensForTokens", [
         amountIn,
         amountOutMin,
         path,
         to,
         deadline,
       ]);
-      const encodedPath = defaultAbiCoder.encode(["address", "address", "bytes"], [dexRouter, dexRouter, encodedData]);
+
+      const calls = [
+        { target: testTokenA.address, callData: approveCalldata, value: 0 },
+        { target: dexRouter, callData: swapCalldata, value: 0 },
+      ];
+      const encodedPath = defaultAbiCoder.encode(["tuple(address target, bytes callData, uint256 value)[]"], [calls]);
       const swapExactTokensForTokensParams = {
         encodedPath: encodedPath,
         tokenIn: testTokenA.address,
@@ -298,6 +307,43 @@ describe("DexAdapter", function () {
         dexRouter: AddressZero,
       };
       expect(await dexAdapter.connect(caller).swapExactTokensForTokens(swapExactTokensForTokensParams));
+    });
+
+    it("Should revert if slippage tolerance is exceeded", async function () {
+      const amountIn = parseEther("1");
+      const amountOutMin = parseEther("2");
+
+      const path = [testTokenA.address, testTokenB.address];
+      const to = trader.address;
+      const deadline = new Date().getTime() + 600;
+
+      const uniswapV2Router02 = await getContractAt("UniswapV2Router02", dexRouter);
+
+      const approveCalldata = testTokenA.interface.encodeFunctionData("approve", [dexRouter, amountIn]);
+
+      const swapCalldata = uniswapV2Router02.interface.encodeFunctionData("swapExactTokensForTokens", [amountIn, 0, path, to, deadline]);
+
+      const calls = [
+        { target: testTokenA.address, callData: approveCalldata, value: 0 },
+        { target: dexRouter, callData: swapCalldata, value: 0 },
+      ];
+      const encodedPath = defaultAbiCoder.encode(["tuple(address target, bytes callData)[]"], [calls]);
+
+      const swapParams = {
+        encodedPath: encodedPath,
+        tokenIn: testTokenA.address,
+        tokenOut: testTokenB.address,
+        amountIn: amountIn,
+        amountOutMin: amountOutMin,
+        to: to,
+        deadline: deadline,
+        dexRouter: AddressZero,
+      };
+
+      await expect(dexAdapter.connect(caller).swapExactTokensForTokens(swapParams)).to.be.revertedWithCustomError(
+        ErrorsLibrary,
+        "SLIPPAGE_TOLERANCE_EXCEEDED",
+      );
     });
   });
 

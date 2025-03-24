@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {IERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -11,11 +11,11 @@ import "../libraries/Errors.sol";
 
 import "./TraderBalanceVaultStorage.sol";
 import {VAULT_ACCESS_ROLE, NATIVE_CURRENCY, MAX_ASSET_DECIMALS, SMALL_TIMELOCK_ADMIN, EMERGENCY_ADMIN} from "../Constants.sol";
-import {ITraderBalanceVault} from "./ITraderBalanceVault.sol";
+import {ITraderBalanceVaultV2, ITraderBalanceVault} from "./ITraderBalanceVault.sol";
 import {IWhiteBlackList} from "../WhiteBlackList/WhiteBlackList/IWhiteBlackList.sol";
 import {IPausable} from "../interfaces/IPausable.sol";
 
-contract TraderBalanceVault is ITraderBalanceVault, TraderBalanceVaultStorage {
+contract TraderBalanceVault is ITraderBalanceVaultV2, TraderBalanceVaultStorage {
     constructor() {
         _disableInitializers();
     }
@@ -55,6 +55,20 @@ contract TraderBalanceVault is ITraderBalanceVault, TraderBalanceVaultStorage {
 
     receive() external payable override {
         deposit(NATIVE_CURRENCY, 0);
+    }
+
+    function getBalancesForAddresses(
+        address[] calldata _traders,
+        address _asset
+    ) external view override returns (uint256[] memory, uint256[] memory) {
+        uint256[] memory availableBalances = new uint256[](_traders.length);
+        uint256[] memory lockedBalances = new uint256[](_traders.length);
+        for (uint256 i; i < _traders.length; i++) {
+            TraderBalance memory traderBalance = balances[_traders[i]][_asset];
+            availableBalances[i] = traderBalance.availableBalance;
+            lockedBalances[i] = traderBalance.lockedBalance;
+        }
+        return (availableBalances, lockedBalances);
     }
 
     /**
@@ -221,6 +235,9 @@ contract TraderBalanceVault is ITraderBalanceVault, TraderBalanceVaultStorage {
      * @param _interfaceId The interface id to check
      */
     function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
-        return super.supportsInterface(_interfaceId) || _interfaceId == type(ITraderBalanceVault).interfaceId;
+        return
+            super.supportsInterface(_interfaceId) ||
+            _interfaceId == type(ITraderBalanceVaultV2).interfaceId ||
+            _interfaceId == type(ITraderBalanceVault).interfaceId;
     }
 }

@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
@@ -10,7 +10,7 @@ import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol"
 import "../libraries/Errors.sol";
 
 import {DebtToken} from "./DebtToken.sol";
-import {BIG_TIMELOCK_ADMIN} from "../Constants.sol";
+import {SMALL_TIMELOCK_ADMIN} from "../Constants.sol";
 import {IDebtTokensFactory} from "./IDebtTokensFactory.sol";
 import {IDebtToken} from "./IDebtToken.sol";
 import {IBucketsFactory} from "../Bucket/IBucketsFactory.sol";
@@ -70,7 +70,7 @@ contract DebtTokensFactory is UpgradeableBeacon, IDebtTokensFactory, IERC165 {
     /**
      * @inheritdoc IDebtTokensFactory
      */
-    function setBucketsFactory(address _bucketsFactory) external override onlyRole(BIG_TIMELOCK_ADMIN) {
+    function setBucketsFactory(address _bucketsFactory) external override onlyRole(SMALL_TIMELOCK_ADMIN) {
         _require(
             IERC165(_bucketsFactory).supportsInterface(type(IBucketsFactory).interfaceId),
             Errors.ADDRESS_NOT_SUPPORTED.selector

@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
@@ -211,7 +211,7 @@ library LimitOrderLibrary {
             _leverage <
                 _order.bucket.maxAssetLeverage(
                     _order.positionAsset,
-                    _primexDNS.protocolFeeRates(IPrimexDNSStorageV3.FeeRateType.MarginLimitOrderExecuted)
+                    _primexDNS.getProtocolFeeRateByTier(IPrimexDNSStorageV3.FeeRateType.MarginLimitOrderExecuted, 0) // do not consider the tier here
                 ),
             Errors.LEVERAGE_EXCEEDS_MAX_LEVERAGE.selector
         );
@@ -346,7 +346,7 @@ library LimitOrderLibrary {
                 _params.leverage <
                     vars.bucket.maxAssetLeverage(
                         _params.positionAsset,
-                        primexDNS.protocolFeeRates(IPrimexDNSStorageV3.FeeRateType.MarginLimitOrderExecuted)
+                        primexDNS.getProtocolFeeRateByTier(IPrimexDNSStorageV3.FeeRateType.MarginLimitOrderExecuted, 0)
                     ),
                 Errors.LEVERAGE_EXCEEDS_MAX_LEVERAGE.selector
             );

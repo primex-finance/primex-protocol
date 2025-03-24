@@ -6,7 +6,7 @@ const {
     provider,
     getSigners,
     getContract,
-    utils: { parseEther, parseUnits },
+    utils: { parseEther, parseUnits, defaultAbiCoder },
   },
   deployments: { fixture },
 } = require("hardhat");
@@ -15,15 +15,20 @@ process.env.TEST = true;
 const { addLiquidity, swapExactTokensForTokens } = require("../utils/dexOperations");
 const { BigNumber } = require("ethers");
 const { wadMul, wadDiv } = require("../utils/bnMath");
-const { MAX_TOKEN_DECIMALITY, USD, WAD, UpdatePullOracle } = require("../utils/constants");
+const { signEthMessage } = require("../utils/generateSignature");
+const { MAX_TOKEN_DECIMALITY, USD, WAD, UpdatePullOracle, OracleType } = require("../utils/constants");
 const {
   getEncodedChainlinkRouteToUsd,
   getEncodedChainlinkRouteToToken,
   getEncodedUniswapRouteToToken,
   getEncodedPythRouteToToken,
   getEncodedPythRouteToUsd,
+  getEncodedOrallyRouteToUsd,
   getEncodedSupraRouteToUsd,
+  getEncodedOralyRouteToToken,
   getEncodedSupraRouteToToken,
+  getEncodedRoutes,
+  getEncodedStorkOracleData,
 } = require("../utils/oracleUtils");
 const { deploySupraPullMock, deploySupraStoragelMock } = require("../utils/waffleMocks");
 const { ZERO_BYTES_32, ZERO_ADDRESS } = require("@aave/deploy-v3");
@@ -32,7 +37,7 @@ describe("PriceOracle_integration", function () {
   let testTokenA, testTokenB, ErrorsLibrary;
   let priceOracle, mockPriceFeed;
   let uniswapPriceFeed, pyth;
-  let supraPullMock, supraStorageMock;
+  let supraPullMock, supraStorageMock, storkMock;
   let deployer;
   let treasury;
   before(async function () {
@@ -48,6 +53,7 @@ describe("PriceOracle_integration", function () {
     mockPriceFeed = await getContract("PrimexAggregatorV3TestService TEST price feed");
     supraPullMock = await deploySupraPullMock(deployer);
     supraStorageMock = await deploySupraStoragelMock(deployer);
+    storkMock = await getContract("MockStork");
   });
 
   describe("Price oracle Contract tests", function () {
@@ -272,6 +278,100 @@ describe("PriceOracle_integration", function () {
       expect(amount).to.be.equal(wadDiv(WAD, price.mul(BigNumber.from("10").pow("18"))));
     });
   });
+  describe("Price oracle Contract tests with the Orally", function () {
+    let price;
+    const decodeParams = ["tuple(string,uint256,uint256,uint256)"];
+
+    before(async function () {
+      await priceOracle.setOrallyTimeTolerance("60");
+      price = BigNumber.from("1500").mul(BigNumber.from("10").pow("18"));
+    });
+
+    it("get correct price with Orally tokenA/USD", async function () {
+      const bytes = defaultAbiCoder.encode(decodeParams, [["TOKENA/USD", price, 18, (await provider.getBlock("latest")).timestamp]]);
+      await priceOracle.updateOrallySymbols([
+        {
+          symbol: "TOKENA/USD",
+          tokens: [testTokenA.address, USD],
+        },
+      ]);
+      const oracleData = getEncodedOrallyRouteToUsd();
+      await priceOracle.updatePullOracle([[bytes]], [UpdatePullOracle.Orally]);
+
+      const amount = await priceOracle.callStatic.getExchangeRate(testTokenA.address, USD, oracleData);
+      expect(amount).to.be.equal(price);
+    });
+    it("get correct price with Orally USD/tokenA", async function () {
+      const bytes = defaultAbiCoder.encode(decodeParams, [["TOKENA/USD", price, 18, (await provider.getBlock("latest")).timestamp]]);
+      await priceOracle.updateOrallySymbols([
+        {
+          symbol: "TOKENA/USD",
+          tokens: [testTokenA.address, USD],
+        },
+      ]);
+      const oracleData = getEncodedOralyRouteToToken(testTokenA);
+      await priceOracle.updatePullOracle([[bytes]], [UpdatePullOracle.Orally]);
+
+      const amount = await priceOracle.callStatic.getExchangeRate(USD, testTokenA.address, oracleData);
+      expect(amount).to.be.equal(wadDiv(WAD, price));
+    });
+  });
+  describe("Price oracle Contract tests with the Stork", function () {
+    let price;
+    before(async function () {
+      await priceOracle.setTimeTolerance("60");
+      await priceOracle.setStorkVerify(storkMock.address);
+      await priceOracle.setStorkPublicKey(deployer.address); // as a signer
+      price = BigNumber.from("1500").mul(BigNumber.from("10").pow("18"));
+    });
+
+    it("get correct price with Storks tokenA/USD", async function () {
+      const pairId = "TOKENAUSD";
+      const timeStamp = (await provider.getBlock("latest")).timestamp;
+      const signMessage = await signEthMessage(
+        deployer,
+        ["address", "string", "uint256", "uint256"],
+        [deployer.address, pairId, timeStamp, price],
+      );
+      await priceOracle.updateStorkPairIds([
+        {
+          pair: pairId,
+          tokens: [testTokenA.address, USD],
+        },
+      ]);
+      const oracleData = getEncodedRoutes([
+        [USD, OracleType.Stork, getEncodedStorkOracleData(timeStamp, price, signMessage.r, signMessage.s, BigNumber.from(signMessage.v))],
+      ]);
+      const amount = await priceOracle.callStatic.getExchangeRate(testTokenA.address, USD, oracleData);
+      expect(amount).to.be.equal(price);
+    });
+    it("get correct price with Storks USD/tokenA", async function () {
+      const pairId = "TOKENAUSD";
+      const timeStamp = (await provider.getBlock("latest")).timestamp;
+      const signMessage = await signEthMessage(
+        deployer,
+        ["address", "string", "uint256", "uint256"],
+        [deployer.address, pairId, timeStamp, price],
+      );
+      await priceOracle.updateStorkPairIds([
+        {
+          pair: pairId,
+          tokens: [testTokenA.address, USD],
+        },
+      ]);
+      const oracleData = getEncodedRoutes([
+        [
+          testTokenA.address,
+          OracleType.Stork,
+          getEncodedStorkOracleData(timeStamp, price, signMessage.r, signMessage.s, BigNumber.from(signMessage.v)),
+        ],
+      ]);
+
+      const amount = await priceOracle.callStatic.getExchangeRate(USD, testTokenA.address, oracleData);
+      expect(amount).to.be.equal(wadDiv(WAD, price));
+    });
+  });
+
   describe("Price oracle Contract tests with Supra", function () {
     let price;
     before(async function () {

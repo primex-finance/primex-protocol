@@ -3,10 +3,11 @@
   "MediumTimelockDelayInDays": 2,
   "SmallTimelockDelayInDays": 0.5,
   "deployRefferalProgram": true,
-  "EPMXOraclePrice": "0.1",
+  "EPMXOraclePrice": "0.04",
   "twapInterval": "60",
   "poolUpdateInterval": "86400",
   "timeTolerance": "60",
+  "orallyTimeTolerance": "180",
   "BucketsToDeprecate": ["0xEFe66D9933A5644cDEA29F212d90062290e7902d"],
   "PositionManagerConfig": {
     "defaultOracleTolerableLimit": "0.02",
@@ -14,10 +15,18 @@
     "maintenanceBuffer": "0.03",
     "securityBuffer": "0"
   },
+  "DepositManagerMagicTierCoefficient": "2",
+  "TiersManagerConfig": {
+    "tiers": {
+      "1": "1000",
+      "2": "10000",
+      "3": "50000"
+    }
+  },
   "PrimexDNSconfig": {
     "delistingDelayInDays": 180,
     "adminWithdrawalDelayInDays": 180,
-    "leverageTolerance": "0.02",
+    "leverageTolerance": "0.05",
     "maxProtocolFee": "MaxUint256",
     "protocolFeeCoefficient": "0",
     "liquidationGasAmount": "1644500",
@@ -25,14 +34,46 @@
     "gasPriceBuffer": "4",
     "additionalGasSpent": "665000",
     "feeRates": {
-      "MarginPositionClosedByTrader": "0.0015",
-      "SpotPositionClosedByTrader": "0.0015",
-      "MarginPositionClosedByKeeper": "0.002",
-      "SpotPositionClosedByKeeper": "0.002",
-      "MarginLimitOrderExecuted": "0.001",
-      "SpotLimitOrderExecuted": "0.001",
-      "SwapLimitOrderExecuted": "0.001",
-      "SwapMarketOrder": "0"
+      "0": {
+        "MarginPositionClosedByTrader": "0.0015",
+        "SpotPositionClosedByTrader": "0.0015",
+        "MarginPositionClosedByKeeper": "0.002",
+        "SpotPositionClosedByKeeper": "0.002",
+        "MarginLimitOrderExecuted": "0.001",
+        "SpotLimitOrderExecuted": "0.001",
+        "SwapLimitOrderExecuted": "0.001",
+        "SwapMarketOrder": "0"
+      },
+      "1": {
+        "MarginPositionClosedByTrader": "0.001125",
+        "SpotPositionClosedByTrader": "0.001125",
+        "MarginPositionClosedByKeeper": "0.0015",
+        "SpotPositionClosedByKeeper": "0.0015",
+        "MarginLimitOrderExecuted": "0.00075",
+        "SpotLimitOrderExecuted": "0.00075",
+        "SwapLimitOrderExecuted": "0.00075",
+        "SwapMarketOrder": "0"
+      },
+      "2": {
+        "MarginPositionClosedByTrader": "0.00075",
+        "SpotPositionClosedByTrader": "0.00075",
+        "MarginPositionClosedByKeeper": "0.001",
+        "SpotPositionClosedByKeeper": "0.001",
+        "MarginLimitOrderExecuted": "0.0005",
+        "SpotLimitOrderExecuted": "0.0005",
+        "SwapLimitOrderExecuted": "0.0005",
+        "SwapMarketOrder": "0"
+      },
+      "3": {
+        "MarginPositionClosedByTrader": "0.000375",
+        "SpotPositionClosedByTrader": "0.000375",
+        "MarginPositionClosedByKeeper": "0.0005",
+        "SpotPositionClosedByKeeper": "0.0005",
+        "MarginLimitOrderExecuted": "0.00025",
+        "SpotLimitOrderExecuted": "0.00025",
+        "SwapLimitOrderExecuted": "0.00025",
+        "SwapMarketOrder": "0"
+      }
     },
     "averageGasPerAction": {
       "MarginMarketOrder": "1761000",

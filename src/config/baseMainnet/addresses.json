@@ -1,0 +1,52 @@
+{
+  "adminAddress": "0xfCf221bB750549e8E57B4FE530CCb9c28642516c",
+  "guardianAddress": "0x07c7847ACd99B97B46472E006f5EE2524546F2c1",
+  "emergencyAdmins":[
+    "0xc6C104DB1b744Eb247940BDBBF91172F29CBD67f",
+    "0x6CCA53446A228053f6ce9B0233B92A80336221EE",
+    "0x591Ba6a8cc1071FB715DEd16153C8BDb4b86206C",
+    "0xbeB650aE23b83c4eE8FF96E25CA9C82A51f17571",
+    "0x3172516876170F3dbF6D1d133564Ad0835dC7F15",
+    "0x73FD3C3f97a8C09E02DEd1531E7Eb8C2fafCcce1",
+    "0xBe0Fa24F3F1aD7ca46b28BD13d5de22211630585",
+    "0x1F4eB13d269D8d6Ab78B43125D0d9174531066eb"
+  ],
+  "curveAddressProvider": "0x0000000022D53366457F9d5E68Ec105046FC4383",
+  "isETHNative": true,
+  "wrappedNativeToken": "0x4200000000000000000000000000000000000006",
+  "assets": {
+    "weth": "0x4200000000000000000000000000000000000006",
+    "usdc": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+    "wsteth": "0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452",
+    "reth": "0xB6fe221Fe9EeF5aBa221c348bA20A1Bf5e73624c",
+    "ezeth": "0x2416092f143378750bb29b79eD961ab195CcEea5",
+    "cbeth": "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22",
+    "cbbtc": "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf",
+    "aero": "0x940181a94A35A4569E4529A3CDfB74e38FD98631",
+    "eurc": "0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42"
+  },
+  "aave": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+  "pyth": "0x8250f4aF4B972684F7b336503E2D6dFeDeB1487a",
+  "supraPullOracle": "0x2FA6DbFe4291136Cf272E1A3294362b6651e8517",
+  "supraStorageOracle": "0xD02cc7a670047b6b012556A88e275c685d25e0c9",
+  "dexes": {
+    "uniswapv3": {
+      "router": "0x2626664c2603336E57B271c5C0b26F421741e481",
+      "type": "2",
+      "quoter": "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",
+      "factory": "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"
+    },
+    "paraswap": {
+      "router": "0x59C7C832e96D2568bea6db468C1aAdcbbDa08A52",
+      "type": "7"
+    },
+    "enso": {
+      "router": "0x80EbA3855878739F4710233A8a19d89Bdd2ffB8E",
+      "type": "8"
+    }
+  },
+  "pricefeeds": {
+    "selfDeployed": {
+    }
+  }
+}

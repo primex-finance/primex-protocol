@@ -1,10 +1,11 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 
-import {IPrimexDNSStorage, IPrimexDNSStorageV2, IPrimexDNSStorageV3} from "./IPrimexDNSStorage.sol";
+import {IPrimexDNSStorage, IPrimexDNSStorageV2, IPrimexDNSStorageV3, IPrimexDNSStorageV4} from "./IPrimexDNSStorage.sol";
+import {ITiersManager} from "../TiersManager/ITiersManager.sol";
 
 abstract contract PrimexDNSStorage is IPrimexDNSStorage, ERC165Upgradeable {
     address public override registry;
@@ -72,4 +73,10 @@ abstract contract PrimexDNSStorageV3 is IPrimexDNSStorageV3, PrimexDNSStorageV2 
     uint256 public override gasPriceBuffer;
     // the limits of available deviation of the actual leverage from the leverage of an order
     uint256 public override leverageTolerance;
+}
+
+abstract contract PrimexDNSStorageV4 is IPrimexDNSStorageV4, PrimexDNSStorageV3 {
+    ITiersManager public override tiersManager;
+    // RateType => Tier => Rate
+    mapping(FeeRateType => mapping(uint256 => uint256)) public override protocolFeeRatesByTier;
 }

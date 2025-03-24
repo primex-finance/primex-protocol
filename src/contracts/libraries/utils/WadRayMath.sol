@@ -4,7 +4,7 @@
 // Origin: https://github.com/dapphub/ds-math/blob/master/src/math.sol
 // Unused methods were removed, errors changed
 
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 error DS_MATH_ADD_OVERFLOW();
 error DS_MATH_MUL_OVERFLOW();
 

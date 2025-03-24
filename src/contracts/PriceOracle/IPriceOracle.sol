@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
-import {IPriceOracleStorage, IPriceOracleStorageV3} from "./IPriceOracleStorage.sol";
+import {IPriceOracleStorage, IPriceOracleStorageV3, IPriceOracleStorageV4} from "./IPriceOracleStorage.sol";
 
 interface IPriceOracleV2 is IPriceOracleStorageV3 {
     event ChainlinkPriceFeedUpdated(address indexed token, address indexed priceFeed);
@@ -31,7 +31,8 @@ interface IPriceOracleV2 is IPriceOracleStorageV3 {
 
     enum UpdatePullOracle {
         Pyth,
-        Supra
+        Supra,
+        Orally
     }
 
     struct UpdateSupraDataFeedParams {
@@ -169,6 +170,7 @@ interface IPriceOracleV2 is IPriceOracleStorageV3 {
      * @dev Only callable by the SMALL_TIMELOCK_ADMIN role.
      * @param _params Array of token pairs and Supra ids.
      */
+
     function updateSupraDataFeed(UpdateSupraDataFeedParams[] calldata _params) external;
 
     /**
@@ -199,6 +201,7 @@ interface IPriceOracleV2 is IPriceOracleStorageV3 {
      * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
      * @param _supraPullOracle the address of the Supra pull oracle
      */
+
     function setSupraPullOracle(address _supraPullOracle) external;
 
     /**
@@ -358,4 +361,104 @@ interface IPriceOracle is IPriceOracleStorage {
      * @return priceDropFeed The address of the priceDrop feed associated with the asset pair.
      */
     function getOraclePriceDropFeed(address assetA, address assetB) external view returns (address);
+}
+
+interface IPriceOracleV3 is IPriceOracleV2 {
+    struct UpdateOrallySymbolsParams {
+        string symbol; // string("tokenA/tokenB")
+        address[2] tokens; // [addressA, addressB]
+    }
+
+    struct UpdateStorkPairIdsParams {
+        string pair; // string("BTCUSD")
+        address[2] tokens; // [btc address, usd address]
+    }
+    event OrallySymbolUpdated(address indexed tokenA, address indexed tokenB, string symbol);
+    event OrallyTimeToleranceUpdated(uint256 timeTolerance);
+    event StorkPairIdUpdated(address indexed tokenA, address indexed tokenB, string pairId);
+    event CurveOracleUpdated(IPriceOracleStorageV4.CurveOracleKind indexed oracleType, address indexed oracle);
+    event EIP4626TokenToUnderlyingAssetUpdated(address indexed token, address underlyingAsset);
+    event AddUniswapV2LPToken(address indexed uniswapV2Token);
+    event RemoveUniswapV2LPToken(address indexed uniswapV2Token);
+
+    /**
+     * @notice Sets or updates the Orally token symbol for the list of tokens (tokens order MATTERS)
+     * @dev Only callable by the SMALL_TIMELOCK_ADMIN role.
+     * @param params Array of UpdateOrallySymbolsParams struct
+     */
+
+    function updateOrallySymbols(UpdateOrallySymbolsParams[] calldata params) external;
+
+    /**
+     * @notice Sets the time tolerance specially for the orally
+     * @dev Only callable by the SMALL_TIMELOCK_ADMIN role.
+     * @param _orallyTimeTolerance Time tolerance in seconds
+     */
+
+    function setOrallyTimeTolerance(uint256 _orallyTimeTolerance) external;
+
+    /**
+     * @notice Sets the orally oracle address
+     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @param _orally the address of the Orally oracle
+     */
+    function setOrallyOracle(address _orally) external;
+
+    /**
+     * @notice Sets or updates the Stork Pair Ids
+     * @dev Only callable by the SMALL_TIMELOCK_ADMIN role.
+     * @param params Array of UpdateStorkPairIdsParams struct
+     */
+
+    function updateStorkPairIds(UpdateStorkPairIdsParams[] calldata params) external;
+
+    /**
+     * @notice Sets the stork verify address
+     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @param _storkVerify the Stork verify address
+     */
+
+    function setStorkVerify(address _storkVerify) external;
+
+    /**
+     * @notice Sets the stork public key (address)
+     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @param _storkPublicKey the Stork public key address
+     */
+
+    function setStorkPublicKey(address _storkPublicKey) external;
+
+    function updateCurveTypeOracle(
+        IPriceOracleStorageV4.CurveOracleKind[] calldata _oracleTypes,
+        address[] calldata _oracles
+    ) external;
+
+    function updateEIP4626TokenToUnderlyingAsset(
+        address[] calldata _rebaseTokens,
+        address[] calldata _underlyingAssets
+    ) external;
+
+    /**
+     * @notice Sets the flag to true for the passed tokens
+     * @dev Only callable by the SMALL_TIMELOCK_ADMIN role.
+     * @param _lpTokens the addresses of lp tokens
+     */
+
+    function addUniswapV2LPTokens(address[] calldata _lpTokens) external;
+
+    /**
+     * @notice Sets the flag to false for the passed tokens
+     * @dev Only callable by the SMALL_TIMELOCK_ADMIN role.
+     * @param _lpTokens the addresses of lp tokens
+     */
+
+    function removeUniswapV2LPTokens(address[] calldata _lpTokens) external;
+
+    /**
+     * @notice Sets the UniswapV2LP oracle
+     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @param _uniswapV2LPOracle the UniswapV2LP oracle address
+     */
+
+    function setUniswapV2LPOracle(address _uniswapV2LPOracle) external;
 }

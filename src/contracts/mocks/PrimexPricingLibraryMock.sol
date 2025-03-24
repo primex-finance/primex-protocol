@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {PrimexPricingLibrary} from "../libraries/PrimexPricingLibrary.sol";
 import {IPrimexPricingLibraryMock} from "../interfaces/IPrimexPricingLibraryMock.sol";

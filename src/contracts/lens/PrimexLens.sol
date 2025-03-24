@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -416,7 +416,10 @@ contract PrimexLens is IPrimexLens, ERC165 {
                 // TODO: what FeeRateType should be used here?
                 maxLeverage: IBucketV3(_bucket).maxAssetLeverage(
                     _asset,
-                    pm.primexDNS().protocolFeeRates(IPrimexDNSStorageV3.FeeRateType.MarginPositionClosedByKeeper)
+                    pm.primexDNS().getProtocolFeeRateByTier(
+                        IPrimexDNSStorageV3.FeeRateType.MarginPositionClosedByKeeper,
+                        0
+                    )
                 )
             });
     }
@@ -648,6 +651,7 @@ contract PrimexLens is IPrimexLens, ERC165 {
         (, , uint256 optimisticGasCoefficient, IKeeperRewardDistributorStorage.PaymentModel paymentModel) = _pm
             .keeperRewardDistributor()
             .getGasCalculationParams();
+        uint256 protocolFeeCoefficient = _pm.primexDNS().protocolFeeCoefficient();
         uint256 l1CostWei;
         if (paymentModel != IKeeperRewardDistributorStorage.PaymentModel.DEFAULT) {
             if (paymentModel == IKeeperRewardDistributorStorage.PaymentModel.ARBITRUM) {
@@ -658,22 +662,17 @@ contract PrimexLens is IPrimexLens, ERC165 {
                         TRANSACTION_METADATA_BYTES);
             }
             if (paymentModel == IKeeperRewardDistributorStorage.PaymentModel.OPTIMISTIC) {
-                // Adds 68 bytes of padding to account for the fact that the input does not have a signature.
-                uint256 l1GasUsed = GAS_FOR_BYTE *
-                    (_pm.primexDNS().getL1BaseLengthForTradingOrderType(_tradingOrderType) +
-                        OVM_GASPRICEORACLE.overhead() +
-                        68);
-                l1CostWei =
-                    (OVM_GASPRICEORACLE.l1BaseFee() *
-                        l1GasUsed *
-                        OVM_GASPRICEORACLE.scalar() *
-                        optimisticGasCoefficient) /
-                    10 ** 6;
+                l1CostWei = OVM_GASPRICEORACLE
+                    .getL1FeeUpperBound(_pm.primexDNS().getL1BaseLengthForTradingOrderType(_tradingOrderType))
+                    .wmul(optimisticGasCoefficient);
+                // because we can't consider l2 a gas on the OPTIMISTIC chains
+                return l1CostWei + protocolFeeCoefficient;
             }
         }
         uint256 estimatedMinProtocolFeeInNativeAsset = _pm.primexDNS().averageGasPerAction(_tradingOrderType) *
             restrictedGasPrice +
-            l1CostWei;
+            l1CostWei +
+            protocolFeeCoefficient;
         return estimatedMinProtocolFeeInNativeAsset;
     }
 }

@@ -129,6 +129,9 @@ describe("PositionManager", function () {
   let KeeperRewardDistributor;
   let ErrorsLibrary;
   let BigTimelockAdmin, MediumTimelockAdmin, SmallTimelockAdmin;
+  let TiersManager;
+  const firstNotDefaultTier = 1;
+  let firstNotDefaultThreshold;
   before(async function () {
     await fixture(["Test"]);
     ({ deployer, trader, lender, liquidator, caller } = await getNamedSigners());
@@ -146,7 +149,9 @@ describe("PositionManager", function () {
     whiteBlackList = await getContract("WhiteBlackList");
     positionManagerExtension = await getContract("PositionManagerExtension");
     KeeperRewardDistributor = await getContract("KeeperRewardDistributor");
-
+    TiersManager = await getContract("TiersManager");
+    firstNotDefaultThreshold = parseEther("10"); // 10 EPMX
+    await TiersManager.addTiers([firstNotDefaultTier], [firstNotDefaultThreshold], false);
     bestDexLens = await getContract("BestDexLens");
     positionManager = await getContract("PositionManager");
     mockContract = await deployMockERC20(deployer);
@@ -2651,6 +2656,42 @@ describe("PositionManager", function () {
           ),
       ).to.changeTokenBalance(testTokenA, Treasury, feeInPaymentAsset);
     });
+    it("Should close position and the treasury receive fee amount in payment asset when the trader has a non-default tier", async function () {
+      const { positionAmount } = await positionManager.getPosition(0);
+      const amount0Out = await getAmountsOut(dex, positionAmount, [testTokenB.address, testTokenA.address]);
+
+      await PMXToken.transfer(trader.address, firstNotDefaultThreshold);
+      await PMXToken.connect(trader).approve(traderBalanceVault.address, firstNotDefaultThreshold);
+      await traderBalanceVault.connect(trader).deposit(PMXToken.address, firstNotDefaultThreshold);
+
+      expect(await TiersManager.getTraderTierForAddress(trader.address)).to.be.equal(firstNotDefaultTier);
+
+      const feeInPaymentAsset = await calculateFeeInPaymentAsset(
+        testTokenA.address,
+        amount0Out,
+        FeeRateType.MarginPositionClosedByTrader,
+        0,
+        false,
+        getEncodedChainlinkRouteViaUsd(testTokenA),
+        undefined,
+        firstNotDefaultTier,
+      );
+      await expect(
+        positionManager
+          .connect(trader)
+          .closePosition(
+            0,
+            trader.address,
+            megaRoutesForClose,
+            0,
+            positionSoldAssetOracleData,
+            pmxSoldAssetOracleData,
+            nativeSoldAssetOracleData,
+            [],
+            [],
+          ),
+      ).to.changeTokenBalance(testTokenA, Treasury, feeInPaymentAsset);
+    });
     it("Should close position and the treasury receive fee amount in PMX when isProtocolFeeInPmx = true", async function () {
       await positionManager
         .connect(trader)
@@ -3907,6 +3948,93 @@ describe("PositionManager", function () {
         0,
         false,
         getEncodedChainlinkRouteViaUsd(testTokenA),
+      );
+
+      const price = wadDiv(amountA.toString(), amountB.toString()).toString();
+      const dexExchangeRate = BigNumber.from(price).div(USD_MULTIPLIER);
+
+      await setOraclePrice(testTokenB, testTokenA, dexExchangeRate);
+
+      const BAR = await bucket.bar();
+      const lastUpdBlockTimestamp = await bucket.lastUpdatedBlockTimestamp();
+      const scaledDebtBalance = await debtTokenA.scaledBalanceOf(trader.address);
+      const borrowIndexBefore = await bucket.variableBorrowIndex();
+      const txBlockTimestamp = lastUpdBlockTimestamp.add(100);
+      await network.provider.send("evm_setNextBlockTimestamp", [txBlockTimestamp.toNumber()]);
+
+      const cumulatedVariableBorrowInterest = calculateCompoundInterest(BAR, lastUpdBlockTimestamp, txBlockTimestamp);
+      const positionDebt = rayMul(
+        scaledDebtBalance.toString(),
+        rayMul(cumulatedVariableBorrowInterest.toString(), borrowIndexBefore.toString()),
+      );
+
+      const tx = await positionManager.connect(liquidator).closePositionByCondition(params);
+      const expectedClosePosition = {
+        positionI: 0,
+        trader: trader.address,
+        closedBy: liquidator.address,
+        bucketAddress: bucket.address,
+        soldAsset: testTokenA.address,
+        positionAsset: testTokenB.address,
+        decreasePositionAmount: positionAmount,
+        profit: depositAmount.mul(NegativeOne),
+        positionDebt: positionDebt,
+        amountOut: amount0Out.sub(feeInPaymentAsset),
+        reason: CloseReason.RISKY_POSITION,
+      };
+
+      const expectedPaidProtocolFee = {
+        positionId: 0,
+        trader: trader.address,
+        paymentAsset: testTokenA.address,
+        feeRateType: FeeRateType.MarginPositionClosedByKeeper,
+        feeInPaymentnAsset: feeInPaymentAsset,
+        feeInPmx: 0,
+      };
+
+      eventValidation(
+        "ClosePosition",
+        await tx.wait(),
+        expectedClosePosition,
+        await getContractAt("PositionLibrary", positionManager.address),
+      );
+      eventValidation(
+        "PaidProtocolFee",
+        await tx.wait(),
+        expectedPaidProtocolFee,
+        await getContractAt("PositionLibrary", positionManager.address),
+      );
+    });
+    it("Should liquidate risky and charge correct token amount when trader's tier is not default", async function () {
+      await swapExactTokensForTokens({
+        dex: dex,
+        amountIn: parseUnits("0.6", decimalsB).toString(),
+        path: [testTokenB.address, testTokenA.address],
+      });
+
+      for (let i = 0; i < 3; i++) {
+        await network.provider.send("evm_mine");
+      }
+
+      await PMXToken.transfer(trader.address, firstNotDefaultThreshold);
+      await PMXToken.connect(trader).approve(traderBalanceVault.address, firstNotDefaultThreshold);
+      await traderBalanceVault.connect(trader).deposit(PMXToken.address, firstNotDefaultThreshold);
+
+      expect(await TiersManager.getTraderTierForAddress(trader.address)).to.be.equal(firstNotDefaultTier);
+
+      const amountB = positionAmount.mul(multiplierB);
+      const amount0Out = await getAmountsOut(dex, positionAmount, [testTokenB.address, testTokenA.address]);
+      const amountA = amount0Out.mul(multiplierA);
+
+      const feeInPaymentAsset = await calculateFeeInPaymentAsset(
+        testTokenA.address,
+        amount0Out,
+        FeeRateType.MarginPositionClosedByKeeper,
+        0,
+        false,
+        getEncodedChainlinkRouteViaUsd(testTokenA),
+        undefined,
+        0, // WE don't consider the tier when liquidating
       );
 
       const price = wadDiv(amountA.toString(), amountB.toString()).toString();

@@ -1,0 +1,58 @@
+diff --git a/node_modules/@orally-network/solidity-sdk/IOrallyExecutorsRegistry.sol b/node_modules/@orally-network/solidity-sdk/IOrallyExecutorsRegistry.sol
+index 210495c..5285d82 100644
+--- a/node_modules/@orally-network/solidity-sdk/IOrallyExecutorsRegistry.sol
++++ b/node_modules/@orally-network/solidity-sdk/IOrallyExecutorsRegistry.sol
+@@ -1,5 +1,5 @@
+ // SPDX-License-Identifier: AGPL-3.0
+-pragma solidity ^0.8.20;
++pragma solidity ^0.8.18;
+ 
+ interface IOrallyExecutorsRegistry {
+     function isPythiaExecutor(address _addr) external view returns (bool);
+diff --git a/node_modules/@orally-network/solidity-sdk/IOrallyVerifierOracle.sol b/node_modules/@orally-network/solidity-sdk/IOrallyVerifierOracle.sol
+index c28188e..300fb3c 100644
+--- a/node_modules/@orally-network/solidity-sdk/IOrallyVerifierOracle.sol
++++ b/node_modules/@orally-network/solidity-sdk/IOrallyVerifierOracle.sol
+@@ -1,7 +1,7 @@
+ // SPDX-License-Identifier: AGPL-3.0
+-pragma solidity ^0.8.20;
++pragma solidity ^0.8.18;
+ 
+-import {OrallyStructs} from "../OrallyStructs.sol";
++import {OrallyStructs} from "./OrallyStructs.sol";
+ 
+ /**
+  * @title IOrallyVerifierOracle
+diff --git a/node_modules/@orally-network/solidity-sdk/OrallyApolloConsumer.sol b/node_modules/@orally-network/solidity-sdk/OrallyApolloConsumer.sol
+index f3a0eb0..72a73a8 100644
+--- a/node_modules/@orally-network/solidity-sdk/OrallyApolloConsumer.sol
++++ b/node_modules/@orally-network/solidity-sdk/OrallyApolloConsumer.sol
+@@ -1,5 +1,5 @@
+ // SPDX-License-Identifier: AGPL-3.0
+-pragma solidity ^0.8.20;
++pragma solidity ^0.8.18;
+ 
+ import {IOrallyExecutorsRegistry} from "../registry/IOrallyExecutorsRegistry.sol";
+ 
+diff --git a/node_modules/@orally-network/solidity-sdk/OrallyPythiaConsumer.sol b/node_modules/@orally-network/solidity-sdk/OrallyPythiaConsumer.sol
+index 1ea13d6..4105c49 100644
+--- a/node_modules/@orally-network/solidity-sdk/OrallyPythiaConsumer.sol
++++ b/node_modules/@orally-network/solidity-sdk/OrallyPythiaConsumer.sol
+@@ -1,5 +1,5 @@
+ // SPDX-License-Identifier: AGPL-3.0
+-pragma solidity ^0.8.20;
++pragma solidity ^0.8.18;
+ 
+ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+ 
+diff --git a/node_modules/@orally-network/solidity-sdk/OrallyStructs.sol b/node_modules/@orally-network/solidity-sdk/OrallyStructs.sol
+index 3286499..3f4434a 100644
+--- a/node_modules/@orally-network/solidity-sdk/OrallyStructs.sol
++++ b/node_modules/@orally-network/solidity-sdk/OrallyStructs.sol
+@@ -1,5 +1,5 @@
+ // SPDX-License-Identifier: AGPL-3.0
+-pragma solidity ^0.8.20;
++pragma solidity ^0.8.18;
+ 
+ contract OrallyStructs {
+     // Structure to store information about each price feed

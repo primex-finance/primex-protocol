@@ -2,14 +2,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
 
-import {IPrimexDNSStorage, IPrimexDNSStorageV3} from "./IPrimexDNSStorage.sol";
+import {IPrimexDNSStorage, IPrimexDNSStorageV3, IPrimexDNSStorageV4} from "./IPrimexDNSStorage.sol";
 
-interface IPrimexDNSV3 is IPrimexDNSStorageV3 {
+interface IPrimexDNSV3 is IPrimexDNSStorageV4 {
     event AddNewBucket(BucketData newBucketData);
     event BucketDeprecated(address bucketAddress, uint256 delistingTime);
     event AddNewDex(DexData newDexData);
     event ConditionalManagerChanged(uint256 indexed cmType, address indexed cmAddress);
     event PMXchanged(address indexed pmx);
+    event TiersManagerchanged(address indexed tiersManager);
     event AavePoolChanged(address indexed aavePool);
     event BucketActivated(address indexed bucketAddress);
     event BucketFrozen(address indexed bucketAddress);
@@ -17,7 +18,7 @@ interface IPrimexDNSV3 is IPrimexDNSStorageV3 {
     event DexActivated(address indexed routerAddress);
     event DexFrozen(address indexed routerAddress);
 
-    event ChangeProtocolFeeRate(FeeRateType indexed feeRateType, uint256 indexed feeRate);
+    event ChangeProtocolFeeRate(FeeRateType indexed feeRateType, uint256 indexed tier, uint256 feeRate);
     event ChangeAverageGasPerAction(TradingOrderType indexed tradingOrderType, uint256 indexed averageGasPerAction);
     event ChangeMaxProtocolFee(uint256 indexed maxProtocolFee);
     event ChangeProtocolFeeCoefficient(uint256 indexed protocolFeeCoefficient);
@@ -30,10 +31,12 @@ interface IPrimexDNSV3 is IPrimexDNSStorageV3 {
 
     /**
      * @param feeRateType The order type for which the rate is set
+     * @param tier The tier for which the rate is set
      * @param feeRate Setting rate in WAD format (1 WAD = 100%)
      */
     struct FeeRateParams {
         FeeRateType feeRateType;
+        uint256 tier;
         uint256 feeRate;
     }
 
@@ -102,6 +105,13 @@ interface IPrimexDNSV3 is IPrimexDNSStorageV3 {
      * @param _pmx The address of the PMX token contract.
      */
     function setPMX(address _pmx) external;
+
+    /**
+     * @notice Sets the address of the TiersManager contract.
+     * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
+     * @param _tiersManager The address of the TiersManager token contract.
+     */
+    function setTiersManager(address _tiersManager) external;
 
     /**
      * @notice Activates a bucket by changing its status from inactive to active.
@@ -199,7 +209,7 @@ interface IPrimexDNSV3 is IPrimexDNSStorageV3 {
      * @notice Set the protocol fee rate for one type of order.
      * @dev Only callable by the BIG_TIMELOCK_ADMIN role.
      */
-    function setProtocolFeeRate(FeeRateParams calldata _feeRateType) external;
+    function setProtocolFeeRate(FeeRateParams[] calldata _feeRateType) external;
 
     /**
      * @notice Set average gas amount of gas spent by Keeper on the corresponding action.
@@ -253,9 +263,21 @@ interface IPrimexDNSV3 is IPrimexDNSStorageV3 {
     /**
      * @notice Retrieves pmx, treasury, feeRateType, maxProtocolFee, pmxDiscountMultiplier
      */
-    function getPrimexDNSParams(
-        FeeRateType _feeRateType
-    ) external view returns (address, address, uint256, uint256, uint256);
+    function getPrimexDNSParams() external view returns (address, address, address, uint256, uint256);
+
+    /**
+     * @notice Retrieves protocolFeeRateByTier by the feeRateType and the user tier
+     */
+    function getProtocolFeeRateByTier(FeeRateType _feeRateType, uint256 _tier) external view returns (uint256);
+
+    /**
+     * @notice Retrieves an array of protocolFeeRateByTier by the feeRateType
+     */
+
+    function getProtocolFeeRatesByTier(
+        FeeRateType _feeRateType,
+        uint256[] calldata _tiers
+    ) external view returns (uint256[] memory);
 
     /**
      * @notice Retrieves liquidationGasAmount, protocolFeeCoefficient, additionalGasSpent, maxGasAmount and baseLength

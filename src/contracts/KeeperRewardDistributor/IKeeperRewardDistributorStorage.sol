@@ -57,7 +57,7 @@ interface IKeeperRewardDistributorStorage {
     enum PaymentModel {
         DEFAULT,
         ARBITRUM,
-        OPTIMISTIC
+        OPTIMISTIC // not for only optimism mainnet, but also for chains OP-Stack based chains like the Base
     }
 
     function priceOracle() external view returns (address);

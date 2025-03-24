@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
@@ -21,6 +21,7 @@ import {IBucketV3} from "../Bucket/IBucket.sol";
 import {IConditionalClosingManager} from "../interfaces/IConditionalClosingManager.sol";
 import {ITakeProfitStopLossCCM} from "../interfaces/ITakeProfitStopLossCCM.sol";
 import {IKeeperRewardDistributorStorage, IKeeperRewardDistributorV3} from "../KeeperRewardDistributor/IKeeperRewardDistributor.sol";
+import {ITiersManager} from "../TiersManager/ITiersManager.sol";
 
 library PositionLibrary {
     using WadRayMath for uint256;
@@ -386,9 +387,12 @@ library PositionLibrary {
 
         params.traderBalanceVault.topUpAvailableBalance(position.trader, position.soldAsset, params.amount);
 
-        uint256 feeInPaymentAsset = decodeFeeTokenAddress(position.extraParams) == address(0)
-            ? 0
-            : PrimexPricingLibrary.calculateFeeInPaymentAsset(
+        uint256 feeInPaymentAsset;
+        if (decodeFeeTokenAddress(position.extraParams) == address(0)) {
+            feeInPaymentAsset = 0;
+        } else {
+            (, , address tierManager, uint256 maxProtocolFee, ) = params.primexDNS.getPrimexDNSParams();
+            feeInPaymentAsset = PrimexPricingLibrary.calculateFeeInPaymentAsset(
                 PrimexPricingLibrary.CalculateFeeInPaymentAssetParams({
                     primexDNS: params.primexDNS,
                     priceOracle: address(params.priceOracle),
@@ -398,9 +402,13 @@ library PositionLibrary {
                     keeperRewardDistributor: params.keeperRewardDistributor,
                     gasSpent: 0,
                     isFeeProhibitedInPmx: true,
-                    nativePaymentAssetOracleData: params.nativeSoldAssetOracleData
+                    nativePaymentAssetOracleData: params.nativeSoldAssetOracleData,
+                    tierManager: ITiersManager(tierManager),
+                    maxProtocolFee: maxProtocolFee,
+                    trader: position.trader
                 })
             );
+        }
         _require(
             health(
                 position,
@@ -587,48 +595,6 @@ library PositionLibrary {
         }
         posEventData.trader = position.trader;
         return posEventData;
-    }
-
-    /**
-     * @dev Sets the maximum position size between two tokens.
-     * @param maxPositionSize The storage mapping for maximum position sizes.
-     * @param token0 The address of token0.
-     * @param token1 The address of token1.
-     * @param amountInToken0 The maximum position size in token0.
-     * @param amountInToken1 The maximum position size in token1.
-     */
-    function setMaxPositionSize(
-        mapping(address => mapping(address => uint256)) storage maxPositionSize,
-        address token0,
-        address token1,
-        uint256 amountInToken0,
-        uint256 amountInToken1
-    ) public {
-        _require(token0 != address(0) && token1 != address(0), Errors.TOKEN_ADDRESS_IS_ZERO.selector);
-        _require(token0 != token1, Errors.IDENTICAL_ASSET_ADDRESSES.selector);
-
-        maxPositionSize[token1][token0] = amountInToken0;
-        maxPositionSize[token0][token1] = amountInToken1;
-    }
-
-    /**
-     * @dev Sets the tolerable limit for an oracle between two assets.
-     * @param oracleTolerableLimits The mapping to store oracle tolerable limits.
-     * @param assetA The address of the first asset.
-     * @param assetB The address of the second asset.
-     * @param percent The percentage tolerable limit for the oracle in WAD format (1 WAD = 100%).
-     */
-    function setOracleTolerableLimit(
-        mapping(address => mapping(address => uint256)) storage oracleTolerableLimits,
-        address assetA,
-        address assetB,
-        uint256 percent
-    ) public {
-        _require(assetA != address(0) && assetB != address(0), Errors.ASSET_ADDRESS_NOT_SUPPORTED.selector);
-        _require(assetA != assetB, Errors.IDENTICAL_ASSET_ADDRESSES.selector);
-        _require(percent <= WadRayMath.WAD && percent > 0, Errors.INVALID_PERCENT_NUMBER.selector);
-        oracleTolerableLimits[assetA][assetB] = percent;
-        oracleTolerableLimits[assetB][assetA] = percent;
     }
 
     /**
@@ -838,7 +804,9 @@ library PositionLibrary {
             // to avoid stack to deep
             data.positionAsset = _position.positionAsset;
             data.positionAmount = _position.positionAmount;
+
             // protocolFee calculated in position Asset
+            (, , address tierManager, uint256 maxProtocolFee, ) = _pmParams.primexDNS.getPrimexDNSParams();
             _require(
                 data.leverage <=
                     _position.bucket.maxAssetLeverage(
@@ -854,7 +822,10 @@ library PositionLibrary {
                                     keeperRewardDistributor: _pmParams.keeperRewardDistributor,
                                     gasSpent: 0,
                                     isFeeProhibitedInPmx: true,
-                                    nativePaymentAssetOracleData: _vars.nativePositionAssetOracleData
+                                    nativePaymentAssetOracleData: _vars.nativePositionAssetOracleData,
+                                    tierManager: ITiersManager(tierManager),
+                                    maxProtocolFee: maxProtocolFee,
+                                    trader: _position.trader
                                 })
                             )
                             .wdiv(data.positionAmount)

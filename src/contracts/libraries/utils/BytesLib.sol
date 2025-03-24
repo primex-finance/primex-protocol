@@ -3,7 +3,7 @@
 // A modified version of BytesLib
 // Origin: https://github.com/1inch/universal-router/blob/b972662f8d3f0ba55ef99411720f613f77c3fab5/contracts/modules/uniswap/v3/BytesLib.sol
 // Unused methods and constants were removed
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 library BytesLib {
     error ToAddressOverflow();

@@ -83,6 +83,17 @@ async function getEncodedChainlinkRouteViaUsd(tokenB, priceOracle) {
     ],
   ]);
 }
+function getEncodedStorkOracleData(timestamp, price, r, s, v) {
+  return defaultAbiCoder.encode(["uint256", "uint256", "bytes32", "bytes32", "uint8"], [timestamp, price, r, s, v]);
+}
+
+function getEncodedCurveLTOracleData(oracleType, oracleData) {
+  return defaultAbiCoder.encode(["uint256", "bytes[]"], [oracleType, oracleData]);
+}
+function getEncodedUniswapV2LPOracleData(oracleData) {
+  return defaultAbiCoder.encode(["bytes[]"], [oracleData]);
+}
+
 function getEncodedChainlinkRouteToUsd() {
   return defaultAbiCoder.encode(decodeParams, [[[USD, OracleType.Chainlink, []]]]);
 }
@@ -92,6 +103,9 @@ function getEncodedUniswapRouteToUsd() {
 
 function getEncodedPythRouteToUsd() {
   return defaultAbiCoder.encode(decodeParams, [[[USD, OracleType.Pyth, []]]]);
+}
+function getEncodedOrallyRouteToUsd() {
+  return defaultAbiCoder.encode(decodeParams, [[[USD, OracleType.Orally, []]]]);
 }
 
 function getEncodedSupraRouteToUsd() {
@@ -108,6 +122,9 @@ function getEncodedUniswapRouteToToken(tokenB) {
 
 function getEncodedPythRouteToToken(tokenB) {
   return defaultAbiCoder.encode(decodeParams, [[[tokenB.address, OracleType.Pyth, []]]]);
+}
+function getEncodedOralyRouteToToken(tokenB) {
+  return defaultAbiCoder.encode(decodeParams, [[[tokenB.address, OracleType.Orally, []]]]);
 }
 function getEncodedSupraRouteToToken(tokenB) {
   return defaultAbiCoder.encode(decodeParams, [[[tokenB.address, OracleType.Supra, []]]]);
@@ -179,6 +196,15 @@ async function _getExchangeRate(tokenFrom, oracleData, priceOracle) {
   }
 }
 
+async function getEncodedPythRouteViaUsd(tokenB) {
+  return defaultAbiCoder.encode(decodeParams, [
+    [
+      [USD, OracleType.Pyth, []],
+      [tokenB.address, OracleType.Pyth, []],
+    ],
+  ]);
+}
+
 module.exports = {
   setPriceBetweenAB,
   setOraclePrice,
@@ -198,4 +224,10 @@ module.exports = {
   setBadOraclePrice,
   getEncodedSupraRouteToUsd,
   getEncodedSupraRouteToToken,
+  getEncodedPythRouteViaUsd,
+  getEncodedOrallyRouteToUsd,
+  getEncodedOralyRouteToToken,
+  getEncodedStorkOracleData,
+  getEncodedCurveLTOracleData,
+  getEncodedUniswapV2LPOracleData,
 };

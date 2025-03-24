@@ -11,6 +11,7 @@ task("deploy:PrimexDNS", "Deploy PrimexDNS contract", require("./PrimexDNS.deplo
     "The delay after which admin can withdraw all funds from the bucket to Treasury and can close all limit orders of the bucket with the assignment of deposits",
   )
   .addParam("feeRateParams", "feeRateParams")
+  .addParam("tiersManager", "The address of the TiersManager contract")
   .addParam("averageGasPerActionParams", "averageGasPerActionParams")
   .addParam("maxProtocolFee", "MaxProtocolFee that can be charged. Measured in NATIVE_ASSET")
   .addParam("liquidationGasAmount", "Average gas amount spent for a single liquidation, measured in wei")

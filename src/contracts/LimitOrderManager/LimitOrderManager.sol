@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import "./LimitOrderManagerStorage.sol";
 import {BIG_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN, EMERGENCY_ADMIN, NATIVE_CURRENCY, BIG_TIMELOCK_ADMIN} from "../Constants.sol";

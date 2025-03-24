@@ -106,6 +106,7 @@ describe("Bucket", function () {
   let BigTimelockAdmin, MediumTimelockAdmin, SmallTimelockAdmin;
   let barCalcParams, interestRateStrategy;
   let multiplierA, multiplierB, snapshotId;
+  const defaultTier = 0;
   // let multiplierA;
   before(async function () {
     await fixture(["Test"]);
@@ -1779,10 +1780,13 @@ describe("Bucket", function () {
           BigNumber.from(pairPriceDrops[i]),
           oracleTolerableLimitAB,
           oracleTolerableLimitBA,
-          parseEther(feeRates.SpotPositionClosedByTrader),
+          parseEther(feeRates[defaultTier].SpotPositionClosedByTrader),
         );
         expect(
-          await bucket["maxAssetLeverage(address,uint256)"](testTokenB.address, parseEther(feeRates.SpotPositionClosedByTrader)),
+          await bucket["maxAssetLeverage(address,uint256)"](
+            testTokenB.address,
+            parseEther(feeRates[defaultTier].SpotPositionClosedByTrader),
+          ),
         ).to.equal(maxLeverage);
       }
     });
@@ -1798,10 +1802,13 @@ describe("Bucket", function () {
           pairPriceDrops[i],
           oracleTolerableLimitAB,
           oracleTolerableLimitBA,
-          parseEther(feeRates.SpotPositionClosedByTrader),
+          parseEther(feeRates[defaultTier].SpotPositionClosedByTrader),
         );
         expect(
-          await bucket["maxAssetLeverage(address,uint256)"](testTokenB.address, parseEther(feeRates.SpotPositionClosedByTrader)),
+          await bucket["maxAssetLeverage(address,uint256)"](
+            testTokenB.address,
+            parseEther(feeRates[defaultTier].SpotPositionClosedByTrader),
+          ),
         ).to.equal(maxLeverage);
       }
     });

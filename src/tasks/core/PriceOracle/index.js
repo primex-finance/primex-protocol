@@ -7,10 +7,13 @@ task("deploy:PriceOracle", "Deploy PriceOracle contract", require("./priceOracle
   .addParam("eth", "Eth address")
   .addParam("uniswapPriceFeed", "Address of the UniswapPriceFeed")
   .addParam("pyth", "Address of the PythOracle")
+  .addOptionalParam("orallyOracle", "Address of the OrallyOracle")
   .addOptionalParam("usdt", "Address of the USDT")
   .addOptionalParam("supraPullOracle", "Address of the Supra pull contract")
   .addOptionalParam("supraStorageOracle", "Address of the Supra storage contract")
-  .addOptionalParam("treasury", "Address of the Treasury contract");
+  .addOptionalParam("treasury", "Address of the Treasury contract")
+  .addOptionalParam("storkPublicKey", "Stork signer's address")
+  .addOptionalParam("storkVerify", "Address of the stork verify contract");
 
 task("priceOracle:updateChainlinkPriceFeedsUsd", " Update chainlinkPriceFeedsUsd in priceOracle", require("./updatePriceFeed"))
   .addOptionalParam("priceOracle", "The address of priceOracle contract")

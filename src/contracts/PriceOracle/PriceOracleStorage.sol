@@ -1,15 +1,18 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 
-import {IPriceOracleStorage, IPriceOracleStorageV2, IPriceOracleStorageV3} from "./IPriceOracleStorage.sol";
+import {IPriceOracleStorage, IPriceOracleStorageV2, IPriceOracleStorageV3, IPriceOracleStorageV4} from "./IPriceOracleStorage.sol";
 
 import {IPyth} from "@pythnetwork/pyth-sdk-solidity/IPyth.sol";
 import {PythStructs} from "@pythnetwork/pyth-sdk-solidity/PythStructs.sol";
 import {ISupraOraclePull} from "../interfaces/ISupraOraclePull.sol";
 import {ISupraSValueFeed} from "../interfaces/ISupraSValueFeed.sol";
+import {IOrallyVerifierOracle} from "@orally-network/solidity-sdk/IOrallyVerifierOracle.sol";
+import {IStorkVerify} from "../interfaces/IStorkVerify.sol";
+import {IUniswapV2LPOracle} from "../UniswapV2LPOracle/IUniswapV2LPOracle.sol";
 
 abstract contract PriceOracleStorage is IPriceOracleStorage, ERC165Upgradeable {
     address public override registry;
@@ -56,4 +59,28 @@ abstract contract PriceOracleStorageV3 is IPriceOracleStorageV3, PriceOracleStor
     mapping(address => mapping(address => SupraDataFeedId)) public override supraDataFeedID;
     address public override usdt;
     address public override treasury;
+}
+
+abstract contract PriceOracleStorageV4 is IPriceOracleStorageV4, PriceOracleStorageV3 {
+    //orally oracle
+    IOrallyVerifierOracle public override orallyOracle;
+    // asset => asset => orallySymbol
+    mapping(address => mapping(address => string)) public override orallySymbol;
+
+    uint256 public override orallyTimeTolerance;
+    //stork oracle
+    IStorkVerify public override storkVerify;
+    address public override storkPublicKey;
+    // asset => asset => pair (BTCUSD)
+    mapping(address => mapping(address => string)) public override storkAssetPairId;
+
+    // Curve oracleType => corresponding oracle address
+    mapping(CurveOracleKind => address) public override curveTypeOracles;
+    // ERC4626 token to its underlying asset
+    // for the statAToken it will be underlying asset of the AToken
+    mapping(address => address) public override eip4626TokenToUnderlyingAsset;
+
+    mapping(address => bool) public override isUniswapV2LP;
+
+    IUniswapV2LPOracle public override uniswapV2LPOracle;
 }

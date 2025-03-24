@@ -20,6 +20,7 @@ async function calculateFeeInPaymentAsset(
   isFeeProhibitedInPmx,
   nativePaymentOracleData,
   keeperRD,
+  tier = 0,
 ) {
   try {
     const primexDNS = await getContract("PrimexDNS");
@@ -33,7 +34,7 @@ async function calculateFeeInPaymentAsset(
     primexPricingLibrary = await PrimexPricingLibraryMockFactory.deploy();
     await primexPricingLibrary.deployed();
 
-    const protocolFeeRate = await primexDNS.protocolFeeRates(feeRateType);
+    const protocolFeeRate = await primexDNS.getProtocolFeeRateByTier(feeRateType, tier);
     const maxProtocolFee = await primexDNS.maxProtocolFee();
     let feeInPaymentAsset = BigNumber.from(wadMul(paymentAmount.toString(), protocolFeeRate.toString()).toString());
     let maxProtocolFeeInPaymentAsset;

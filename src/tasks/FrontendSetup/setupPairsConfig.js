@@ -25,13 +25,31 @@ module.exports = async function (
 
   const decimalsByAddress = {};
 
-  const { assets } = getConfig();
+  const { assets, morphoLP, aaveLP, curveLP } = getConfig();
+  const allAssets = { ...assets };
+
+  if (morphoLP) {
+    for (const key in morphoLP) {
+      allAssets[key] = morphoLP[key].address;
+    }
+  }
+  if (aaveLP) {
+    for (const key in aaveLP) {
+      allAssets[key] = aaveLP[key].address;
+    }
+  }
+  if (curveLP) {
+    for (const key in curveLP) {
+      allAssets[key] = curveLP[key].lpTokenAddress;
+    }
+  }
+
   for (const pair in pairsConfig) {
     console.log(pair);
     const pairContracts = await Promise.all(
       pair.split("-").map(async asset => {
         try {
-          return await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", assets[asset]);
+          return await getContractAt("@openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20", allAssets[asset]);
         } catch {
           console.log(`\n!!!WARNING: Address not found for token: ${asset} \n`);
           return null;

@@ -109,6 +109,7 @@ describe("LimitOrderManager", function () {
   let multiplierA, multiplierB;
   let ErrorsLibrary;
   let leverageTolerance;
+  let tiersManager;
   before(async function () {
     await fixture(["Test"]);
 
@@ -139,6 +140,9 @@ describe("LimitOrderManager", function () {
     mockContract = await deployMockERC20(deployer);
     mockContract = await getImpersonateSigner(mockContract);
     priceOracle = await getContract("PriceOracle");
+    tiersManager = await getContract("TiersManager");
+    // add first tier
+    await tiersManager.addTiers([1], [parseEther("1")], false);
 
     primexPricingLibrary = await getContract("PrimexPricingLibrary");
     const PrimexPricingLibraryMockFactory = await getContractFactory("PrimexPricingLibraryMock", {
@@ -1944,6 +1948,33 @@ describe("LimitOrderManager", function () {
         // order has been deleted
         expect(await limitOrderManager.orderIndexes(orderId)).to.be.equal(0);
       });
+      it("Should charge the correct fee amount when the trader does't have default tier", async function () {
+        await PMXToken.connect(trader).approve(traderBalanceVault.address, parseEther("1"));
+        await traderBalanceVault.connect(trader).deposit(PMXToken.address, parseEther("1"));
+
+        expect(await tiersManager.getTraderTierForAddress(trader.address)).to.be.equal(1);
+
+        const amount0Out = await getAmountsOut(dex, wadMul(depositAmount.toString(), leverage.toString()).toString(), [
+          testTokenA.address,
+          testTokenB.address,
+        ]);
+        const feeInPositionAsset = await calculateFeeInPaymentAsset(
+          testTokenB.address,
+          amount0Out,
+          FeeRateType.MarginLimitOrderExecuted,
+          0,
+          false,
+          getEncodedChainlinkRouteViaUsd(testTokenB),
+          undefined, // keeperRD
+          1, // tier
+        );
+        const positionAmountAfterFee = amount0Out.sub(feeInPositionAsset);
+
+        await limitOrderManager.connect(liquidator).openPositionByOrder(openPositionParams);
+        expect(await positionManager.getTraderPositionsLength(trader.address)).to.equal(1);
+        const position = await positionManager.getPosition(0);
+        expect(position.positionAmount).to.equal(positionAmountAfterFee);
+      });
 
       it("Should open position by order and throw events 'OpenPosition' and 'PaidProtocolFee'", async function () {
         const positionId = 0;
@@ -2036,9 +2067,9 @@ describe("LimitOrderManager", function () {
         );
       });
       it("Should open position by order with isProtocolFeeInPmx", async function () {
-        await PMXToken.transfer(trader.address, parseEther("1"));
-        await PMXToken.connect(trader).approve(traderBalanceVault.address, parseEther("1"));
-        await traderBalanceVault.connect(trader).deposit(PMXToken.address, parseEther("1"));
+        await PMXToken.transfer(trader.address, parseEther("0.5"));
+        await PMXToken.connect(trader).approve(traderBalanceVault.address, parseEther("0.5"));
+        await traderBalanceVault.connect(trader).deposit(PMXToken.address, parseEther("0.5"));
 
         // isProtocolFeeInPmx false => true
         await limitOrderManager.connect(trader).updateOrder({

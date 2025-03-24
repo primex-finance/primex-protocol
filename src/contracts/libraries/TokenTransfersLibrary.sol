@@ -5,7 +5,7 @@
 // Modified version of token transfer logic that allows working with non-standart ERC-20 tokens, added method doTransferFromTo,
 // modified doTransferIn
 
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import "./Errors.sol";
 

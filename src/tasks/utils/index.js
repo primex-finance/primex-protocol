@@ -40,3 +40,7 @@ task("decodeFunctionData", require("./decodeFunctionData"))
   .addParam("payload", "Encoded function data");
 
 task("verifyArtifacts", "Verify deployed artifacts on block explorer", require("./verifyArtifacts"));
+
+task("validateUpgrade", "Validate upgrade of two version of the protocol", require("./validateUpgrade"));
+
+task("pullDepositManagerData", "", require("./pullDepositManagerData"));

@@ -149,6 +149,15 @@ async function deployMockERC165(deployer) {
   await mockErc165.mock.supportsInterface.returns(true);
   return mockErc165;
 }
+async function deployMockERC4626(deployer, decimals = 18) {
+  const mockERC4626 = await deployMockContract(deployer, await abi("ERC4626"));
+  await mockERC4626.mock.decimals.returns(decimals);
+  return mockERC4626;
+}
+async function deployMockUniswapV2LPOracle(deployer) {
+  const mock = await deployMockContract(deployer, await abi("UniswapV2LPOracle"));
+  return mock;
+}
 
 async function deployMockBucket(deployer) {
   const mockBucket = await deployMockContract(deployer, await abi("Bucket"));
@@ -224,6 +233,18 @@ async function deployBonusNft(deployer) {
   return mockBonusNft;
 }
 
+async function deployPrimexNft(deployer) {
+  const mockContract = await deployMockContract(deployer, await abi("IPrimexNFT"));
+  await mockContract.mock.supportsInterface.returns(true);
+  await mockContract.mock.hasUserActiveToken.returns(false);
+  return mockContract;
+}
+
+async function deployMockTiersManager(deployer) {
+  const mockContract = await deployMockContract(deployer, await abi("TiersManager"));
+  await mockContract.mock.supportsInterface.returns(true);
+  return mockContract;
+}
 async function deployMockInterestRateStrategy(deployer) {
   const mockInterestRateStrategy = await deployMockContract(deployer, await abi("InterestRateStrategy"));
   await mockInterestRateStrategy.mock.supportsInterface.returns(true);
@@ -274,6 +295,25 @@ async function deployMockUniswapPriceFeed(deployer) {
   await mock.mock.supportsInterface.returns(true);
   return mock;
 }
+
+async function deployMockCurvePriceFeed(deployer) {
+  const mock = await deployMockContract(deployer, await abi("ICurveBaseOracle"));
+  return mock;
+}
+
+async function deployMockCurveAddressProvider(deployer) {
+  const mock = await deployMockContract(deployer, await abi("ICurveAddressProvider"));
+  return mock;
+}
+async function deployMockCurveRegistry(deployer) {
+  const mock = await deployMockContract(deployer, await abi("contracts/interfaces/curve/ICurveRegistry.sol:ICurveRegistry"));
+  return mock;
+}
+
+async function deployMockCurvePool(deployer) {
+  const mock = await deployMockContract(deployer, await abi("ICurveReentrencyWrapper"));
+  return mock;
+}
 async function deployMockPyth(deployer) {
   const mock = await deployMockContract(deployer, await abi("IPyth"));
   await mock.mock.getUpdateFee.returns(1);
@@ -281,6 +321,20 @@ async function deployMockPyth(deployer) {
   await mock.mock.getPrice.returns([0, 0, 0, 0]);
   return mock;
 }
+
+async function deployMockOrally(deployer) {
+  const mock = await deployMockContract(deployer, await abi("IOrallyVerifierOracle"));
+  await mock.mock.updatePriceFeed.returns({ pairId: "", price: 0, decimals: 0, timestamp: 0 });
+  await mock.mock.getPriceFeed.returns({ pairId: "", price: 0, decimals: 0, timestamp: 0 });
+  return mock;
+}
+
+async function deployMockStork(deployer) {
+  const mock = await deployMockContract(deployer, await abi("IStorkVerify"));
+  await mock.mock.verifySignature.returns(true);
+  return mock;
+}
+
 async function deploySupraPullMock(deployer) {
   const mock = await deployMockContract(deployer, await abi("ISupraOraclePull"));
   await mock.mock.verifyOracleProof.returns({
@@ -301,8 +355,14 @@ async function deploySupraStoragelMock(deployer) {
   return mock;
 }
 
+async function deployUniswapPairMock(deployer) {
+  const mock = await deployMockContract(deployer, await abi("UniswapV2Pair"));
+  return mock;
+}
+
 module.exports = {
   deployMockReserve,
+  deployUniswapPairMock,
   deployMockPToken,
   deployMockPMXToken,
   deployMockPtokensFactory,
@@ -343,5 +403,15 @@ module.exports = {
   deployMockSwapManager,
   deployMockPyth,
   deploySupraPullMock,
+  deployMockOrally,
   deploySupraStoragelMock,
+  deployMockStork,
+  deployMockCurvePriceFeed,
+  deployMockCurveRegistry,
+  deployMockCurvePool,
+  deployMockCurveAddressProvider,
+  deployMockERC4626,
+  deployMockUniswapV2LPOracle,
+  deployPrimexNft,
+  deployMockTiersManager,
 };

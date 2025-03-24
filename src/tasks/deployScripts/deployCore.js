@@ -9,6 +9,7 @@ module.exports = async function ({ noCompile }, { run }) {
   await run("setup:pairsConfig");
   await run("priceOracle:updateFeedsFromConfig");
   await run("setup:Buckets");
+  await run("depositManager.setRewardParameters");
 
   await run("treasury:setTreasurySpendersByConfig");
   await run("reserve:setTransferRestrictionsByConfig");

@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 import {IArbGasInfo} from "./interfaces/IArbGasInfo.sol";
 import {IOVM_GasPriceOracle} from "./interfaces/IOVM_GasPriceOracle.sol";
 
@@ -42,3 +42,8 @@ uint256 constant TRANSACTION_METADATA_BYTES = 140;
 IOVM_GasPriceOracle constant OVM_GASPRICEORACLE = IOVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
 
 uint256 constant GAS_FOR_BYTE = 16;
+
+// Magic values
+uint256 constant TRADER_MAGIC_TIER = uint256(keccak256("TRADER_MAGIC_TIER"));
+uint256 constant LENDER_MAGIC_TIER = uint256(keccak256("LENDER_MAGIC_TIER"));
+uint256 constant FARMING_MAGIC_TIER = uint256(keccak256("FARMING_MAGIC_TIER"));

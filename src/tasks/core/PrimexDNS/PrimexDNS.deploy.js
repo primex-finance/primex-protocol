@@ -17,6 +17,7 @@ module.exports = async function (
     gasPriceBuffer,
     restrictions,
     errorsLibrary,
+    tiersManager,
   },
   { getNamedAccounts, deployments: { deploy }, ethers: { getContract } },
 ) {
@@ -63,12 +64,17 @@ module.exports = async function (
       Errors: errorsLibrary,
     },
   });
-  if (primexDNS.newlyDeployed && restrictions !== undefined) {
+  if (primexDNS.newlyDeployed) {
     const primexDNScontract = await getContract("PrimexDNS");
-    restrictions = JSON.parse(restrictions);
-    for (const restriction of restrictions) {
-      const tx = await primexDNScontract.setMinFeeRestrictions(restriction.callingMethod, restriction.minFeeRestrictions);
-      await tx.wait();
+    let tx;
+    tx = await primexDNScontract.setTiersManager(tiersManager);
+    await tx.wait();
+    if (restrictions) {
+      restrictions = JSON.parse(restrictions);
+      for (const restriction of restrictions) {
+        tx = await primexDNScontract.setMinFeeRestrictions(restriction.callingMethod, restriction.minFeeRestrictions);
+        await tx.wait();
+      }
     }
   }
   return primexDNS;

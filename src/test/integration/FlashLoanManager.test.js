@@ -216,6 +216,7 @@ describe("FlashLoanManager_integration", function () {
       const { sortedAddresses, sortedAmounts } = sortAddressesAndAmounts(flashLoanParams[1], flashLoanParams[2]);
       flashLoanParams[1] = sortedAddresses;
       flashLoanParams[2] = sortedAmounts;
+
       await PrimexDNS.freezeBucket("bucket1");
       await expect(FlashLoanManager.connect(trader).flashLoan(...flashLoanParams)).to.be.revertedWithCustomError(
         ErrorsLibrary,

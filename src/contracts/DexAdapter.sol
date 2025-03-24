@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -31,6 +31,12 @@ import {IWNative} from "./interfaces/IWNative.sol";
 contract DexAdapter is IDexAdapter, IERC165, Initializable {
     using WadRayMath for uint256;
     using V3Path for bytes;
+
+    struct Call {
+        address target;
+        bytes callData;
+        uint256 value;
+    }
 
     /**
      * @inheritdoc IDexAdapter
@@ -472,7 +478,7 @@ contract DexAdapter is IDexAdapter, IERC165, Initializable {
         } else if (type_ == DexType.Enso) {
             return _swapWithEnso(_params);
         } else {
-            return _swapWithArbitraryDex(_params);
+            return _swapWithMulticall(_params);
         }
     }
 
@@ -792,25 +798,24 @@ contract DexAdapter is IDexAdapter, IERC165, Initializable {
         return [_params.amountIn, balance, 0];
     }
 
-    function _swapWithArbitraryDex(SwapParams memory _params) private returns (uint256[3] memory) {
-        uint256 balance = IERC20(_params.tokenOut).balanceOf(_params.to);
-
-        (address spender, address dexRouter, bytes memory encodedPath) = abi.decode(
-            _params.encodedPath,
-            (address, address, bytes)
-        );
-
-        if (_params.tokenIn != NATIVE_CURRENCY) {
-            TokenApproveLibrary.doApprove(_params.tokenIn, spender, _params.amountIn);
+    function _swapWithMulticall(SwapParams memory _params) private returns (uint256[3] memory) {
+        uint256 balance;
+        if (_params.tokenOut == NATIVE_CURRENCY) {
+            balance = _params.to.balance;
+        } else {
+            balance = IERC20(_params.tokenOut).balanceOf(_params.to);
         }
-        // we just pass all payload data to the target router
-        Address.functionCallWithValue(
-            dexRouter,
-            encodedPath,
-            _params.tokenIn == NATIVE_CURRENCY ? _params.amountIn : 0
-        );
 
-        balance = IERC20(_params.tokenOut).balanceOf(_params.to) - balance;
+        Call[] memory calls = abi.decode(_params.encodedPath, (Call[]));
+
+        for (uint256 i; i < calls.length; i++) {
+            Address.functionCallWithValue(calls[i].target, calls[i].callData, calls[i].value);
+        }
+        if (_params.tokenOut == NATIVE_CURRENCY) {
+            balance = _params.to.balance - balance;
+        } else {
+            balance = IERC20(_params.tokenOut).balanceOf(_params.to) - balance;
+        }
         _require(balance >= _params.amountOutMin, Errors.SLIPPAGE_TOLERANCE_EXCEEDED.selector);
 
         return [_params.amountIn, balance, 0];

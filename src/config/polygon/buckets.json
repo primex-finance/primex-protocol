@@ -52,6 +52,52 @@
         "pmxRewardAmount": 30000,
         "isReinvestToAaveEnabled": true
       }
+    },
+    {
+      "bucketName": "Primex Bucket WSTETH",
+      "tokenName": "wsteth",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0.1",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.4692",
+        "k1": "4.7857",
+        "b0": "0.02",
+        "b1": "-2.7857"
+      },
+      "maxTotalDeposit": 50,
+      "LiquidityMining": {}
+    },
+    {
+      "bucketName": "Primex Bucket LDO",
+      "tokenName": "ldo",
+      "allowedAssets": [],
+      "feeBuffer": "1.000038052",
+      "withdrawalFeeRate": "0.0005",
+      "reserveRate": "0.2",
+      "estimatedBar": "0",
+      "estimatedLar": "0",
+      "barCalcParams": {
+        "urOptimal": "0.65",
+        "k0": "0.5077",
+        "k1": "4.7143",
+        "b0": "0.02",
+        "b1": "-2.7143"
+      },
+      "maxTotalDeposit": 100000,
+      "LiquidityMining": {},
+      "flowConfig": {
+        "execute": false,
+        "steps": {
+          "1": true,
+          "2": false
+        },
+        "step2Params": {}
+      }
     }
   ]
 }

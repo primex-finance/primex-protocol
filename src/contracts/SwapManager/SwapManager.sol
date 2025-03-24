@@ -1,6 +1,6 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
@@ -113,7 +113,12 @@ contract SwapManager is ISwapManager, SwapManagerStorage {
         _require(amountOut >= params.amountOutMin, Errors.SLIPPAGE_TOLERANCE_EXCEEDED.selector);
 
         if (!isZeroFee) {
-            if (primexDNS.protocolFeeRates(IPrimexDNSStorageV3.FeeRateType.SwapMarketOrder) != 0) {
+            if (
+                primexDNS.getProtocolFeeRateByTier(
+                    IPrimexDNSStorageV3.FeeRateType.SwapMarketOrder,
+                    primexDNS.tiersManager().getTraderTierForAddress(msg.sender)
+                ) != 0
+            ) {
                 priceOracle.updatePullOracle{value: msg.value}(params.pullOracleData, params.pullOracleTypes);
                 uint256 feeInPositionAsset;
                 uint256 feeInPmx;

@@ -1,24 +1,29 @@
 // (c) 2024 Primex.finance
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.18;
+pragma solidity 0.8.26;
 
 import {IERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {WadRayMath} from "../libraries/utils/WadRayMath.sol";
-import {IUniswapPriceFeed} from "../UniswapPriceFeed/IUniswapPriceFeed.sol";
+import {IUniLikeOracle} from "../interfaces/IUniLikeOracle.sol";
 import {TokenTransfersLibrary} from "../libraries/TokenTransfersLibrary.sol";
 
 import "./PriceOracleStorage.sol";
 import "../libraries/Errors.sol";
 
 import {BIG_TIMELOCK_ADMIN, MEDIUM_TIMELOCK_ADMIN, SMALL_TIMELOCK_ADMIN, NATIVE_CURRENCY, EMERGENCY_ADMIN, USD} from "../Constants.sol";
-import {IPriceOracleV2} from "./IPriceOracle.sol";
+import {IPriceOracleV2, IPriceOracleV3} from "./IPriceOracle.sol";
 import {ISupraSValueFeed} from "../interfaces/ISupraSValueFeed.sol";
 import {ITreasury} from "../Treasury/ITreasury.sol";
+import {OrallyStructs} from "@orally-network/solidity-sdk/OrallyStructs.sol";
+import {ICurveBaseOracle} from "../CurvePriceFeeds/ICurveBaseOracle.sol";
+import {IUniswapV2LPOracle} from "../UniswapV2LPOracle/IUniswapV2LPOracle.sol";
+import {IUniswapV2Pair} from "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 
-contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
+contract PriceOracle is IPriceOracleV3, PriceOracleStorageV4 {
     using WadRayMath for uint256;
 
     constructor() {
@@ -68,11 +73,34 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
         pyth = IPyth(_pyth);
     }
 
+    function setStorkVerify(address _storkVerify) external override onlyRole(BIG_TIMELOCK_ADMIN) {
+        storkVerify = IStorkVerify(_storkVerify);
+    }
+
+    function setStorkPublicKey(address _storkPublicKey) external override onlyRole(BIG_TIMELOCK_ADMIN) {
+        storkPublicKey = _storkPublicKey;
+    }
+
     /**
      * @inheritdoc IPriceOracleV2
      */
+
     function setUSDT(address _usdt) external override onlyRole(BIG_TIMELOCK_ADMIN) {
         usdt = _usdt;
+    }
+
+    /**
+     * @inheritdoc IPriceOracleV3
+     */
+    function setUniswapV2LPOracle(address _uniswapV2LPOracle) external override onlyRole(BIG_TIMELOCK_ADMIN) {
+        uniswapV2LPOracle = IUniswapV2LPOracle(_uniswapV2LPOracle);
+    }
+
+    /**
+     * @inheritdoc IPriceOracleV3
+     */
+    function setOrallyOracle(address _orally) external override onlyRole(BIG_TIMELOCK_ADMIN) {
+        orallyOracle = IOrallyVerifierOracle(_orally);
     }
 
     /**
@@ -110,6 +138,14 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
     function setTimeTolerance(uint256 _timeTolerance) external override onlyRole(SMALL_TIMELOCK_ADMIN) {
         timeTolerance = _timeTolerance;
         emit TimeToleranceUpdated(_timeTolerance);
+    }
+
+    /**
+     * @inheritdoc IPriceOracleV3
+     */
+    function setOrallyTimeTolerance(uint256 _orallyTimeTolerance) external override onlyRole(SMALL_TIMELOCK_ADMIN) {
+        orallyTimeTolerance = _orallyTimeTolerance;
+        emit OrallyTimeToleranceUpdated(_orallyTimeTolerance);
     }
 
     /**
@@ -161,6 +197,20 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
     }
 
     /**
+     * @inheritdoc IPriceOracleV3
+     */
+    function updateEIP4626TokenToUnderlyingAsset(
+        address[] calldata _rebaseTokens,
+        address[] calldata _underlyingAssets
+    ) external override onlyRole(SMALL_TIMELOCK_ADMIN) {
+        _require(_rebaseTokens.length == _underlyingAssets.length, Errors.PARAMS_LENGTH_MISMATCH.selector);
+        for (uint256 i; i < _rebaseTokens.length; i++) {
+            eip4626TokenToUnderlyingAsset[_rebaseTokens[i]] = _underlyingAssets[i];
+            emit EIP4626TokenToUnderlyingAssetUpdated(_rebaseTokens[i], _underlyingAssets[i]);
+        }
+    }
+
+    /**
      * @inheritdoc IPriceOracleV2
      */
     function updatePythPairId(
@@ -171,6 +221,24 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
         for (uint256 i; i < _tokens.length; i++) {
             pythPairIds[_tokens[i]] = _priceFeedIds[i];
             emit PythPairIdUpdated(_tokens[i], _priceFeedIds[i]);
+        }
+    }
+
+    function updateOrallySymbols(
+        UpdateOrallySymbolsParams[] calldata params
+    ) external override onlyRole(SMALL_TIMELOCK_ADMIN) {
+        for (uint256 i; i < params.length; i++) {
+            orallySymbol[params[i].tokens[0]][params[i].tokens[1]] = params[i].symbol;
+            emit OrallySymbolUpdated(params[i].tokens[0], params[i].tokens[1], params[i].symbol);
+        }
+    }
+
+    function updateStorkPairIds(
+        UpdateStorkPairIdsParams[] calldata params
+    ) external override onlyRole(SMALL_TIMELOCK_ADMIN) {
+        for (uint256 i; i < params.length; i++) {
+            storkAssetPairId[params[i].tokens[0]][params[i].tokens[1]] = params[i].pair;
+            emit StorkPairIdUpdated(params[i].tokens[0], params[i].tokens[1], params[i].pair);
         }
     }
 
@@ -201,6 +269,10 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
                 continue;
             } else if (_oracleTypes[i] == uint256(UpdatePullOracle.Supra)) {
                 supraPullOracle.verifyOracleProof(_data[i][0]);
+            } else if (_oracleTypes[i] == uint256(UpdatePullOracle.Orally)) {
+                for (uint256 j; j < _data[i].length; j++) {
+                    orallyOracle.updatePriceFeed(_data[i][j]);
+                }
             }
         }
         if (remainingValue > 0) {
@@ -208,9 +280,37 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
         }
     }
 
+    function updateCurveTypeOracle(
+        CurveOracleKind[] calldata _oracleTypes,
+        address[] calldata _oracles
+    ) external override onlyRole(MEDIUM_TIMELOCK_ADMIN) {
+        _require(_oracleTypes.length == _oracles.length, Errors.PARAMS_LENGTH_MISMATCH.selector);
+        for (uint256 i; i < _oracleTypes.length; i++) {
+            curveTypeOracles[_oracleTypes[i]] = _oracles[i];
+            emit CurveOracleUpdated(_oracleTypes[i], _oracles[i]);
+        }
+    }
+
     /**
-     * @inheritdoc IPriceOracleV2
+     * @inheritdoc IPriceOracleV3
      */
+    function addUniswapV2LPTokens(address[] calldata _lpTokens) external override onlyRole(SMALL_TIMELOCK_ADMIN) {
+        for (uint256 i; i < _lpTokens.length; i++) {
+            isUniswapV2LP[_lpTokens[i]] = true;
+            emit AddUniswapV2LPToken(_lpTokens[i]);
+        }
+    }
+
+    /**
+     * @inheritdoc IPriceOracleV3
+     */
+    function removeUniswapV2LPTokens(address[] calldata _lpTokens) external override onlyRole(SMALL_TIMELOCK_ADMIN) {
+        for (uint256 i; i < _lpTokens.length; i++) {
+            isUniswapV2LP[_lpTokens[i]] = false;
+            emit RemoveUniswapV2LPToken(_lpTokens[i]);
+        }
+    }
+
     function updateUniv3TypeOracle(
         uint256[] calldata _oracleTypes,
         address[] calldata _oracles
@@ -252,7 +352,7 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
         address assetA,
         address assetB,
         bytes calldata oracleData
-    ) external payable override returns (uint256) {
+    ) public payable override returns (uint256) {
         OracleRoute[] memory oracleRoutes = abi.decode(oracleData, (OracleRoute[]));
         _require(oracleRoutes.length > 0 && oracleRoutes.length < 5, Errors.WRONG_ORACLE_ROUTES_LENGTH.selector);
         _require(oracleRoutes[oracleRoutes.length - 1].tokenTo == assetB, Errors.INCORRECT_TOKEN_TO.selector);
@@ -261,8 +361,8 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
         if (oracleRoutes.length == 4)
             _require(
                 oracleRoutes[1].oracleType != OracleType.Uniswapv3 &&
-                    oracleRoutes[0].oracleType != OracleType.Pyth &&
-                    oracleRoutes[0].oracleType != OracleType.Chainlink,
+                    (oracleRoutes[0].oracleType == OracleType.Uniswapv3 ||
+                        oracleRoutes[0].oracleType == OracleType.Orally),
                 Errors.INCORRECT_ROUTE_SEQUENCE.selector
             );
 
@@ -271,7 +371,10 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
         bool uniWasChecked;
 
         for (uint256 i; i < oracleRoutes.length; i++) {
-            if (oracleRoutes[i].oracleType == OracleType.Uniswapv3 && !uniWasChecked) {
+            if (
+                (oracleRoutes[i].oracleType == OracleType.Uniswapv3 ||
+                    oracleRoutes[i].oracleType == OracleType.Orally) && !uniWasChecked
+            ) {
                 // try to find a direct route between the assetA and the assetB, if there is one, then revert it
                 if (_checkTokenToUsd(assetA) && _checkTokenToUsd(assetB))
                     _revert(Errors.THERE_IS_DIRECT_ROUTE.selector);
@@ -330,6 +433,90 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
                     ? WadRayMath.WAD.wdiv((uint256(answer) * 10 ** (18 - AggregatorV3Interface(priceFeed).decimals())))
                     : (uint256(answer) * 10 ** (18 - AggregatorV3Interface(priceFeed).decimals()));
         }
+        if (_oracleRoute.oracleType == OracleType.Orally) {
+            string memory tokenSymbol = orallySymbol[_assetA][_oracleRoute.tokenTo];
+            bool reverseOrder;
+            if (bytes(tokenSymbol).length == 0) {
+                tokenSymbol = orallySymbol[_oracleRoute.tokenTo][_assetA];
+                _require(bytes(tokenSymbol).length > 0, Errors.NO_TOKEN_SYMBOL_FOUND.selector);
+                reverseOrder = true;
+            }
+            OrallyStructs.PriceFeed memory priceFeed = orallyOracle.getPriceFeed(tokenSymbol);
+            _require(priceFeed.price > 0, Errors.INCORRECT_ORALLY_PRICE.selector);
+            _require(
+                priceFeed.timestamp >= block.timestamp - orallyTimeTolerance,
+                Errors.PUBLISH_TIME_EXCEEDS_THRESHOLD_TIME.selector
+            );
+            return
+                reverseOrder
+                    ? WadRayMath.WAD.wdiv(priceFeed.price * 10 ** (18 - priceFeed.decimals))
+                    : priceFeed.price * 10 ** (18 - priceFeed.decimals);
+        }
+        if (_oracleRoute.oracleType == OracleType.Stork) {
+            (uint256 timestamp, uint256 price, bytes32 r, bytes32 s, uint8 v) = abi.decode(
+                _oracleRoute.oracleData,
+                (uint256, uint256, bytes32, bytes32, uint8)
+            );
+            string memory pair = storkAssetPairId[_assetA][_oracleRoute.tokenTo];
+            bool reverseOrder;
+            if (bytes(pair).length == 0) {
+                pair = storkAssetPairId[_oracleRoute.tokenTo][_assetA];
+                _require(bytes(pair).length > 0, Errors.NO_TOKEN_PAIR_FOUND.selector);
+                reverseOrder = true;
+            }
+            _require(
+                storkVerify.verifySignature(storkPublicKey, pair, timestamp, price, r, s, v),
+                Errors.STORK_VERIFY_FAILED.selector
+            );
+            _require(timestamp >= block.timestamp - timeTolerance, Errors.PUBLISH_TIME_EXCEEDS_THRESHOLD_TIME.selector);
+            return reverseOrder ? WadRayMath.WAD.wdiv(price) : price;
+        }
+        if (_oracleRoute.oracleType == OracleType.CurveLPOracle) {
+            if (!assetAIsUsd) _require(_oracleRoute.tokenTo == USD, Errors.INCORRECT_CURVELP_ROUTE.selector);
+
+            (uint256 curveOracleType, bytes[] memory oracleData) = abi.decode(
+                _oracleRoute.oracleData,
+                (uint256, bytes[])
+            );
+            address curveOracle = curveTypeOracles[CurveOracleKind(curveOracleType)];
+            _require(curveOracle != address(0), Errors.NO_PRICEFEED_FOUND.selector);
+            uint256 price = ICurveBaseOracle(curveOracle).getPrice(
+                assetAIsUsd ? _oracleRoute.tokenTo : _assetA,
+                oracleData
+            );
+            return assetAIsUsd ? WadRayMath.WAD.wdiv(price) : price;
+        }
+        if (_oracleRoute.oracleType == OracleType.EIP4626) {
+            if (!assetAIsUsd) _require(_oracleRoute.tokenTo == USD, Errors.INCORRECT_EIP4626_ROUTE.selector);
+            IERC4626 token = IERC4626(assetAIsUsd ? _oracleRoute.tokenTo : _assetA);
+            address underlyingAsset = eip4626TokenToUnderlyingAsset[address(token)];
+            _require(underlyingAsset != address(0), Errors.NO_UNDERLYING_TOKEN_FOUND.selector);
+            uint256 baseAmount = 10 ** token.decimals();
+
+            uint256 multiplierQuote = 10 ** (18 - IERC20Metadata(token.asset()).decimals());
+            uint256 assets = token.previewRedeem(
+                baseAmount // 1 share
+            );
+            uint256 sharesPrice = assets * multiplierQuote;
+            uint256 price = sharesPrice.wmul(
+                this.getExchangeRate(eip4626TokenToUnderlyingAsset[address(token)], USD, _oracleRoute.oracleData)
+            );
+            return assetAIsUsd ? WadRayMath.WAD.wdiv(price) : price;
+        }
+        if (_oracleRoute.oracleType == OracleType.UniswapV2LP) {
+            if (!assetAIsUsd) _require(_oracleRoute.tokenTo == USD, Errors.INCORRECT_UNISWAPV2LP_ROUTE.selector);
+            address lpToken = assetAIsUsd ? _oracleRoute.tokenTo : _assetA;
+            _require(isUniswapV2LP[lpToken], Errors.ADDRESS_IS_NOT_UNISWAPV2LP_TOKEN.selector);
+
+            bytes[] memory tokenOracleData = abi.decode(_oracleRoute.oracleData, (bytes[]));
+
+            uint256 price = uniswapV2LPOracle.getLPExchangeRate(
+                IUniswapV2Pair(lpToken),
+                tokenOracleData[0],
+                tokenOracleData[1]
+            );
+            return assetAIsUsd ? WadRayMath.WAD.wdiv(price) : price;
+        }
         uint256 oracleType = uint256(bytes32(_oracleRoute.oracleData));
         address uniOracle = univ3TypeOracles[oracleType];
         _require(uniOracle != address(0), Errors.NO_PRICEFEED_FOUND.selector);
@@ -338,7 +525,7 @@ contract PriceOracle is IPriceOracleV2, PriceOracleStorageV3 {
             Errors.TOKEN_PAIR_IS_NOT_TRUSTED.selector
         );
         // always returns price in WAD
-        return IUniswapPriceFeed(uniOracle).getExchangeRate(_assetA, _oracleRoute.tokenTo);
+        return IUniLikeOracle(uniOracle).getExchangeRate(_assetA, _oracleRoute.tokenTo);
     }
 
     function _convertPythPriceToWad(PythStructs.Price memory price) internal pure returns (uint256) {

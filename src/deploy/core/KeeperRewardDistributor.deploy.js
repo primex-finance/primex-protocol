@@ -68,10 +68,16 @@ module.exports = async function ({
 
   if (paymentModel === PaymentModel.ARBITRUM || paymentModel === PaymentModel.OPTIMISTIC) {
     const keeperRDcontract = await getContract("KeeperRewardDistributor");
+    let tx;
     for (const callingMethod in KeeperCallingMethod) {
       const method = KeeperCallingMethod[callingMethod];
       const { maxRoutesLength, baseLength } = keeperRewardConfig.dataLengthRestrictions[callingMethod];
-      const tx = await keeperRDcontract.setDataLengthRestrictions(method, maxRoutesLength, baseLength);
+      tx = await keeperRDcontract.setDataLengthRestrictions(method, maxRoutesLength, baseLength);
+      await tx.wait();
+    }
+    if (paymentModel === PaymentModel.OPTIMISTIC) {
+      const optimisticGasCoefficient = parseUnits(keeperRewardConfig.optimisticGasCoefficient, 18).toString();
+      tx = await keeperRDcontract.setOptimisticGasCoefficient(optimisticGasCoefficient);
       await tx.wait();
     }
   }
